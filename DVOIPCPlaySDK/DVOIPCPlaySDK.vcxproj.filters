@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="dvoipcnetsdk">
+      <UniqueIdentifier>{e1ba6e00-5478-4aa4-b2d5-a2b3999940dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DxSurface">
+      <UniqueIdentifier>{e75b98ed-f966-4ed5-8e14-90dc19413cc6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Audio">
+      <UniqueIdentifier>{a30eaa5c-cf17-4d6c-be25-f780c68ed5db}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VideoDecoder">
+      <UniqueIdentifier>{3208dce3-87c4-4b9b-bd59-c10f0ad080db}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DVOMedia.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DSoundPlayer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DVOIPCPlaySDK.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk.h">
+      <Filter>dvoipcnetsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk_def.h">
+      <Filter>dvoipcnetsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="dvoipcnetsdk\ipcMsgHead.h">
+      <Filter>dvoipcnetsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="DxSurface\DxSurface.h">
+      <Filter>DxSurface</Filter>
+    </ClInclude>
+    <ClInclude Include="DxSurface\DxTrace.h">
+      <Filter>DxSurface</Filter>
+    </ClInclude>
+    <ClInclude Include="DxSurface\gpu_memcpy_sse4.h">
+      <Filter>DxSurface</Filter>
+    </ClInclude>
+    <ClInclude Include="TimeUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Runlog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoLock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioDecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioCodec\g711.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioCodec\g726.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
+    <ClInclude Include="DvoPlayer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\gpu_memcpy_sse4.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\hi_config.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\IHW265Dec_Api.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\IHWVideo_Typedef.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\moreuuids.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoDecoder\VideoDecoder.h">
+      <Filter>VideoDecoder</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DVOIPCPlaySDK.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DxSurface\DxSurface.cpp">
+      <Filter>DxSurface</Filter>
+    </ClCompile>
+    <ClCompile Include="DxSurface\DxTrace.cpp">
+      <Filter>DxSurface</Filter>
+    </ClCompile>
+    <ClCompile Include="TimeUtility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Utility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Runlog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioCodec\g711.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioCodec\g726.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
+    <ClCompile Include="DvoPayer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoDecoder\VideoDecoder.cpp">
+      <Filter>VideoDecoder</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="DVOIPCPlaySDK.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="DVOIPCPlaySDK.def">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

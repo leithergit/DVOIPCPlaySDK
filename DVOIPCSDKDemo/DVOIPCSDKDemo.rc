@@ -1,0 +1,307 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (P.R.C.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#pragma code_page(936)\r\n"
+    "#include ""res\\DVOIPCSDKDemo.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
+    "#include ""l.CHS\\afxres.rc""      // 标准组件\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON                    "res\\DVOIPCSDKDemo.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "关于 DVOIPCSDKDemo"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT           "DVOIPCSDKDemo，1.0 版",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Copyright (C) 2015",IDC_STATIC,42,26,114,8
+    DEFPUSHBUTTON   "确定",IDOK,113,41,50,14,WS_GROUP
+END
+
+IDD_DVOIPCSDKDEMO_DIALOG DIALOGEX 0, 0, 579, 405
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Demo for DVOIPCSDK"
+MENU IDR_MENU1
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    EDITTEXT        IDC_EDIT_ACCOUNT,26,2,40,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EDIT_PASSWORD,87,2,36,14,ES_AUTOHSCROLL
+    COMBOBOX        IDC_IPADDRESS,149,2,71,134,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_COMBO_STREAM,243,4,34,100,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_COMBO_STREAMTYPE,315,3,40,106,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "登录",IDC_BUTTON_CONNECT,363,0,43,17
+    PUSHBUTTON      "注销",IDC_BUTTON_DISCONNECT,410,0,43,17,WS_DISABLED
+    PUSHBUTTON      "播放码流",IDC_BUTTON_PLAYSTREAM,457,0,43,17,WS_DISABLED
+    PUSHBUTTON      "开始录像",IDC_BUTTON_RECORD,504,0,43,17,WS_DISABLED
+    CONTROL         "",IDC_LIST_CONNECTION,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,1,20,546,76
+    LTEXT           "相机IP:",IDC_STATIC,125,4,23,8
+    LTEXT           "码流:",IDC_STATIC,224,4,17,8
+    LTEXT           "码流类型:",IDC_STATIC,282,4,31,8
+    LTEXT           "帐号:",IDC_STATIC,5,4,17,8
+    LTEXT           "密码:",IDC_STATIC,69,4,17,8
+    CONTROL         "",IDC_STATIC_VIDEO2,"Static",SS_BLACKFRAME,276,97,272,153
+    CONTROL         "",IDC_STATIC_VIDEO3,"Static",SS_BLACKFRAME,1,251,273,153
+    CONTROL         "",IDC_STATIC_VIDEO4,"Static",SS_BLACKFRAME,276,251,272,153
+    CONTROL         "",IDC_STATIC_VIDEO,"Static",SS_BLACKFRAME,1,97,273,153,WS_EX_STATICEDGE
+    LTEXT           "画质调节",IDC_STATIC,549,4,28,8
+    CONTROL         "",IDC_SLIDER_GRAPHICQULITY,"msctls_trackbar32",TBS_VERT | TBS_TOOLTIPS | WS_TABSTOP,554,26,20,58
+    LTEXT           "(高画质)",IDC_STATIC,550,16,27,8
+    LTEXT           "(高速度)",IDC_STATIC,550,84,27,8
+END
+
+IDD_SETRECORDPATH DIALOGEX 0, 0, 239, 54
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "设置录像文件存储目录"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "确定",IDOK,110,32,50,19,WS_GROUP
+    LTEXT           "录像存储录像",IDC_STATIC,1,2,45,8
+    EDITTEXT        IDC_EDIT_RECORDPATH,0,12,212,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "...",IDC_BUTTON_BROWSE,213,11,25,16
+    PUSHBUTTON      "取消",IDCANEL,177,32,50,19,WS_GROUP
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080403a8"
+        BEGIN
+            VALUE "CompanyName", "TODO: <公司名>"
+            VALUE "FileDescription", "TODO: <文件说明>"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "DVOIPCSDKDemo.exe"
+            VALUE "LegalCopyright", "TODO: (C) <公司名>。保留所有权利。"
+            VALUE "OriginalFilename", "DVOIPCSDKDemo.exe"
+            VALUE "ProductName", "TODO: <产品名>"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 936
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 163
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 55
+    END
+
+    IDD_DVOIPCSDKDEMO_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 572
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 398
+    END
+
+    IDD_SETRECORDPATH, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 232
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 47
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_DVOIPCSDKDEMO_DIALOG DLGINIT
+BEGIN
+    IDC_COMBO_STREAM, 0x403, 2, 0
+0x0030, 
+    IDC_COMBO_STREAM, 0x403, 2, 0
+0x0031, 
+    IDC_COMBO_STREAM, 0x403, 2, 0
+0x0032, 
+    IDC_COMBO_STREAM, 0x403, 2, 0
+0x0033, 
+    IDC_COMBO_STREAM, 0x403, 2, 0
+0x0034, 
+    IDC_COMBO_STREAMTYPE, 0x403, 6, 0
+0x2e48, 0x3632, 0x0034, 
+    IDC_COMBO_STREAMTYPE, 0x403, 6, 0
+0x2e48, 0x3632, 0x0035, 
+    IDC_COMBO_STREAMTYPE, 0x403, 5, 0
+0x4a4d, 0x4750, "\000" 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MENU1 MENU 
+BEGIN
+    POPUP "File"
+    BEGIN
+        MENUITEM "登录并录像",                       ID_FILE_LOGIN_REC
+        MENUITEM "开始所有录像",                      ID_Menu_Record
+        MENUITEM "设置录像路径",                      32791
+        MENUITEM "停止所有录像",                      ID_FILE_STOPRECORD
+        MENUITEM "开启输出窗口",                      ID_FILE_OUTPUT
+        POPUP "画质调节"
+        BEGIN
+            MENUITEM "最高画质",                        ID_IMAGEQUILTY_HIGHEST
+            MENUITEM "高画质",                         ID_IMAGEQUILTY_HIGH
+            MENUITEM "平衡画质",                        ID_IMAGEQUILTY_BANLANCE
+            MENUITEM "高速度",                         ID_IMAGEQUILTY_HIGHSPEED
+            MENUITEM "最高速度",                        ID_IMAGEQUILTY_HIGHESTSPEED
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "退出",                          ID_APP_EXIT
+    END
+    POPUP "选择解码器"
+    BEGIN
+        MENUITEM "HISILICON",                   ID_DECODER_HISILICON
+        MENUITEM "FFMPEG",                      ID_DECODER_FFMPEG
+        MENUITEM "HACCEL",                      ID_DECODER_HACCEL
+        MENUITEM SEPARATOR
+        MENUITEM "FFMpeg和Hisilicon解码对比",        ID_DECODER_HACCEL
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_ABOUTBOX            "关于 DVOIPCSDKDemo(&A)..."
+END
+
+#endif    // Chinese (P.R.C.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE 4, 2
+#pragma code_page(936)
+#include "res\DVOIPCSDKDemo.rc2"  // 非 Microsoft Visual C++ 编辑的资源
+#include "l.CHS\afxres.rc"      // 标准组件
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

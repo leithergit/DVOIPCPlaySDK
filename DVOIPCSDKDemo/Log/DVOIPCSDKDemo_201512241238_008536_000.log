@@ -1,0 +1,73 @@
+2015-12-24 12:38:36.075 LOG_ALARM -----------------  log4z thread started!   ---------------------------- 
+2015-12-24 12:38:36.076 LOG_ALARM logger id=0 key=Main name=DVOIPCSDKDemo path=./Log/ level=0 display=0 
+2015-12-24 12:38:36.076 LOG_ALARM CNetSDKManager start (netsdkmanager.cpp):148 
+2015-12-24 12:38:36.077 LOG_ALARM -----------------  log4z clear log file start!   ---------------------------- (log4z.cpp):1992 
+2015-12-24 12:38:36.077 LOG_ALARM CNetSDKManager thread begin, thread id=0 (netsdkmanager.cpp):256 
+2015-12-24 12:38:36.077 LOG_ALARM log4z clear log file, limitfiledays=1, path=./Log/ (log4z.cpp):2011 
+2015-12-24 12:38:36.077 LOG_ALARM CNetSDKManager thread begin, thread id=1 (netsdkmanager.cpp):256 
+2015-12-24 12:38:36.078 LOG_ALARM CNetSDKManager thread begin, thread id=2 (netsdkmanager.cpp):256 
+2015-12-24 12:38:36.078 LOG_ALARM CNetSDKManager thread begin, thread id=3 (netsdkmanager.cpp):256 
+2015-12-24 12:38:36.078 LOG_ALARM -----------------  log4z clear log file end!   ---------------------------- (log4z.cpp):2017 
+2015-12-24 12:38:39.309 LOG_TRACE create CAsyncSession()_08C87460 (asyncsession.cpp):34 
+2015-12-24 12:38:39.309 LOG_TRACE create CUserSession()_session_id=147354720. (usersession.cpp):28 
+2015-12-24 12:38:39.310 LOG_TRACE CAsyncSession start run_timeout state=0 session_id=147354720, sessionType=0. (asyncsession.cpp):821 
+2015-12-24 12:38:39.349 LOG_DEBUG CAsyncSession,连接服务器, server:192.168.24.211:6001,session_id=147354720,sessionType=0,连接成功.host:192.168.24.248:48470 (asyncsession.cpp):281 
+2015-12-24 12:38:39.349 LOG_TRACE 登录设备,session_id=147354720 (usersession.cpp):328 
+2015-12-24 12:38:39.350 LOG_TRACE user session_id=147354720,sessionType=0,send packlen=104,head hex data:
+	[
+	0898373c: f5 5a a5 5f 00 00 00 68 00 11 00 00 00 00 00 01 
+	0898374c: 00 01 00 01 00 01 00 00 00 00 00 00 00 00 00 00 
+	]
+	,body hex data:
+	[
+	089838ac: 61 64 6d 69 6e 00 00 00 00 00 00 00 00 00 00 00 
+	089838bc: 00 00 00 00 61 64 6d 69 6e 00 00 00 00 00 00 00 
+	089838cc: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+	089838dc: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+	089838ec: 00 00 00 00 00 00 00 00 
+	]
+	 (asyncsession.cpp):769 
+2015-12-24 12:38:39.350 LOG_TRACE CAsyncSession start run_recv state=1 session_id=147354720,sessionType=0. (asyncsession.cpp):415 
+2015-12-24 12:38:39.350 LOG_TRACE CAsyncSession start run_send state=1 session_id=147354720. (asyncsession.cpp):307 
+2015-12-24 12:38:39.360 LOG_DEBUG CUserSession recvdata session_id=147354720,sessionType=0 maincmd=1 subcmd=1 pktlen=356 bodylen=324, session_id=147354720 (usersession.cpp):872 
+2015-12-24 12:38:39.370 LOG_TRACE user session_id=147354720,sessionType=0,send packlen=48,head hex data:
+	[
+	08983a00: f5 5a a5 5f 00 00 00 30 00 11 00 00 00 00 00 03 
+	08983a10: 00 02 00 02 00 01 00 00 00 00 00 00 00 00 00 00 
+	]
+	,body hex data:
+	[
+	08eee638: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+	]
+	 (asyncsession.cpp):769 
+2015-12-24 12:38:39.372 LOG_DEBUG CUserSession recvdata session_id=147354720,sessionType=0 maincmd=2 subcmd=2 pktlen=164 bodylen=132, session_id=147354720 (usersession.cpp):872 
+2015-12-24 12:38:39.372 LOG_TRACE create CAsyncSession()_08EEFB28 (asyncsession.cpp):34 
+2015-12-24 12:38:39.372 LOG_TRACE create CRecvSession()_08EEFB28_session_id=147354720. (recvsession.cpp):14 
+2015-12-24 12:38:39.372 LOG_TRACE create CStreamSession()_08EEFB28_session_id=147354720. (streamsession.cpp):16 
+2015-12-24 12:38:39.373 LOG_TRACE CAsyncSession start run_timeout state=0 session_id=147354720, sessionType=1. (asyncsession.cpp):821 
+2015-12-24 12:38:39.375 LOG_DEBUG CAsyncSession,连接服务器, server:192.168.24.211:6001,session_id=147354720,sessionType=1,连接成功.host:192.168.24.248:48471 (asyncsession.cpp):281 
+2015-12-24 12:38:39.376 LOG_TRACE user session_id=147354720,sessionType=1,send packlen=64,head hex data:
+	[
+	089b9f48: f5 5a a5 5f 00 00 00 40 00 11 00 00 00 00 00 01 
+	089b9f58: 00 02 00 03 00 01 00 00 00 00 00 00 00 00 00 00 
+	]
+	,body hex data:
+	[
+	08c8b700: 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00 
+	08c8b710: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+	]
+	 (asyncsession.cpp):769 
+2015-12-24 12:38:39.376 LOG_TRACE CAsyncSession start run_recv state=1 session_id=147354720,sessionType=1. (asyncsession.cpp):415 
+2015-12-24 12:38:39.376 LOG_TRACE CAsyncSession start run_send state=1 session_id=147354720. (asyncsession.cpp):307 
+2015-12-24 12:38:39.379 LOG_DEBUG CStreamSession recvdata session_id=147354720,sessionType=1 maincmd=2 subcmd=3 pktlen=48 bodylen=16, session_id=147354720 (streamsession.cpp):158 
+2015-12-24 12:39:22.894 LOG_ERROR CAsyncSession recv exception: 2:End of file,session_id=147354720,sessionType=0 (asyncsession.cpp):552 
+2015-12-24 12:39:22.896 LOG_TRACE CAsyncSession exit run_recv state=5 session_id=147354720,sessionType=0. (asyncsession.cpp):572 
+2015-12-24 12:39:22.896 LOG_TRACE CAsyncSession start close session_id=147354720.sessionType=0 (asyncsession.cpp):873 
+2015-12-24 12:39:22.897 LOG_INFO  CAsyncSession close ,session_id=147354720,sessionType=0 (asyncsession.cpp):890 
+2015-12-24 12:39:22.897 LOG_TRACE CAsyncSession exit run_timeout state=3 session_id=147354720, sessionType=0. (asyncsession.cpp):858 
+2015-12-24 12:39:22.898 LOG_TRACE CUserSession OnDisConnect session_id=147354720, sessionType=0.notify=1 (usersession.cpp):361 
+2015-12-24 12:39:22.899 LOG_TRACE CAsyncSession start close session_id=147354720.sessionType=1 (asyncsession.cpp):873 
+2015-12-24 12:39:22.900 LOG_INFO  CAsyncSession close ,session_id=147354720,sessionType=1 (asyncsession.cpp):890 
+2015-12-24 12:39:22.900 LOG_TRACE CStreamSession OnDisConnect state=4 session_id=147354720, bNotiy=1. (streamsession.cpp):89 
+2015-12-24 12:39:22.901 LOG_TRACE CAsyncSession exit run_recv state=4 session_id=147354720,sessionType=1. (asyncsession.cpp):572 
+2015-12-24 12:39:28.608 LOG_TRACE CAsyncSession start run_timeout state=4 session_id=147354720, sessionType=0. (asyncsession.cpp):821 
