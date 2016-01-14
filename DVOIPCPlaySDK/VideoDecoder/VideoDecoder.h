@@ -3,6 +3,7 @@
 #include <tchar.h>
 #include <d3d9.h>
 #include <dxva2api.h>
+#include <assert.h>
 #include "moreuuids.h"
 #include "IHWVideo_Typedef.h"
 #include "IHW265Dec_Api.h"
@@ -24,9 +25,9 @@
 #ifndef INOUT
 #define	INOUT
 #endif
-
+#pragma warning(disable:4244 4018)
 #pragma warning(push)
-#pragma warning(disable:4244)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -73,9 +74,6 @@ enum Decoder_Manufacturer
 	HISILICON = 1,
 };
 
-
-
-
 #define DXVA2_MAX_SURFACES 64
 #define DXVA2_QUEUE_SURFACES 4
 #define DXVA2_SURFACE_BASE_ALIGN 16
@@ -97,7 +95,7 @@ enum Decoder_Manufacturer
 #endif
 
 // some common macros
-#define SAFE_DELETE(pPtr) { delete pPtr; pPtr = nullptr; }
+#define Safe_Delete(pPtr) { delete pPtr; pPtr = nullptr; }
 #define SAFE_CO_FREE(pPtr) { CoTaskMemFree(pPtr); pPtr = nullptr; }
 #define CHECK_HR(hr) if (FAILED(hr)) { goto done; }
 #define QI(i) (riid == __uuidof(i)) ? GetInterface((i*)this, ppv) :
@@ -130,6 +128,8 @@ typedef struct
 // 	}
 // }
 
+typedef IDirect3D9* WINAPI pD3DCreate9(UINT);
+typedef HRESULT WINAPI pD3DCreate9Ex(UINT, IDirect3D9Ex**);
 
 typedef void(*CopyFrameProc)(const BYTE *pSourceData, BYTE *pY, BYTE *pUV, size_t surfaceHeight, size_t imageHeight, size_t pitch);
 
@@ -147,6 +147,25 @@ public:
 	{
 
 	}
+};
+
+struct AvQueue
+{
+	AvQueue(void *popaque,int nBufferSize)
+	{
+		pUserData = popaque;
+		pAvBuffer = (uint8_t *)av_malloc(nBufferSize);
+#ifdef _DEBUG
+		DxTraceMsg("%s pAvBuffer = %08X.\n", __FUNCTION__, (long)pAvBuffer);
+#endif
+	}
+	~AvQueue()
+	{
+		av_free(pAvBuffer);
+		pAvBuffer = nullptr;
+	}
+	void	*pUserData;
+	uint8_t *pAvBuffer;
 };
 
 class CVideoDecoder
@@ -370,19 +389,128 @@ public:
 	}
 #endif
 	virtual ~CVideoDecoder(void);
+
+	/// @brief			码流探测
+	/// @param [in]		read_packet		读取码流回调函数
+	/// @retval			0	操作成功
+	/// @retval			-1	操作失败	
+	/// @remark			用于探测码流的类型，尺寸等信息
+
+	int ProbeStream(void *Opaque,int(*read_packet)(void *opaque, uint8_t *buf, int buf_size), int nFrameBufferSize =1024*256 )
+	{
+		int nAvError = 0;
+		char szAvError[1024] = { 0 };
+		int nWriteable = 0;
+		uint8_t *pAvBuffer = nullptr;
+		bool bSucceed = false;
+		
+		if (!m_pFormatCtx)
+			m_pFormatCtx = avformat_alloc_context();
+		if (!m_pAvQueue)
+			m_pAvQueue = new AvQueue(Opaque, nFrameBufferSize);
+		
+		if (m_pIoContext)
+			av_free(m_pIoContext);
+		m_pIoContext = avio_alloc_context(m_pAvQueue->pAvBuffer, nFrameBufferSize, nWriteable, m_pAvQueue, read_packet, nullptr, nullptr);
+		if (!m_pIoContext)
+		{
+			DxTraceMsg("%s avio_alloc_context Failed.\n", __FUNCTION__);
+			return -1;
+		}
+		m_pAvQueue->pAvBuffer = pAvBuffer;
+		m_pFormatCtx->pb = m_pIoContext;
+		AVInputFormat *pInputFormatCtx = NULL;
+		if (nAvError = av_probe_input_buffer(m_pIoContext, &pInputFormatCtx, "", NULL, 0, 0) < 0)
+		{
+			av_strerror(nAvError, szAvError, 1024);
+			DxTraceMsg("%s av_probe_input_buffer Failed:%s\n", __FUNCTION__, szAvError);
+			return nAvError;
+		}
+
+		if (nAvError = avformat_open_input(&m_pFormatCtx, "", pInputFormatCtx, nullptr) < 0)
+		{
+			av_strerror(nAvError, szAvError, 1024);
+			DxTraceMsg("%s avformat_open_input Failed:%s\n", __FUNCTION__, szAvError);
+			return nAvError;
+		}
+
+		if (nAvError = avformat_find_stream_info(m_pFormatCtx, nullptr) < 0)
+		{
+			av_strerror(nAvError, szAvError, 1024);
+			DxTraceMsg("%s avformat_find_stream_info Failed:%s.\n", __FUNCTION__,szAvError);
+			return nAvError;
+		}
+		return 0;
+	}
+	void CancelProbe()
+	{
+		if (!m_pAvQueue)
+		{
+			if (m_pAvQueue->pAvBuffer)
+				delete[]m_pAvQueue->pAvBuffer;
+			delete m_pAvQueue;
+			m_pAvQueue = nullptr;
+		}
+		if (m_pIoContext)
+		{
+			av_free(m_pIoContext);
+			m_pIoContext = nullptr;
+		}
+		m_pFormatCtx->pb = nullptr;
+	}
+
 	// 初始解码器
 	// 注意：不可与LoadFile函数同时调用，二者只能选一
-	bool InitDecoder(int nWidth, int nHeight, AVCodecID nCodecID = AV_CODEC_ID_H264, bool bEnableHaccel = false)
+	bool InitDecoder(bool bEnableHaccel = false)
 	{
-		UINT nAdapter = D3DADAPTER_DEFAULT;
-		HRESULT hr = InitD3D(nAdapter);
-		if (FAILED(hr))
+		if (!m_pFormatCtx)
 		{
-			DxTraceMsg("-> D3D Initialization failed with hr: %X\n", hr);
+			DxTraceMsg("%s Please probe the codec of the stream first.\n", __FUNCTION__);
+			assert(false);
 			return false;
 		}
+		
+		m_nVideoIndex = -1;
+		m_nAudioIndex = -1;
+		for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
+		{
+			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
+				(m_nVideoIndex < 0))
+			{
+				m_nVideoIndex = i;
+			}
+			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
+				(m_nAudioIndex < 0))
+			{
+				m_nAudioIndex = i;
+			}
+		}
+
+		if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
+		{
+			DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
+			return false;
+		}
+		
+		AVCodecID nCodecID = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
+
+		AVCodec*  pAvCodec = avcodec_find_decoder(nCodecID);
+		if (pAvCodec == NULL)
+		{
+			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+
+		UINT nAdapter = D3DADAPTER_DEFAULT;
+// 		HRESULT hr = InitD3D(nAdapter);
+// 		if (FAILED(hr))
+// 		{
+// 			DxTraceMsg("%s D3D Initialization failed with hr: %X\n", __FUNCTION__,hr);
+// 			return false;
+// 		}
+		
 		DestroyDecoder();
-				
 		if (bEnableHaccel)
 		{
 			HRESULT hr = InitD3D(nAdapter);
@@ -392,7 +520,7 @@ public:
 				return false;
 			}
 			// 检查是否支持硬解码
-			if (!CodecIsSupported2(nCodecID))
+			if (!CodecIsSupported(nCodecID))
 			{
 				bEnableHaccel = false;
 				FreeD3DResources();
@@ -403,17 +531,18 @@ public:
 				}
 			}
 		}
-
+		
+		m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
 		if (m_nManufacturer == FFMPEG)
 		{
-			if (InitFFmpegDecoder(nWidth, nHeight, nCodecID, bEnableHaccel) == 0)
+			if (InitFFmpegDecoder(bEnableHaccel) == 0)
 				return true;
 			else
 				return false;
 		}
 		else
 		{
-			if (InitHisiliconDecoder(nWidth, nHeight) == IHW265D_OK)
+			if (InitHisiliconDecoder() == IHW265D_OK)
 				return true;
 			else
 				return false;
@@ -422,37 +551,19 @@ public:
 		
 		return true;
 	}
-	int InitFFmpegDecoder(int nWidth, int nHeight, AVCodecID nCodecID, bool bEnableHaccel = false)
+
+private:
+	int InitFFmpegDecoder(bool bEnableHaccel = false)
 	{
-		int nAvError = 0;
-		char szAvError[1024] = { 0 };
-		m_pAVCodec = avcodec_find_decoder(nCodecID);
-		if (m_pAVCodec == NULL)
+		if (!m_pAVCtx)
 		{
-			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+			assert(false);
 			return -1;
 		}
 
-		if (!m_pAVCtx)
-		{
-			m_pAVCtx = avcodec_alloc_context3(m_pAVCodec);
-			if (!m_pAVCtx)
-			{
-				DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
-				return -1;
-			}
-
-			m_pAVCtx->flags = 0;
-			m_pAVCtx->time_base.num = 1;
-			m_pAVCtx->time_base.den = 25;		//fps
-
-			m_pAVCtx->bit_rate = 0;
-			m_pAVCtx->frame_number = 1; //每包一个视频帧
-			m_pAVCtx->codec_type = AVMEDIA_TYPE_VIDEO;
-			m_pAVCtx->width = nWidth;
-			m_pAVCtx->height = nHeight;
-		}
-
+		int nAvError = 0;
+		char szAvError[1024] = { 0 };		
+		
 		// Setup threading
 		// Thread Count. 0 = auto detect
 		int thread_count = av_cpu_count() * 3 / 2;
@@ -464,6 +575,12 @@ public:
 		m_pFrame = av_frame_alloc();
 		if (bEnableHaccel)
 			AdditionaDecoderInit();
+		m_pAVCodec = avcodec_find_decoder(m_pAVCtx->codec_id);
+		if (m_pAVCodec == NULL)
+		{
+			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+			return -1;
+		}
 		nAvError = avcodec_open2(m_pAVCtx, m_pAVCodec, nullptr);
 		m_bInInit = FALSE;
 		if (nAvError >= 0)
@@ -485,22 +602,27 @@ public:
 		m_pAVCodec = nullptr;
 		if (m_pAVCtx)
 		{
-			avcodec_close(m_pAVCtx);
 			if (m_pAVCtx->hwaccel_context)
 			{
 				av_free(m_pAVCtx->hwaccel_context);
 				m_pAVCtx->hwaccel_context = nullptr;
 			}
-			av_freep(&m_pAVCtx->extradata);
-			av_freep(&m_pAVCtx);
+// 			av_freep(&m_pAVCtx->extradata);
+// 			av_freep(&m_pAVCtx);
+			avcodec_close(m_pAVCtx);
 		}
 		av_frame_free(&m_pFrame);
 		m_pFrame = nullptr;
 		m_nCodecId = AV_CODEC_ID_NONE;
 		return 0;
 	}
-	int InitHisiliconDecoder(int nWidth,int nHeight)
+	int InitHisiliconDecoder()
 	{
+		if (!m_pAVCtx)
+		{
+			assert(false);
+			return -1;
+		}
 		INT32 iRet = 0;
 		IHWVIDEO_ALG_VERSION_STRU stVersion;
 		if (IHW265D_OK == IHW265D_GetVersion(&stVersion))
@@ -509,8 +631,8 @@ public:
 		}
 		/*create decode handle*/
 		m_stInitParam.uiChannelID = 0;
-		m_stInitParam.iMaxWidth = nWidth;
-		m_stInitParam.iMaxHeight = nHeight;
+		m_stInitParam.iMaxWidth = m_pAVCtx->width;
+		m_stInitParam.iMaxHeight = m_pAVCtx->height;
 		m_stInitParam.iMaxRefNum = 4;
 		m_stInitParam.eThreadType = IH265D_MULTI_THREAD;
 		m_stInitParam.eOutputOrder = IH265D_DISPLAY_ORDER;
@@ -533,6 +655,7 @@ public:
 		m_hDecoder265 = nullptr;
 		return 0;
 	}
+public:
 	STDMETHODIMP_(long) GetBufferCount()
 	{
 		long buffers = 0;
@@ -609,9 +732,9 @@ public:
 		}
 
 		if (m_nManufacturer == FFMPEG)
-			InitFFmpegDecoder(m_pAVCtx->width, m_pAVCtx->height, m_pAVCtx->codec_id, bEnableHaccel);
+			InitFFmpegDecoder(bEnableHaccel);
 		else
-			InitHisiliconDecoder(m_pAVCtx->width, m_pAVCtx->height);
+			InitHisiliconDecoder();
 		m_pFrame = av_frame_alloc();
 		m_bInInit = true;
 		return true;
@@ -631,9 +754,10 @@ public:
 public:
 	HRESULT InitD3D(UINT &nAdapter /*= D3DADAPTER_DEFAULT*/);
 	HRESULT AdditionaDecoderInit();
-	STDMETHODIMP CodecIsSupported(AVCodecID codec);
-	bool CodecIsSupported2(AVCodecID nCodec)
+	bool CodecIsSupported(AVCodecID nCodec)
 	{
+		if (dwOvMajorVersion < 6)
+			return false;
 		GUID input = GUID_NULL;
 		D3DFORMAT output = D3DFMT_UNKNOWN;		
 		if (m_pDXVADecoderService)
@@ -733,9 +857,11 @@ public:
 		HMODULE dxva2lib;
 		pCreateDeviceManager9 *createDeviceManager;
 	} m_dxva;
-
+	DWORD					dwOvMajorVersion = 0;
+	HMODULE					m_hD3D9 = nullptr;
 	IDirect3D9Ex            *m_pD3D = nullptr;
 	IDirect3DDevice9Ex      *m_pD3DDev = nullptr;
+	pD3DCreate9Ex			*m_pDirect3DCreate9Ex;
 	IDirect3DDeviceManager9 *m_pD3DDevMngr = nullptr;
 	UINT                    m_pD3DResetToken = 0;
 	HANDLE                  m_hDevice = INVALID_HANDLE_VALUE;
@@ -756,12 +882,15 @@ public:
 	int					m_DisplayDelay = DXVA2_QUEUE_SURFACES;
 	AVCodecContext      *m_pAVCtx = nullptr;
 	AVFormatContext		*m_pFormatCtx = nullptr;
+	AVIOContext			*m_pIoContext = nullptr;
+	AvQueue				*m_pAvQueue = nullptr;
 	AVFrame             *m_pFrame = nullptr;
 	AVCodecID           m_nCodecId = AV_CODEC_ID_NONE;
 	BOOL                m_bInInit = FALSE;
 	AVCodec             *m_pAVCodec = nullptr;
-	SwsContext          *m_pSwsContext = nullptr;
-	int					m_nVideoIndex;
+	SwsContext          *m_pSwsContext = nullptr;	
+	int					m_nVideoIndex = -1;
+	int					m_nAudioIndex = -1;
 	D3DFORMAT			m_nD3DFormat;
 	UINT				m_nWidth;
 	UINT				m_nHeight;

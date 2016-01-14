@@ -195,12 +195,23 @@ static void CopyFrameNV12_SSE4_MT(const BYTE *pSourceData, BYTE *pY, BYTE *pUV, 
 CAvRegister CVideoDecoder::AvRegister;
 CVideoDecoder::CVideoDecoder(void)
 {
+	ZeroMemory(&m_dxva, sizeof(m_dxva));
+	OSVERSIONINFOEX osVer;
+	osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);  
+	GetVersionEx((OSVERSIONINFO *)&osVer);
+	dwOvMajorVersion = osVer.dwMajorVersion;
 }
 
 CVideoDecoder::~CVideoDecoder(void)
 {
 	DestroyDXVADecoder(true);
-
+	if (m_pFormatCtx)
+	{
+		avformat_close_input(&m_pFormatCtx);
+		avformat_free_context(m_pFormatCtx);
+	}
+	if (m_pAvQueue)
+		delete m_pAvQueue;
 }
 
 STDMETHODIMP CVideoDecoder::DestroyDXVADecoder(bool bFull, bool bNoAVCodec)
@@ -238,9 +249,15 @@ STDMETHODIMP CVideoDecoder::FreeD3DResources()
 	SafeRelease(m_pD3DDev);
 	SafeRelease(m_pD3D);
 
-	if (m_dxva.dxva2lib) {
+	if (m_dxva.dxva2lib) 
+	{
 		FreeLibrary(m_dxva.dxva2lib);
 		m_dxva.dxva2lib = nullptr;
+	}
+	if (m_hD3D9)
+	{
+		FreeLibrary(m_hD3D9);
+		m_hD3D9 = nullptr;
 	}
 
 	return S_OK;
@@ -249,17 +266,18 @@ STDMETHODIMP CVideoDecoder::FreeD3DResources()
 
 STDMETHODIMP CVideoDecoder::LoadDXVA2Functions()
 {
-	// Load DXVA2 library
-	//dx.dxva2lib = LoadLibraryW("E://DXVA//TDxvaWin32//Debug//dxva2.dll.\n");
+	if (dwOvMajorVersion < 6)		// 必须要Windows Vista及以上的操作系统
+		return E_FAIL;
 	m_dxva.dxva2lib = ::LoadLibraryA("dxva2.dll");
-	if (m_dxva.dxva2lib == nullptr) {
-		DxTraceMsg( "-> Loading dxva2.dll failed.\n");
+	if (m_dxva.dxva2lib == nullptr) 
+	{
+		DxTraceMsg( "%s Loading dxva2.dll failed.\n",__FUNCTION__);
 		return E_FAIL;
 	}
 
 	m_dxva.createDeviceManager = (pCreateDeviceManager9 *)GetProcAddress(m_dxva.dxva2lib, "DXVA2CreateDirect3DDeviceManager9");
 	if (m_dxva.createDeviceManager == nullptr) {
-		DxTraceMsg( "-> DXVA2CreateDirect3DDeviceManager9 unavailable.\n");
+		DxTraceMsg( "%s DXVA2CreateDirect3DDeviceManager9 unavailable.\n",__FUNCTION__);
 		return E_FAIL;
 	}
 
@@ -286,13 +304,13 @@ HRESULT CVideoDecoder::CreateD3DDeviceManager(IDirect3DDevice9Ex *pDevice, UINT 
 	IDirect3DDeviceManager9 *pD3DManager = nullptr;
 	HRESULT hr = m_dxva.createDeviceManager(&resetToken, &pD3DManager);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> DXVA2CreateDirect3DDeviceManager9 failed.\n");
+		DxTraceMsg("%s DXVA2CreateDirect3DDeviceManager9 failed.\n",__FUNCTION__);
 		goto done;
 	}
 
 	hr = pD3DManager->ResetDevice(pDevice, resetToken);
 	if (FAILED(hr)) {
-		DxTraceMsg( "-> ResetDevice failed.\n");
+		DxTraceMsg( "%s ResetDevice failed.\n",__FUNCTION__);
 		goto done;
 	}
 
@@ -314,13 +332,13 @@ HRESULT CVideoDecoder::CreateDXVAVideoService(IDirect3DDeviceManager9 *pManager,
 	hr = pManager->OpenDeviceHandle(&m_hDevice);
 	if (FAILED(hr)) {
 		m_hDevice = INVALID_HANDLE_VALUE;
-		DxTraceMsg( "-> OpenDeviceHandle failed.\n");
+		DxTraceMsg( "%s OpenDeviceHandle failed.\n",__FUNCTION__);
 		goto done;
 	}
 
 	hr = pManager->GetVideoService(m_hDevice, IID_IDirectXVideoDecoderService, (void**)&pService);
 	if (FAILED(hr)) {
-		DxTraceMsg( "-> Acquiring VideoDecoderService failed.\n");
+		DxTraceMsg("%s Acquiring VideoDecoderService failed.\n"__FUNCTION__);
 		goto done;
 	}
 
@@ -339,27 +357,29 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 
 	/* Gather the format supported by the decoder */
 	hr = m_pDXVADecoderService->GetDecoderDeviceGuids(&count, &input_list);
-	if (FAILED(hr)) {
+	if (FAILED(hr)) 
+	{
 		DxTraceMsg("GetDecoderDeviceGuids failed with hr: %X\n", hr);
 		goto done;
 	}
 
+#ifdef _DEBUG
 	DxTraceMsg("Enumerating supported DXVA2 modes (count: %d)\n", count);
 	for (unsigned i = 0; i < count; i++) 
 	{
 		const GUID *g = &input_list[i];
 		const dxva2_mode_t *mode = DXVA2FindMode(g);
-		if (mode) 
-		{
+		if (mode) 		
 			DxTraceMsg( "%S\n", mode->name);
-		}
-		else {
+		
+		else 
 			DxTraceMsg("Unknown GUID (%s)\n", WStringFromGUID(*g).c_str());
-		}
 	}
+#endif
 
 	/* Iterate over our priority list */
-	for (unsigned i = 0; dxva2_modes[i].name; i++) {
+	for (unsigned i = 0; dxva2_modes[i].name; i++) 
+	{
 		const dxva2_mode_t *mode = &dxva2_modes[i];
 		if (!mode->codec || mode->codec != codec)
 			continue;
@@ -388,10 +408,12 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 		BOOL matchingFormat = FALSE;
 		D3DFORMAT format = D3DFMT_UNKNOWN;
 		DxTraceMsg( "Enumerating render targets (count: %d)\n", out_count);
-		for (unsigned j = 0; j < out_count; j++) {
+		for (unsigned j = 0; j < out_count; j++) 
+		{
 			const D3DFORMAT f = out_list[j];
 			DxTraceMsg(" %d is supported (%4.4S)\n", f, (const char *)&f);
-			if (bHighBitdepth && (f == FOURCC_P010 || f == FOURCC_P016)) {
+			if (bHighBitdepth && (f == FOURCC_P010 || f == FOURCC_P016)) 
+			{
 				matchingFormat = TRUE;
 				format = f;
 			}
@@ -400,7 +422,8 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 				format = f;
 			}
 		}
-		if (matchingFormat) {
+		if (matchingFormat) 
+		{
 			DxTraceMsg(( " Found matching output format, finished setup.\n"));
 			*input = *mode->guid;
 			*output = format;
@@ -426,6 +449,23 @@ done:
  */
 HRESULT CVideoDecoder::InitD3D(UINT &nAdapter)
 {
+	if (dwOvMajorVersion < 6)
+		return E_FAIL;
+	m_hD3D9 = LoadLibraryA("d3d9.dll");
+	if (!m_hD3D9)
+	{
+		DxTraceMsg("%s Failed load D3d9.dll.\n", __FUNCTION__);
+		assert(false);
+		return E_FAIL;
+	}
+	
+	m_pDirect3DCreate9Ex = (pD3DCreate9Ex*)GetProcAddress(m_hD3D9, "Direct3DCreate9Ex");
+	if (!m_pDirect3DCreate9Ex)
+	{
+		DxTraceMsg("%s Can't locate the Procedure \"Direct3DCreate9Ex\".\n", __FUNCTION__);
+		assert(false);
+		return E_FAIL;
+	}
 	HRESULT hr = S_OK;
 	if (FAILED(hr = LoadDXVA2Functions())) 
 	{
@@ -433,7 +473,7 @@ HRESULT CVideoDecoder::InitD3D(UINT &nAdapter)
 		return E_FAIL;
 	}
 	
-	hr = Direct3DCreate9Ex(D3D_SDK_VERSION, &m_pD3D);
+	hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pD3D);
 	if (FAILED(hr))
 	{
 		DxTraceMsg("%s Failed to acquire IDirect3D9Ex.\n",__FUNCTION__);
@@ -552,33 +592,33 @@ HRESULT CVideoDecoder::RetrieveVendorId(IDirect3DDeviceManager9 *pDevManager)
 
 	HRESULT hr = pDevManager->OpenDeviceHandle(&hDevice);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> Failed to open device handle with hr: %X.\n", hr);
+		DxTraceMsg("%s Failed to open device handle with hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
 	hr = pDevManager->LockDevice(hDevice, &pDevice, TRUE);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> Failed to lock device with hr: %X.\n", hr);
+		DxTraceMsg("%s Failed to lock device with hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
 	hr = pDevice->GetDirect3D(&pD3D);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> Failed to get D3D object hr: %X.\n", hr);
+		DxTraceMsg("%s Failed to get D3D object hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
 	D3DDEVICE_CREATION_PARAMETERS devParams;
 	hr = pDevice->GetCreationParameters(&devParams);
 	if (FAILED(hr)) {
-		DxTraceMsg( "-> Failed to get device creation params hr: %X.\n", hr);
+		DxTraceMsg("%s Failed to get device creation params hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
 	D3DADAPTER_IDENTIFIER9 adIdentifier;
 	hr = pD3D->GetAdapterIdentifier(devParams.AdapterOrdinal, 0, &adIdentifier);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> Failed to get adapter identified hr: %X.\n", hr);
+		DxTraceMsg("%s Failed to get adapter identified hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
@@ -609,17 +649,17 @@ HRESULT CVideoDecoder::CheckHWCompatConditions(GUID decoderGuid)
 		{
 			if (m_pAVCtx->codec_id == AV_CODEC_ID_H264 && m_pAVCtx->refs > max_ref_frames_dpb41) 
 			{
-				DxTraceMsg(( "-> Too many reference frames for AMD UVD/UVD+ H.264 decoder.\n"));
+				DxTraceMsg(("%s Too many reference frames for AMD UVD/UVD+ H.264 decoder.\n"),__FUNCTION__);
 				return E_FAIL;
 			}
 			else if ((m_pAVCtx->codec_id == AV_CODEC_ID_VC1 || m_pAVCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO) && (m_dwSurfaceWidth > 1920 || m_dwSurfaceHeight > 1200)) 
 			{
-				DxTraceMsg(("-> VC-1 Resolutions above FullHD are not supported by the UVD/UVD+ decoder.\n"));
+				DxTraceMsg(("%s VC-1 Resolutions above FullHD are not supported by the UVD/UVD+ decoder.\n"));
 				return E_FAIL;
 			}
 			else if (m_pAVCtx->codec_id == AV_CODEC_ID_WMV3) 
 			{
-				DxTraceMsg(("-> AMD UVD/UVD+ is currently not compatible with WMV3.\n"));
+				DxTraceMsg(("%s AMD UVD/UVD+ is currently not compatible with WMV3.\n"), __FUNCTION__);
 				return E_FAIL;
 			}
 		}
@@ -628,7 +668,7 @@ HRESULT CVideoDecoder::CheckHWCompatConditions(GUID decoderGuid)
 	{
 		if (decoderGuid == DXVADDI_Intel_ModeH264_E && m_pAVCtx->codec_id == AV_CODEC_ID_H264 && m_pAVCtx->refs > max_ref_frames_dpb41) 
 		{
-			DxTraceMsg(("-> Too many reference frames for Intel H.264 decoder implementation.\n"));
+			DxTraceMsg(("%s Too many reference frames for Intel H.264 decoder implementation.\n"), __FUNCTION__);
 			return E_FAIL;
 		}
 	}
@@ -652,21 +692,22 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 	SafeRelease(m_pDXVADecoderService);
 
 	hr = CreateDXVAVideoService(m_pD3DDevMngr, &m_pDXVADecoderService);
-	if (FAILED(hr)) {
-		DxTraceMsg("-> Creation of DXVA2 Decoder Service failed with hr: %X.\n", hr);
+	if (FAILED(hr)) 
+	{
+		DxTraceMsg("%s Creation of DXVA2 Decoder Service failed with hr: %X.\n", __FUNCTION__, hr);
 		goto done;
 	}
 
 	// If the decoder was initialized already, check if we can use this device
 	if (m_pAVCtx) {
-		DxTraceMsg("-> Checking hardware for format support...\n");
+		DxTraceMsg("%s Checking hardware for format support...\n", __FUNCTION__);
 
 		GUID input = GUID_NULL;
 		D3DFORMAT output;
 		bool bHighBitdepth = (m_pAVCtx->codec_id == AV_CODEC_ID_HEVC && (m_pAVCtx->sw_pix_fmt == AV_PIX_FMT_YUV420P10 || m_pAVCtx->profile == FF_PROFILE_HEVC_MAIN_10));
 		hr = FindVideoServiceConversion(m_pAVCtx->codec_id, bHighBitdepth, &input, &output);
 		if (FAILED(hr)) {
-			DxTraceMsg( "-> No decoder device available that can decode codec '%S' to a matching output.\n", avcodec_get_name(m_pAVCtx->codec_id));
+			DxTraceMsg("%s No decoder device available that can decode codec '%S' to a matching output.\n", __FUNCTION__, avcodec_get_name(m_pAVCtx->codec_id));
 			goto done;
 		}
 
@@ -686,7 +727,7 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 		DXVA2_ConfigPictureDecode config;
 		hr = FindDecoderConfiguration(input, &desc, &config);
 		if (FAILED(hr)) {
-			DxTraceMsg("-> No decoder configuration available for codec '%S'.\n", avcodec_get_name(m_pAVCtx->codec_id));
+			DxTraceMsg("%s No decoder configuration available for codec '%S'.\n", __FUNCTION__, avcodec_get_name(m_pAVCtx->codec_id));
 			goto done;
 		}
 
@@ -694,7 +735,7 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 		UINT numSurfaces = max(config.ConfigMinRenderTargetBuffCount, 1);
 		hr = m_pDXVADecoderService->CreateSurface(m_dwSurfaceWidth, m_dwSurfaceHeight, numSurfaces, output, D3DPOOL_DEFAULT, 0, DXVA2_VideoDecoderRenderTarget, pSurfaces, nullptr);
 		if (FAILED(hr)) {
-			DxTraceMsg("-> Creation of surfaces failed with hr: %X.\n", hr);
+			DxTraceMsg("%s Creation of surfaces failed with hr: %X.\n", __FUNCTION__, hr);
 			goto done;
 		}
 
@@ -709,7 +750,7 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 		}
 
 		if (FAILED(hr)) {
-			DxTraceMsg("-> Creation of decoder failed with hr: %X.\n", hr);
+			DxTraceMsg("%s Creation of decoder failed with hr: %X.\n", __FUNCTION__, hr);
 			goto done;
 		}
 	}
@@ -739,54 +780,6 @@ DWORD CVideoDecoder::GetAlignedDimension(DWORD dim)
 #define HEVC_CHECK_PROFILE(dec, profile) \
   (( (profile) <= FF_PROFILE_HEVC_MAIN) || ((profile) <= FF_PROFILE_HEVC_MAIN_10))
 
-// 检测系统硬件是否支持当前码流格式 
-// 必须在初始化解码器后调用
-STDMETHODIMP CVideoDecoder::CodecIsSupported(AVCodecID codec)
-{
-	HRESULT hr = S_OK;	
-
-	// If we have a DXVA Decoder, check if its capable
-	// If we don't have one yet, it may be handed to us later, and compat is checked at that point
-	GUID input = GUID_NULL;
-	D3DFORMAT output = D3DFMT_UNKNOWN;
-	bool bHighBitdepth = (m_pAVCtx->codec_id == AV_CODEC_ID_HEVC && (m_pAVCtx->sw_pix_fmt == AV_PIX_FMT_YUV420P10 || m_pAVCtx->profile == FF_PROFILE_HEVC_MAIN_10));
-	if (m_pDXVADecoderService)
-	{
-		hr = FindVideoServiceConversion(codec, bHighBitdepth, &input, &output);
-		if (FAILED(hr)) 
-		{
-			DxTraceMsg("No decoder device available that can decode codec '%S' to a matching output.\n", avcodec_get_name(codec));
-			return E_FAIL;
-		}
-	}
-	else
-	{
-		if (bHighBitdepth)
-			output = (D3DFORMAT)FOURCC_P010;
-		else
-			output = (D3DFORMAT)FOURCC_NV12;
-	}
-
-	if (((codec == AV_CODEC_ID_H264 || codec == AV_CODEC_ID_MPEG2VIDEO) && m_pAVCtx->pix_fmt != AV_PIX_FMT_YUV420P && m_pAVCtx->pix_fmt != AV_PIX_FMT_YUVJ420P && m_pAVCtx->pix_fmt != AV_PIX_FMT_DXVA2_VLD && m_pAVCtx->pix_fmt != AV_PIX_FMT_NONE)
-		|| (codec == AV_CODEC_ID_H264 && m_pAVCtx->profile != FF_PROFILE_UNKNOWN && !H264_CHECK_PROFILE(m_pAVCtx->profile))
-		|| ((codec == AV_CODEC_ID_WMV3 || codec == AV_CODEC_ID_VC1) && m_pAVCtx->profile == FF_PROFILE_VC1_COMPLEX)
-		|| (codec == AV_CODEC_ID_HEVC && (!HEVC_CHECK_PROFILE(this, m_pAVCtx->profile) || (m_pAVCtx->pix_fmt != AV_PIX_FMT_YUV420P && m_pAVCtx->pix_fmt != AV_PIX_FMT_YUVJ420P && m_pAVCtx->pix_fmt != AV_PIX_FMT_YUV420P10 && m_pAVCtx->pix_fmt != AV_PIX_FMT_DXVA2_VLD && m_pAVCtx->pix_fmt != AV_PIX_FMT_NONE)))) 
-	{
-		DxTraceMsg(("Incompatible profile detected, falling back to software decoding.\n"));
-		return E_FAIL;
-	}
-
-	m_dwSurfaceWidth = GetAlignedDimension(m_pAVCtx->coded_width);
-	m_dwSurfaceHeight = GetAlignedDimension(m_pAVCtx->coded_height);
-	m_eSurfaceFormat = output;
-
-	if (FAILED(CheckHWCompatConditions(input))) 
-		return E_FAIL;
-
-	return S_OK;
-}
-
-
 
 HRESULT CVideoDecoder::FindDecoderConfiguration(const GUID &input, const DXVA2_VideoDesc *pDesc, DXVA2_ConfigPictureDecode *pConfig)
 {
@@ -796,12 +789,13 @@ HRESULT CVideoDecoder::FindDecoderConfiguration(const GUID &input, const DXVA2_V
 	UINT cfg_count = 0;
 	DXVA2_ConfigPictureDecode *cfg_list = nullptr;
 	hr = m_pDXVADecoderService->GetDecoderConfigurations(input, pDesc, nullptr, &cfg_count, &cfg_list);
-	if (FAILED(hr)) {
-		DxTraceMsg("-> GetDecoderConfigurations failed with hr: %X.\n", hr);
+	if (FAILED(hr)) 
+	{
+		DxTraceMsg("%s GetDecoderConfigurations failed with hr: %X.\n", __FUNCTION__, hr);
 		return E_FAIL;
 	}
 
-	DxTraceMsg("-> We got %d decoder configurations", cfg_count);
+	DxTraceMsg("%s We got %d decoder configurations", __FUNCTION__, cfg_count);
 	int best_score = 0;
 	DXVA2_ConfigPictureDecode best_cfg;
 	for (unsigned i = 0; i < cfg_count; i++) {
@@ -823,7 +817,7 @@ HRESULT CVideoDecoder::FindDecoderConfiguration(const GUID &input, const DXVA2_V
 	}
 	SAFE_CO_FREE(cfg_list);
 	if (best_score <= 0) {
-		DxTraceMsg(("-> No matching configuration available.\n"));
+		DxTraceMsg("%s No matching configuration available.\n", __FUNCTION__);
 		return E_FAIL;
 	}
 
@@ -833,7 +827,6 @@ HRESULT CVideoDecoder::FindDecoderConfiguration(const GUID &input, const DXVA2_V
 
 HRESULT CVideoDecoder::CreateDXVA2Decoder(int nSurfaces, IDirect3DSurface9 **ppSurfaces)
 {
-	DxTraceMsg(( "-> CDecDXVA2::CreateDXVA2Decoder.\n"));
 	HRESULT hr = S_OK;
 	LPDIRECT3DSURFACE9 pSurfaces[DXVA2_MAX_SURFACES];
 
@@ -909,14 +902,14 @@ HRESULT CVideoDecoder::CreateDXVA2Decoder(int nSurfaces, IDirect3DSurface9 **ppS
 
 	hr = FindDecoderConfiguration(input, &desc, &m_DXVAVideoDecoderConfig);
 	if (FAILED(hr)) {
-		DxTraceMsg("-> FindDecoderConfiguration failed with hr: %X.\n", hr);
+		DxTraceMsg("%s FindDecoderConfiguration failed with hr: %X.\n", __FUNCTION__, hr);
 		return hr;
 	}
 
 	IDirectXVideoDecoder *decoder = nullptr;
 	hr = m_pDXVADecoderService->CreateVideoDecoder(input, &desc, &m_DXVAVideoDecoderConfig, ppSurfaces, m_NumSurfaces, &decoder);
 	if (FAILED(hr)) {
-		DxTraceMsg( "-> CreateVideoDecoder failed with hr: %X.\n", hr);
+		DxTraceMsg("%s CreateVideoDecoder failed with hr: %X.\n", __FUNCTION__, hr);
 		return E_FAIL;
 	}
 	m_pDecoder = decoder;
