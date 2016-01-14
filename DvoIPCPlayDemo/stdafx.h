@@ -35,10 +35,10 @@
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 
 #ifdef _DEBUG
-#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk_d.lib")
+#pragma comment(lib, "dvoipcnetsdk_d.lib")
 #pragma comment(lib, "../Debug/DVOIPCPlaySDK.lib")
 #else
-#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk.lib")
+#pragma comment(lib, "dvoipcnetsdk.lib")
 #pragma comment(lib, "../Release/DVOIPCPlaySDK.lib")
 #endif
 

@@ -24,7 +24,6 @@
 #include <MMSystem.h>
 #pragma comment(lib, "winmm.lib")
 #include "DVOMedia.h"
-#include "dvoipcnetsdk.h"
 #include "DVOIPCPlaySDK.h"
 #include "./DxSurface/DxSurface.h"
 #include "AutoLock.h"
