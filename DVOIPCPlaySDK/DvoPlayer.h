@@ -266,7 +266,6 @@ private:
 										///< 当m_FrameCache中的视频帧数量超过m_nMaxFrameCache时，便无法再继续输入流数据
 private:
 	// 视频播放相关变量
-
 	int			m_nTotalFrames;			///< 当前文件中有效音频帧的数量,仅当播放文件时有效
 	HWND		m_hWnd;					///< 播放视频的窗口句柄
 	bool		m_bProbeMode;			///< 是否牌探测码流模式，在探测模式下，不会删除I帧后的码流
