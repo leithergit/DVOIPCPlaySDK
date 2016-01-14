@@ -884,6 +884,7 @@ public:
 		m_d3dpp.BackBufferCount			= 1;
 		m_d3dpp.Flags					= 0;
 		m_d3dpp.Windowed				= bIsWindowed;
+		m_d3dpp.PresentationInterval	= D3DPRESENT_INTERVAL_ONE;// D3DPRESENT_INTERVAL_IMMEDIATE;
 		m_d3dpp.hDeviceWindow			= hWnd;
 		m_d3dpp.MultiSampleQuality		= 0;
 		m_d3dpp.MultiSampleType			= D3DMULTISAMPLE_NONE;					// 显示视频时，不宜使用多重采样，否则将导致画面错乱
@@ -900,7 +901,7 @@ public:
 			if (m_dwExStyle)
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_EXSTYLE, m_dwExStyle);
 			SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
-			m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
+			m_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;//D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
 			if (m_bSurfaceFullSize)
 			{
@@ -1839,7 +1840,9 @@ public:
 			if (m_dwExStyle)
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_EXSTYLE, m_dwExStyle);
 			SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
-			m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
+			//
+			m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_IMMEDIATE;
+			//m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
 			m_d3dpp.SwapEffect					= D3DSWAPEFFECT_DISCARD;		// 指定系统如何将后台缓冲区的内容复制到前台缓冲区 D3DSWAPEFFECT_DISCARD:清除后台缓存的内容
 			if (m_bSurfaceFullSize)
