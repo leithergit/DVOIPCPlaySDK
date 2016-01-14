@@ -136,9 +136,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\DVOIPCNETSDK\ipcMsgHead.h" />
-    <ClInclude Include="..\Hisilicon\hi_config.h" />
-    <ClInclude Include="..\Hisilicon\IHW265Dec_Api.h" />
-    <ClInclude Include="..\Hisilicon\IHWVideo_Typedef.h" />
     <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h" />
     <ClInclude Include="AutoLock.h" />
     <ClInclude Include="DVOIPCSDKDemo.h" />

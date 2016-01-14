@@ -14,9 +14,12 @@
     <ProjectGuid>{CEA53F20-0470-4F00-B2DE-C049FCF04F80}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>DVOIPCPlaySDK</RootNamespace>
-    <SccProjectName>"$/DVOIPCPlaySDK.root/DVOIPCPlaySDK", TVZAAAAA</SccProjectName>
-    <SccLocalPath>..</SccLocalPath>
-    <SccProvider>MSSCCI:Microsoft Visual SourceSafe</SccProvider>
+    <SccProjectName>
+    </SccProjectName>
+    <SccLocalPath>
+    </SccLocalPath>
+    <SccProvider>
+    </SccProvider>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

@@ -13,9 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
-    <Filter Include="Hisilicon">
-      <UniqueIdentifier>{0bfb2857-595a-4b38-9634-dd81309743e7}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DxSurface">
       <UniqueIdentifier>{c876cb31-164b-4055-b74f-c5e36e9a98d1}</UniqueIdentifier>
     </Filter>
@@ -94,15 +91,6 @@
     </ClInclude>
     <ClInclude Include="VideoDecode.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Hisilicon\hi_config.h">
-      <Filter>Hisilicon</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Hisilicon\IHW265Dec_Api.h">
-      <Filter>Hisilicon</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Hisilicon\IHWVideo_Typedef.h">
-      <Filter>Hisilicon</Filter>
     </ClInclude>
     <ClInclude Include="DxSurface.h">
       <Filter>DxSurface</Filter>
