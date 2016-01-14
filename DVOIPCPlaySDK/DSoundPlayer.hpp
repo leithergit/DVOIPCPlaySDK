@@ -1,6 +1,8 @@
 #pragma once
 #include <dsound.h>
 #include <memory>
+// #include <mmstream.h>
+// #include <MMReg.h>
 
 //创建基于CWinThread类的线程
 //pThreadClass	CWinThread类指针，用于指向创建后的线程对象
@@ -17,11 +19,12 @@ using namespace std::tr1;
 #pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"dxerr.lib")
 
+#pragma warning (disable:4018 4996)
+
 #define SAFE_DELETE(p)       { if(p) { delete (p);     (p)=NULL; } }
 #define SAFE_DELETE_ARRAY(p) { if(p) { delete[] (p);   (p)=NULL; } }
 #define SAFE_RELEASE(p)      { if(p) { (p)->Release(); (p)=NULL; } }
 
-#pragma warning (disable:4996)
 
 #ifndef IN
 #define	IN
@@ -74,7 +77,6 @@ public:
 		m_lVolume = 0;
 		m_bPause = FALSE;
 		m_bMute = FALSE;
-		m_bInitilized = false;
 		ZeroMemory(&m_wfx,sizeof(WAVEFORMATEX));
 		m_wfx.cbSize = sizeof(WAVEFORMATEX);
 		m_pWaveBuffer = NULL;
@@ -105,7 +107,6 @@ public:
 		m_lVolume = 0;
 		m_bPause = FALSE;
 		m_bMute = FALSE;
-		m_bInitilized = false;
 		ZeroMemory(&m_wfx, sizeof(WAVEFORMATEX));
 		m_wfx.cbSize = sizeof(WAVEFORMATEX);
 		m_pWaveBuffer = NULL;
@@ -117,10 +118,12 @@ public:
 		InitializeCriticalSection(&m_csWaveBuffer);
 		InitializeCriticalSection(&m_csBuffer);
 		InitializeCriticalSection(&m_csPlay);
+		InitializeCriticalSection(&m_csDsound);
+		
 		m_dwLastTick = 0;
 		m_dwLastTick1 = 0;
 		m_bPlayed = false;
-		Initialize(hWnd, Audio_Play_Segments);
+		//Initialize(hWnd, Audio_Play_Segments);
 	}
 
 	~CDSoundPlayer(void)
@@ -146,9 +149,9 @@ public:
 		SAFE_RELEASE(m_pDSBPrimary);
 		SAFE_RELEASE(m_pDSBSlavely);
 		//释放directsound
-		// 为何会在释放m_pDirectSound对象是锁住,暂且不释放,日后有时间再查这个问题
+		// 为何会在释放m_pDirectSound对象时锁住,暂且不释放,日后有时间再查这个问题
 		// xioggao.lee @2015.10.28
-		//SAFE_RELEASE(m_pDirectSound);
+		SAFE_RELEASE(m_pDirectSound);
 		SAFE_DELETE_ARRAY(m_pDSPosNotify);
 		
 		if (m_hWnd)
@@ -230,10 +233,10 @@ public:
 	//////////////////////////////////////////////////////////////////////////	
 	BOOL Initialize(HWND hWnd,int nNotifyCount = 16,int nPlayTime = 1/*Second*/)
 	{
-		if (!TryEnterCriticalSection(&m_csBuffer))
+		if (!TryEnterCriticalSection(&m_csDsound))
 			return FALSE;
-		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csBuffer,::LeaveCriticalSection);
-		if (m_bInitilized)
+		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csDsound, ::LeaveCriticalSection);
+		if (m_pDirectSound)
 			return TRUE;
 
 		LRESULT hr;	
@@ -312,6 +315,7 @@ public:
 		if( FAILED( hr = m_pDirectSound->CreateSoundBuffer( &dsbd, &m_pDSBPrimary, NULL ) ))
 		{
 			DsTrace("CDSoundPlayer::Initialize() CreateSoundBuffer Failed.\n");
+			SAFE_DELETE(m_pDirectSound);
 			return FALSE;
 		}
 
@@ -319,6 +323,8 @@ public:
 		if (FAILED(m_pDSBPrimary->QueryInterface(IID_IDirectSoundBuffer,(LPVOID*)&m_pDSBSlavely)))
 		{
 			DsTrace("CDSoundPlayer::Initialize() Create Slave Sound buffer Failed.\n");
+			SAFE_DELETE(m_pDSBPrimary);
+			SAFE_DELETE(m_pDirectSound);
 			return FALSE;
 		}
 
@@ -326,6 +332,10 @@ public:
 		if(FAILED(m_pDSBSlavely->QueryInterface(IID_IDirectSoundNotify,(LPVOID*)&m_pDSNotify)))
 		{
 			DsTrace("CDSoundPlayer::Initialize() m_pDSBSlavely->QueryInterface Failed.\n");
+			
+			SAFE_DELETE(m_pDSBSlavely);
+			SAFE_DELETE(m_pDSBPrimary);
+			SAFE_DELETE(m_pDirectSound);
 			return FALSE ;
 		}
 
@@ -340,7 +350,6 @@ public:
 		m_pDSNotify->SetNotificationPositions(m_nNotificationsNum,m_pDSPosNotify);
 		m_pDSNotify->Release();	
 		m_pDSNotify = NULL;
-		m_bInitilized = TRUE;
 		// 启动播放线程
 		UINT nThreadAddr = 0;
 		m_bPlayThreadRun = true;
@@ -496,7 +505,12 @@ public:
 			m_pDSBSlavely->SetVolume(m_lVolume);	
 		}
 	}
-
+	bool IsInitialized()
+	{
+		EnterCriticalSection(&m_csDsound);
+		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csDsound, ::LeaveCriticalSection);
+		return (m_pDirectSound != nullptr);
+	}
 	int  GetVolume()
 	{
 		return m_lVolume;
@@ -766,11 +780,11 @@ private:
 	int		m_nAudioFrames;		// 投放音频帧的数量
 	CRITICAL_SECTION m_csBuffer;// 缓冲区互斥量
 	CRITICAL_SECTION m_csPlay;	// 用于控制播放的互斥量，防止同一对象被多个线程播放
+	CRITICAL_SECTION m_csDsound;// 用于控制m_pDirectSound多象，防止同一个对象被多次创建
 	bool	m_bPlayed;			// 是否已进入播放流程
 	int		m_nBufferPlayLength;// 缓冲区的长度(单位为秒)
 	int		m_nNotificationsNum;// 该缓冲区的通知个数
 	HWND	m_hWnd;
-	bool	m_bInitilized;	// 是否已经初始化
 	LPDIRECTSOUND m_pDirectSound;	
 	LPDIRECTSOUNDBUFFER m_pDSBPrimary;	// 主缓冲区
 	LPDIRECTSOUNDBUFFER m_pDSBSlavely;	// 副缓冲区

@@ -14,7 +14,6 @@
 #pragma comment(lib,"libfaad")
 #endif
 
-
 #define AudioTrace	TraceMsgA
 
 #ifndef IN
@@ -39,7 +38,7 @@ enum AudioSampleBit
 };
 #define FRAME_MAX_LEN 1024*8   
 #define BUFFER_MAX_LEN 1024*1024  
-struct  AccCodec
+struct  AacCodec
 {
 	NeAACDecHandle	hAacHandle;
 	byte			*pAacBuffer;
@@ -48,9 +47,9 @@ struct  AccCodec
 	int				nSamplebit;
 	unsigned char	nChannels;
 	bool			bInitialized;
-	AccCodec()
+	AacCodec()
 	{
-		ZeroMemory(this, sizeof(AccCodec));
+		ZeroMemory(this, sizeof(AacCodec));
 		hAacHandle = NeAACDecOpen();
 		if (!hAacHandle)		
 			assert(false);
@@ -65,7 +64,7 @@ struct  AccCodec
 		NeAACDecConfigurationPtr conf = NeAACDecGetCurrentConfiguration(hAacHandle);
 		NeAACDecSetConfiguration(hAacHandle, conf);
 	}
-	~AccCodec()
+	~AacCodec()
 	{
 		if (hAacHandle)
 		{
@@ -149,12 +148,16 @@ class CAudioDecoder
 private:
 	DVO_CODEC	m_nAudioCodec;
 	g726_state_t *m_pG726State;
-	AccCodec	*m_pAacDecoder;	
+	AacCodec	*m_pAacDecoder;	
 public:
 	CAudioDecoder()
 	{
 		ZeroMemory(this, sizeof(CAudioDecoder));
 		m_nAudioCodec = CODEC_UNKNOWN;
+	}
+	DVO_CODEC GetCodecType()
+	{
+		return m_nAudioCodec;
 	}
 	bool SetACodecType(DVO_CODEC nAudioCodec, /*int nSampleRate,int nChannels,*/AudioSampleBit nSamplebit)
 	{
@@ -170,10 +173,10 @@ public:
 			m_pG726State = new g726_state_t;
 			switch (nSamplebit)
 			{
-			case SampleBit8:				
-			case SampleBit16:				
-			case SampleBit24:				
-			case SampleBit32:				
+			case SampleBit8:
+			case SampleBit16:
+			case SampleBit24:
+			case SampleBit32:
 			case SampleBit40:
 				break;
 			default:
@@ -182,12 +185,13 @@ public:
 				return false;
 			}
 			}
+			
 			m_pG726State = g726_init(m_pG726State, 8000 * nSamplebit);
 		}			
 		case CODEC_AAC:
 		{
 			m_nAudioCodec = nAudioCodec;
-			m_pAacDecoder = new AccCodec();
+			m_pAacDecoder = new AacCodec();
 			if (!m_pAacDecoder)
 				return false;
 			break;
@@ -198,6 +202,7 @@ public:
 			return false;
 		}
 		}
+		return DVO_Succeed;
 	}
 	int Decode(OUT byte *pPCMData, INOUT int &nPCMdataSize, IN byte *pAudioFrame,IN int nFrameSize)
 	{
@@ -210,7 +215,9 @@ public:
 			return g711a_decode((short*)pPCMData, pAudioFrame, nFrameSize);
 			break;
 		case CODEC_G726:
-			return g726_decode(m_pG726State, (short*)pPCMData, pAudioFrame, nFrameSize);
+			 nPCMdataSize = g726_decode(m_pG726State, (short*)pPCMData, pAudioFrame, nFrameSize);
+			 nPCMdataSize *= 2;
+			 return nPCMdataSize;
 			break;
 		case CODEC_AAC:
 			return m_pAacDecoder->Decode(pPCMData, nPCMdataSize, pAudioFrame, nFrameSize);

@@ -14,7 +14,7 @@ EXPORTS
 	dvoplay_GetCacheSize
 	dvoplay_GetFps
 	dvoplay_GetFrames
-	dvoplay_GetCurrentFrameID
+	dvoplay_GetCurFrameInfo
 	dvoplay_SnapShotA
 	dvoplay_SnapShotW
 	dvoplay_SetVolume
@@ -26,8 +26,11 @@ EXPORTS
 	dvoplay_SeekNextFrame
 	dvoplay_EnableAudio
 	dvoplay_Refresh
-	dvoplay_GetEplaseTime
+	dvoplay_GetTimeEplased
 	dvoplay_SetExternDrawCallBack
 	dvoplay_SetYUVCapture
 	dvoplay_SetYUVCaptureEx
 	dvoplay_SetFrameParserCallback
+	dvoplay_FitWindow
+	dvoplay_BuildMediaHeader
+	dvoplay_BuildFrameHeader

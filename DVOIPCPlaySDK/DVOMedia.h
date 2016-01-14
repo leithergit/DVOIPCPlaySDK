@@ -18,11 +18,16 @@
 enum FrameType
 {
 	FRAME_UNKNOWN	 = -1,
-	FRAME_P			 = 0,
-	FRAME_B			 = 1,
+	FRAME_IDR		 = 1,
 	FRAME_I			 = 2,
-	FRAME_AUDIO		 = 3,
-	Frame_DATA		 = 4,
+	FRAME_P			 = 3,
+	FRAME_B			 = 4,
+	FRAME_JPEG		 = 5,
+	FRAME_G711A		 = 6,
+	FRAME_G711U		 = 7,
+	FRAME_G726		 = 8,
+	FRAME_AAC		 = 9,
+	Frame_DATA		 = 7
 };
 
 /// @brief 编码类型
@@ -32,10 +37,10 @@ enum DVO_CODEC
 	CODEC_H264		 = 0x00,
 	CODEC_H265		 = 0x01,
 	CODEC_MJPEG		 = 0x02,
-	CODEC_G711U		 = 0x10,
-	CODEC_G711A		 = 0x11,		
-	CODEC_G726		 = 0x13,
-	CODEC_AAC		 = 0x14
+	CODEC_G711A		 = FRAME_G711A,
+	CODEC_G711U		 = FRAME_G711U,
+	CODEC_G726		 = FRAME_G726,
+	CODEC_AAC		 = FRAME_AAC
 };
 
 #pragma pack(push)
@@ -60,8 +65,8 @@ struct 	DVO_MEDIAINFO
 									///< nFps=25,否则使用DVO_MEDIAINFO中的nFps字段
 	DVO_CODEC		nVideoCodec;	///< 视频编码类型
 	DVO_CODEC		nAudioCodec;	///< 音频编码类型
-	int				nVideoWidth;	///< 视频图像宽度
-	int				nVideoHeight;	///< 视频图像高度
+	int				nVideoWidth;	///< 视频图像宽度，可设置为0
+	int				nVideoHeight;	///< 视频图像高度，可设置为0
 	unsigned char	nFps;			///< 帧率
 	unsigned char	nCameraType;	///< 相机类型DVO相机为0，安讯士相机为1 fps
 	unsigned char	reserved1[2];	///< 保留,必须置0
