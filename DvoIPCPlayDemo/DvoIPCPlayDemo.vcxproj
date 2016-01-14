@@ -54,12 +54,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>E:\FFMPEG\static\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;E:\DVO\DVOIPCPlaySDK\DVOIPCNETSDK;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;E:\DVO\DVOIPCPlaySDK\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -81,7 +81,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>E:\FFMPEG\static\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;E:\DVO\DVOIPCPlaySDK\DVOIPCNETSDK;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{CEA53F20-0470-4F00-B2DE-C049FCF04F80}</ProjectGuid>   
+    <ProjectGuid>{CEA53F20-0470-4F00-B2DE-C049FCF04F80}</ProjectGuid>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -52,13 +52,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;C:\ffmpeg\static\include;D:\boost.1.57;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\ffmpeg\static\include;..\dvoipcnetsdk;..\faad2-2.7\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;D:\boost_1_59;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>e:\ffmpeg\static\lib;E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>e:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>LIBCMTD.lib LIBCMT.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
