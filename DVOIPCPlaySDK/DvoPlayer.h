@@ -1937,13 +1937,12 @@ public:
 		int TPlayArray[50] = { 0 };
 		int nPlayCount = 0;
 #endif
-
+		int nFrames = 0;
+		
 		while (pThis->m_bThreadPlayVideoRun)
 		{
-			nTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
-
-
-			if (nTimeSpan >= pThis->m_nFrameInterval)
+			//nTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
+			/*if (nTimeSpan >= pThis->m_nFrameInterval)
 			{
 // 				if (pDecodec->ReadFrame(pAvPacket) < 0)		// Î´¶ÁÈ¡µ½ÂëÁ÷
 // 					ThreadSleep(10);
@@ -1989,7 +1988,40 @@ public:
 					ThreadSleep(nSleepTime);
 				continue;
 			}
+			*/
 		
+			int nFPS = 25;
+			int nTimespan1 = (int)(TimeSpanEx(pThis->m_dfTimesStart) * 1000);
+			if (nTimespan1)
+				nFPS  = nFrames * 1000 / nTimespan1;
+	
+			nTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
+			TPlayArray[nPlayCount++] = nTimeSpan;
+			TPlayArray[0] = nFPS;
+			if (nPlayCount >= 50)
+			{
+				DxTraceMsg("%sPlay Interval:\n", __FUNCTION__);
+				for (int i = 0; i < nPlayCount; i++)
+				{
+					DxTraceMsg("%02d\t", TPlayArray[i]);
+					if ((i + 1) % 10 == 0)
+						DxTraceMsg("\n");
+				}
+				DxTraceMsg(".\n");
+				nPlayCount = 0;
+			}
+			dfT1 = GetExactTime();
+			nFrames++;
+			::EnterCriticalSection(&pThis->m_csVideoCache);
+			if (pThis->m_listVideoCache.size() > 0)
+			{
+				FramePtr = pThis->m_listVideoCache.front();
+				pThis->m_listVideoCache.pop_front();
+			}
+			::LeaveCriticalSection(&pThis->m_csVideoCache);
+			
+			pAvPacket->data = (uint8_t *)FramePtr->Framedata();
+			pAvPacket->size = FramePtr->FrameHeader()->nLength;
 
 			nAvError = pDecodec->Decode(pAvFrame, nGot_picture, pAvPacket);
 			if (nAvError < 0)
@@ -2077,7 +2109,6 @@ public:
 				if (pThis->m_pFilePlayCallBack)
 					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlaye);
 				av_frame_unref(pAvFrame);
-				dfT2 = GetExactTime();
 			}
 		}
 
