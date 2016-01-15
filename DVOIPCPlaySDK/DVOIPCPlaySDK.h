@@ -87,7 +87,7 @@ enum PlayRate
 #define		DVO_Error_NotFilePlayer			(-7)	///< 这不是一个文件播放对象
 #define		DVO_Error_InvalidFrame			(-8)	///< 无效的帧
 #define		DVO_Error_InvalidFrameType		(-9)	///< 无效的帧类型
-
+#define		DVO_Error_SummaryNotReady		(-10)	///< 文件摘要信息尚未准备好
 #define		DVO_Error_FrameCacheIsFulled	(-11)	///< 视频帧缓冲区已经满
 #define		DVO_Error_FileNotOpened			(-12)	///< 尚未打开视频文件
 #define		DVO_Error_MaxFrameSizeNotEnough	(-13)	///< 最大帧尺寸不足，可能视频文件中存在超过256K的帧数据,应调用SetMaxFrameSize设置新的帧尺寸上限
@@ -97,7 +97,17 @@ enum PlayRate
 #define		DVO_Error_AudioThreadNotRun		(-17)	///< 音频频解码线程尚未启动或已经退出
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
-
+/// @brief 文件播放即时信息
+struct FilePlayInfo
+{
+	UINT	nTotalFrames;	///< 视频总帧数
+	time_t	tTotalTime;		///< 文件总时长(单位:毫秒)
+	UINT	nCurFrameID;	///< 当前播放视频的帧ID
+	time_t	tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒)
+	USHORT  nFileFPS;		///< 文件中视频的原始帧率
+	USHORT  nPlayFPS;		///< 当前播放的帧率
+	UINT	nReserver[4];
+};
 ///	@def	DVO_PLAYHANDLE
 ///	@brief	DVO文件播放句柄
 
@@ -128,13 +138,12 @@ typedef void(__stdcall *FilePlayProc)(DVO_PLAYHANDLE hPlayHandle,void *pUserPtr)
 /// @param [in]		Framedata	一帧DVO私有录像的帧数据
 /// @parqm [in]		nDataSize	数据的长度
 /// @param [in]		pUserPtr	用户自定义指针
-/// @retval	
-/// -#	0	继续解析下一帧数据
-/// -#	1	暂停解析下一帧数据，解析线程休眠20ms
-typedef int(__stdcall *CaptureFrame)(DVO_PLAYHANDLE hPlayHandle, 
-									const unsigned char *Framedata, 
-									const int nDataSize, 
-									void *pUserPtr);
+/// @remark 若要暂停数据解析，可调用dvoplay_pause函数
+
+typedef void (__stdcall *CaptureFrame)(DVO_PLAYHANDLE hPlayHandle, 
+									  const unsigned char *Framedata, 
+									  const int nDataSize, 
+									  void *pUserPtr);
 typedef void (__stdcall *ExternDraw)(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
 typedef void (__stdcall *ExternDrawEx)(DVO_PLAYHANDLE hPlayHandle, RECT rt, void *pUserPtr);
 
@@ -288,7 +297,7 @@ DVOIPCPLAYSDK_API int  dvoplay_GetFrames(IN DVO_PLAYHANDLE hPlayHandle,OUT int &
 /// @param [out]	tTimeStamp		返回当前播放视频的帧相对起点的时间(单位:毫秒)
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetCurFrameInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT int &nFramesID,OUT time_t &tTimeStamp);
+DVOIPCPLAYSDK_API int  dvoplay_GetFilePlayInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT FilePlayInfo *pFilePlayInfo);
 
 /// @brief			截取正放播放的视频图像
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

@@ -14,7 +14,7 @@ EXPORTS
 	dvoplay_GetCacheSize
 	dvoplay_GetFps
 	dvoplay_GetFrames
-	dvoplay_GetCurFrameInfo
+	dvoplay_GetFilePlayInfo
 	dvoplay_SnapShotA
 	dvoplay_SnapShotW
 	dvoplay_SetVolume

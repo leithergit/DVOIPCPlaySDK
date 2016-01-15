@@ -348,24 +348,17 @@ DVOIPCPLAYSDK_API int  dvoplay_GetFrames(IN DVO_PLAYHANDLE hPlayHandle, OUT int 
 
 /// @brief			取得当前播放视频的帧信息
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nFrameID		返回当前播放视频的帧ID
-/// @param [out]	tTimeStamp		返回当前播放视频的帧相对起点的时间(单位:毫秒)
+/// @param [out]	pFilePlayInfo	文件播放的相关信息，参见@see FilePlayInfo
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetCurFrameInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT int &nFramesID, OUT time_t &tTimeStamp)
+DVOIPCPLAYSDK_API int  dvoplay_GetFilePlayInfo(IN DVO_PLAYHANDLE hPlayHandle,OUT FilePlayInfo *pFilePlayInfo)
 {
-	if (!hPlayHandle)
+	if (!hPlayHandle || !pFilePlayInfo)
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	int nResult = pPlayer->GetCurrentFrameID(nFramesID);
-	if (nResult != DVO_Succeed)
-		return nResult;
-	nResult = pPlayer->GetGurrentFrameTime(tTimeStamp);
-	if (nResult != DVO_Succeed)
-		return nResult;
-	return DVO_Succeed;
+	return pPlayer->GetFilePlayInfo(pFilePlayInfo);
 }
 
 /// @brief			截取正放播放的视频图像
