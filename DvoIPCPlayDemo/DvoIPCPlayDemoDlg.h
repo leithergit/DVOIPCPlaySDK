@@ -289,4 +289,5 @@ public:
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnBnClickedButtonSnapshot();
 	afx_msg void OnCbnSelchangeComboPlayspeed();
+	afx_msg void OnBnClickedButtonPause();
 };

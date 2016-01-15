@@ -162,9 +162,9 @@ enum GraphicQulityParameter
 #define _TraceMemory
 
 #if defined(_DEBUG) && defined(_TraceMemory)
-#define TraceMemory()	CTraceMemory Tx(__FUNCTION__);
+#define TraceFunction()	CTraceFunction Tx(__FUNCTION__);
 #else 
-#define TraceMemory()	
+#define TraceFunction()	
 #endif
 
 #ifndef _CRT_SECURE_NO_WARNINGS
@@ -175,11 +175,11 @@ enum GraphicQulityParameter
 #include <psapi.h>
 #pragma comment(lib,"psapi.lib")
 
-class CTraceMemory
+class CTraceFunction
 {
-	explicit CTraceMemory(){};
+	explicit CTraceFunction(){};
 public:
-	CTraceMemory(CHAR *szFunction, bool bDeconstructOut = true)
+	CTraceFunction(CHAR *szFunction, bool bDeconstructOut = true)
 	{
 		m_bDeconstructOut = bDeconstructOut;
 		HANDLE handle = GetCurrentProcess();
@@ -189,10 +189,11 @@ public:
 		m_nMemoryCount = pmc.WorkingSetSize / 1024;
 		strcpy_s(m_szFunction, 256, szFunction);
 		CHAR szText[1024] = { 0 };
-		sprintf_s(szText, 1024, "CTraceMemory\t_IN_ %s \tMemory = %d KB.\n", szFunction, m_nMemoryCount);
+		m_dfTimeIn = GetExactTime();
+		sprintf_s(szText, 1024, "%s\t_IN_ %s \tMemory = %d KB.\n",__FUNCTION__, szFunction, m_nMemoryCount);
 		OutputDebugStringA(szText);
 	}
-	~CTraceMemory()
+	~CTraceFunction()
 	{
 		if (m_bDeconstructOut)
 		{
@@ -202,17 +203,18 @@ public:
 			GetProcessMemoryInfo(handle, &pmc, sizeof(pmc));
 			CloseHandle(handle);
 			m_nMemoryCount = pmc.WorkingSetSize / 1024;
-
-			sprintf_s(szText, 1024, "CTraceMemory\t_OUT_ %s \tMemory = %d KB.\n", m_szFunction, m_nMemoryCount);
+			sprintf_s(szText, 1024, "%s\t_OUT_ %s \tMemory = %d KB\tTimeSpan = %.3f.\n",__FUNCTION__, m_szFunction, m_nMemoryCount,TimeSpanEx(m_dfTimeIn));
 			OutputDebugStringA(szText);
 		}
 	}
 private:
 	INT		m_nMemoryCount;
+	double	m_dfTimeIn;
 	bool	m_bDeconstructOut;
 	CHAR	m_szFile[MAX_PATH];
 	CHAR	m_szFunction[256];
 };
+
 
 // 把FFMPEG像素转换为D3DFomrat像素
 struct PixelConvert
@@ -362,7 +364,6 @@ public:
 			当然，如果不计速度追求画面质量。在上面的算法中，选择帧率最低的那个即可，画面效
 			果一般是最好的。
 		*/
-
 	}
 	~PixelConvert()
 	{
@@ -488,6 +489,7 @@ protected:
 
 	D3DXIMAGE_FILEFORMAT	m_D3DXIFF;			// 截图类型,默认为bmp格式
  	WCHAR					m_szSnapShotPath[MAX_PATH];
+	bool					m_bEnableVsync;		// 启用垂直同步,默认为true,在需要显示的帧率大于显示器实际帧率时,需要禁用垂直同步
 
 	bool					m_bVideoScaleFixed;	// 当m_bVideoScaleFixed为true,并且m_fWHScale = 0时,则使用图像原始比例,比例值为Width/Height
 												// 当m_bVideoScaleFixed为true,并且m_fWHScale 大于0时,则使用dfWHScale提供的比例显示，图像可能会被拉伸变形
@@ -513,10 +515,11 @@ public:
 	}
 	CDxSurface()
 	{
-		TraceMemory();
+		TraceFunction();
 		// 借助于m_nVariable1st变量，避开对虚函数表的初始化
 		// 仅适用于微软的Visual C++编译器
 		ZeroMemory(&m_nVtableAddr, sizeof(CDxSurface) - offsetof(CDxSurface,m_nVtableAddr));
+		m_bEnableVsync = true;
 		if (!m_hD3D9)
 			m_hD3D9 = LoadLibraryA("d3d9.dll");
 		if (!m_hD3D9)
@@ -546,7 +549,7 @@ public:
 
 	virtual ~CDxSurface()
 	{
-		TraceMemory();
+		TraceFunction();
 		//DetachWnd();
 		DxCleanup();
 		SafeRelease(m_pDirect3D9);
@@ -563,6 +566,18 @@ public:
 		m_hEventCreateSurface = NULL;
 	}
 
+	// 禁用垂直同步,只有在初始化之前调用,才会有效
+	// 默认情况下，垂直同步被启用, 在需要显示的帧率大于显示器实际帧率时,需要禁用垂直同步
+	bool	DisableVsync()
+	{
+		if (!m_bInitialized)
+		{
+			m_bEnableVsync = false;
+			return true;
+		}
+		else
+			return false;
+	}
 	// 设置DirectX的资源是否以全屏尺寸创建
 	// bResourceFullSize为ture时，则按全屏尺寸创建，否则按窗口尺寸创建
 	// 此函数必须在InitD3D函数前执行才会有效
@@ -634,7 +649,7 @@ public:
 
 	virtual bool ResetDevice()
 	{
-		TraceMemory();
+		TraceFunction();
 		SafeRelease(m_pDirect3DSurfaceRender);	
 #ifdef _DEBUG
 		HRESULT hr = m_pDirect3DDevice->Reset(&m_d3dpp);
@@ -656,7 +671,7 @@ public:
 	// D3dDirect9Ex下，该成员不再有效
 	virtual bool RestoreDevice()
 	{// 恢复设备，即用原始参数重建资源
-		TraceMemory();
+		TraceFunction();
 		if (!m_pDirect3D9 || !m_pDirect3DDevice)
 			return false;
 #ifdef _DEBUG
@@ -860,7 +875,7 @@ public:
 				 D3DFORMAT nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 	{
 
-		TraceMemory();
+		TraceFunction();
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
 		assert(nVideoWidth != 0 || nVideoHeight != 0);
@@ -901,7 +916,10 @@ public:
 			if (m_dwExStyle)
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_EXSTYLE, m_dwExStyle);
 			SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
-			m_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;//D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
+			if (!m_bEnableVsync)
+				m_d3dpp.PresentationInterval	= D3DPRESENT_INTERVAL_IMMEDIATE;
+			else
+				m_d3dpp.PresentationInterval	= D3DPRESENT_INTERVAL_DEFAULT;
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
 			if (m_bSurfaceFullSize)
 			{
@@ -1744,7 +1762,7 @@ public:
 		,m_pDirect3DDeviceEx(NULL)
 		,m_pDirect3DCreate9Ex(NULL)
 	{
-		TraceMemory();		
+		TraceFunction();		
 		if (!m_hD3D9)
 			m_hD3D9 = LoadLibraryA("d3d9.dll");
 		if (!m_hD3D9)
@@ -1801,7 +1819,7 @@ public:
 		BOOL bIsWindowed = TRUE,
 		D3DFORMAT nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 	{
-		TraceMemory();
+		TraceFunction();
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
 		assert(nVideoWidth != 0 || nVideoHeight != 0);
@@ -1840,9 +1858,12 @@ public:
 			if (m_dwExStyle)
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_EXSTYLE, m_dwExStyle);
 			SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
-			//
-			m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_IMMEDIATE;
-			//m_d3dpp.PresentationInterval		= D3DPRESENT_INTERVAL_DEFAULT;  // 窗口模式一定得用 D3DPRESENT_INTERVAL_DEFAULT ！
+			
+			if (!m_bEnableVsync)
+				m_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+			else
+				m_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
+						
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
 			m_d3dpp.SwapEffect					= D3DSWAPEFFECT_DISCARD;		// 指定系统如何将后台缓冲区的内容复制到前台缓冲区 D3DSWAPEFFECT_DISCARD:清除后台缓存的内容
 			if (m_bSurfaceFullSize)
