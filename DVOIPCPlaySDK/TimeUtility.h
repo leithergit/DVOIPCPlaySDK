@@ -182,7 +182,9 @@ struct CThreadSleep
 			nSleepWay = Std_Sleep;
 			dfSpanSum = dfSumSpan3;
 		}
-		nSleepPrecision = (DWORD)(1000 * dfSpanSum/32);
+		nSleepPrecision = (DWORD)(round(1000 * dfSpanSum)/32);
+		if (nSleepPrecision == 0)
+			nSleepPrecision = 1;
 	}
 	void operator ()(DWORD nTimems)
 	{

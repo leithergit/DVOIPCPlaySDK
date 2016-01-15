@@ -85,15 +85,16 @@ enum PlayRate
 #define		DVO_Error_PlayerNotStart		(-5)	///< 播放器尚未启动,无法取得播放过程的信息或属性
 #define		DVO_Error_PlayerHasStart		(-6)	///< 播放器已经启动，不能执行初始化或其它设置操作
 #define		DVO_Error_NotFilePlayer			(-7)	///< 这不是一个文件播放对象
-#define		DVO_Error_InvalidFrame			(-8)	///< 无效的帧ID
+#define		DVO_Error_InvalidFrame			(-8)	///< 无效的帧
 #define		DVO_Error_InvalidFrameType		(-9)	///< 无效的帧类型
-#define		DVO_Error_FrameCacheIsFulled	(-10)	///< 视频帧缓冲区已经满
-#define		DVO_Error_FileNotOpened			(-11)	///< 尚未打开视频文件
-#define		DVO_Error_MaxFrameSizeNotEnough	(-12)	///< 最大帧尺寸不足，可能视频文件中存在超过256K的帧数据,应调用SetMaxFrameSize设置新的帧尺寸上限
-#define		DVO_Error_InvalidPlayRate		(-13)	///< 无效的播放倍率
-#define		DVO_Error_BufferSizeNotEnough	(-14)	///< 提供的缓冲区长度不足
-#define		DVO_Error_VideoThreadNotRun		(-15)	///< 视频解码线程尚未启动或已经退出
-#define		DVO_Error_AudioThreadNotRun		(-16)	///< 音频频解码线程尚未启动或已经退出
+
+#define		DVO_Error_FrameCacheIsFulled	(-11)	///< 视频帧缓冲区已经满
+#define		DVO_Error_FileNotOpened			(-12)	///< 尚未打开视频文件
+#define		DVO_Error_MaxFrameSizeNotEnough	(-13)	///< 最大帧尺寸不足，可能视频文件中存在超过256K的帧数据,应调用SetMaxFrameSize设置新的帧尺寸上限
+#define		DVO_Error_InvalidPlayRate		(-14)	///< 无效的播放倍率
+#define		DVO_Error_BufferSizeNotEnough	(-15)	///< 提供的缓冲区长度不足
+#define		DVO_Error_VideoThreadNotRun		(-16)	///< 视频解码线程尚未启动或已经退出
+#define		DVO_Error_AudioThreadNotRun		(-17)	///< 音频频解码线程尚未启动或已经退出
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 
