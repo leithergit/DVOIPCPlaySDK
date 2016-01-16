@@ -617,6 +617,34 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					m_pPlayContext.reset();
 					return;
 				}
+				PlayRate RateArray[] =
+				{
+					Rate_One32th,
+					Rate_One24th,
+					Rate_One20th,
+					Rate_One16th,
+					Rate_One10th,
+					Rate_One08th,
+					Rate_Quarter,
+					Rate_Half,
+					Rate_01X,
+					Rate_02X,
+					Rate_04X,
+					Rate_08X,
+					Rate_10X,
+					Rate_16X,
+					Rate_20X,
+					Rate_24X,
+					Rate_32X
+				};
+				int nCurSecl = SendDlgItemMessage(IDC_COMBO_PLAYSPEED, CB_GETCURSEL);
+				if (nCurSecl <= 0 && nCurSecl > 16)
+				{
+					m_wndStatus.SetWindowText(_T("无效的播放速度,现以原始速度播放."));
+					m_wndStatus.SetAlarmGllitery();
+					nCurSecl = 8;
+				}
+				dvoplay_SetRate(m_pPlayContext->hPlayer, RateArray[nCurSecl]);
 				m_pPlayContext->pThis = this;
 				SetDlgItemText(IDC_BUTTON_PLAYFILE, _T("停止播放"));
 				bEnableWnd = false;
@@ -820,8 +848,8 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 	{
 		if (dvoplay_GetFrames(hPlayer, nTotalFrames) != DVO_Succeed)
 			return 0;
-
-		if (dvoplay_GetCurFrameInfo(hPlayer, nFrameID, tTimeStamp) != DVO_Succeed)
+		FilePlayInfo fpi;
+		if (dvoplay_GetFilePlayInfo(hPlayer, &fpi) != DVO_Succeed)
 			return 0;
 		int nSlidePos = 0;
 		if (nTotalFrames > 0)

@@ -1942,6 +1942,16 @@ public:
 		byte *pYUV = nullptr;
 		int nYUVSize = 0;
 		pThis->m_dfTimesStart = GetExactTime();
+		int nFramesProcessed = 0;	// 已处理的帧数
+
+		// 取得当前显示器的刷新率，显示器的刷新率决定了，显示图像的最高帧数
+		// 通过统计每显示一帧图像(含解码和显示)耗费的时间
+		DEVMODE   dm;
+		dm.dmSize = sizeof(DEVMODE);
+		::EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
+		dm.dmDisplayFrequency;
+		
+
 		double dfT2 = GetExactTime();
 		av_init_packet(pAvPacket);
 #ifdef _DEBUG
@@ -1955,6 +1965,7 @@ public:
 		int nPlayCount = 1;
 		int nFrames = 0;
 #endif
+		
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -1979,19 +1990,22 @@ public:
 								|| StreamFrame::IsIFrame(*it))
 							{
 								bPopFrame = true;
+								nFramesProcessed++;
 								break;
 							}
 							else
 							{
 								it = pThis->m_listVideoCache.erase(it);
-								nSkipFrames++;
+								nSkipFrames++; 
 							}
 						}
 						DxTraceMsg("%s Skip Frames = %d bPopFrame = %s.\n", __FUNCTION__, nSkipFrames,bPopFrame?"true":"false");
+						nFramesProcessed += nSkipFrames;
 						if (bPopFrame)
 						{
 							FramePtr = pThis->m_listVideoCache.front();
 							pThis->m_listVideoCache.pop_front();
+							nFramesProcessed++;
 						}
 					}
 					else
