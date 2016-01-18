@@ -327,7 +327,7 @@ private:	// 文件播放相关变量
 	FileFrameInfo	*m_pFrameOffsetTable;///< 视频帧ID对应文件偏移表
 	volatile LONG m_nSeekOffset;		///< 读文件的偏移
 	CRITICAL_SECTION	m_csSeekOffset;
-	int			m_nPlayRate;			///< 当前播放的倍率,取值-32~32,-32时为32分之一速，32则为32倍速
+	float		m_fPlayRate;			///< 当前的播放的倍率,大于1时为加速播放,小于1时为减速播放，不能为0或小于0
 	int			m_nSDKVersion;			///< 生成录像文件的SDK版本	
 	int			m_nMaxFrameSize;		///< 最大I帧的大小，以字节为单位,默认值256K
 	int			m_nFileFPS;				///< 文件中,视频帧的原始帧率
@@ -526,8 +526,8 @@ public:
 			//m_DsPlayer.Initialize(m_hWnd, Audio_Play_Segments);
 		}
 		m_nMaxFrameSize	 = 1024 * 256;
-		m_nFPS			 = 25;				// FPS的默认值为25
-		m_nPlayRate		 = 1;
+		m_nFileFPS		 = 25;				// FPS的默认值为25
+		m_fPlayRate		 = 1;
 		m_nPlayInterval = 25;
 		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
 		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
@@ -684,7 +684,7 @@ public:
 			{
 			case DVO_IPC_SDK_VERSION_2015_09_07:
 				if (m_pMediaHeader->nFps != 0 && m_pMediaHeader->nFps != 1)
-					m_nFPS = m_pMediaHeader->nFps;
+					m_nFileFPS = m_pMediaHeader->nFps;
 				break;
 			case DVO_IPC_SDK_VERSION_2015_10_20:
 			case DVO_IPC_SDK_VERSION_2015_12_16:
@@ -702,8 +702,8 @@ public:
 			}
 			// GetLastFrameID取得的是最后一帧的ID，总帧数还要在此基础上+1
 			m_nTotalFrames++;
-			if (m_pDxSurface)
-				m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
+// 			if (m_pDxSurface)
+// 				m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
 			
 			// 启动文件解析线程
 			m_bThreadParserRun = true;
@@ -998,7 +998,7 @@ public:
 	{
 		if (m_hThreadPlayVideo)
 		{
-			nFPS  = m_nFPS;
+			nFPS  = m_nPlayFPS;
 			return DVO_Succeed;
 		}
 		else
@@ -1028,11 +1028,15 @@ public:
 			pFilePlayInfo->nTotalFrames	 = m_nTotalFrames; 
 			pFilePlayInfo->nFileFPS		 = m_nFileFPS;
 			pFilePlayInfo->nPlayFPS		 = m_nPlayFPS;
+			EnterCriticalSection(&m_csVideoCache);
+			pFilePlayInfo->nCacheSize = m_listVideoCache.size();
+			LeaveCriticalSection(&m_csVideoCache);
 			if (m_hThreadGetFileSummary &&
 				WaitForSingleObject(m_hThreadGetFileSummary,0) == WAIT_OBJECT_0)
 			{
 				pFilePlayInfo->tCurFrameTime = (m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
 				pFilePlayInfo->tTotalTime = (m_pFrameOffsetTable[m_nTotalFrames - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
+				return DVO_Succeed;
 			}
 			else
 				return DVO_Error_SummaryNotReady;
@@ -1109,49 +1113,22 @@ public:
 	/// @brief			取得当前播放的速度的倍率
 	inline int  GetRate()
 	{
-		return m_nPlayRate;
+		return m_fPlayRate;
 	}
 
 	/// @brief			设置当前播放的速度的倍率
-	/// @param [in]		nPlayRate		当前的播放的倍率,@see PlayRate
+	/// @param [in]		fPlayRate		当前的播放的倍率,大于1时为加速播放,小于1时为减速播放，不能为0或小于0
 	/// @retval			0	操作成功
 	/// @retval			-1	输入参数无效
-	inline int  SetRate(IN PlayRate nPlayRate)
+	inline int  SetRate(IN float fPlayRate)
 	{
-		switch (nPlayRate)
+		if (m_bIpcStream)
 		{
-		case Rate_One32th:		
-		case Rate_One24th:
-		case Rate_One20th:
-		case Rate_One16th:
-		case Rate_One10th:
-		case Rate_One08th:
-		case Rate_Quarter:
-		case Rate_Half:
-		{
-			m_nPlayInterval = 1000* (-1)*nPlayRate / m_nFPS;
-			break;
+			return DVO_Error_NotFilePlayer;
 		}
-		case Rate_01X:
-		case Rate_02X:
-		case Rate_04X:
-		case Rate_08X:
-		case Rate_10X:
-		case Rate_16X:
-		case Rate_20X:
-		case Rate_24X:
-		case Rate_32X:
-		{
-			m_nPlayInterval = 1000 / (m_nFPS*nPlayRate);
-			break;
-		}
-		default:
-		{
-			assert(false);
-			return -1;
-		}
-		}
-		m_nPlayRate = nPlayRate;
+		m_nPlayInterval = (int)(1000 / (m_nFileFPS*fPlayRate));
+		m_nPlayFPS = 1000 / m_nPlayInterval;
+		m_fPlayRate = fPlayRate;
 		return DVO_Succeed;
 	}
 
@@ -1165,7 +1142,7 @@ public:
 		if (!m_hDvoFile || !m_pFrameOffsetTable)
 			return DVO_Error_NotFilePlayer;
 		if (nFrameID < 0 || nFrameID > m_nTotalFrames)
-			return DVO_Error_InvalidFrame;		
+			return DVO_Error_InvalidFrame;	
 
 		EnterCriticalSection(&m_csVideoCache);
 		m_listVideoCache.clear();
@@ -1210,7 +1187,7 @@ public:
 		if (!m_hDvoFile || !m_pFrameOffsetTable)
 			return DVO_Error_NotFilePlayer;
 		
-		int nFrameID = (int)(nTimeSet * m_nFPS);
+		int nFrameID = (int)(nTimeSet * m_nPlayFPS);
 		return SeekFrame(nFrameID);
 	}
 
@@ -1234,7 +1211,7 @@ public:
 	{
 // 		if (!m_DsPlayer)
 // 			return DVO_Succeed;		
-		if (m_nPlayRate > 4)
+		if (m_fPlayRate > 4)
 			return DVO_Succeed;
 		
 		if (bEnable)
@@ -1948,9 +1925,8 @@ public:
 		// 通过统计每显示一帧图像(含解码和显示)耗费的时间
 		DEVMODE   dm;
 		dm.dmSize = sizeof(DEVMODE);
-		::EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
-		dm.dmDisplayFrequency;
-		
+		::EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);		
+		int nRefreshInvertal = 1000 / dm.dmDisplayFrequency;	// 显示器刷新间隔
 
 		double dfT2 = GetExactTime();
 		av_init_packet(pAvPacket);
@@ -1978,15 +1954,15 @@ public:
 				nTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
 				if (nTimeSpan >= (pThis->m_nPlayInterval))
 				{
-					pThis->m_nFPS = 1000 / nTimeSpan;
 					bool bPopFrame = false;
-					if (pThis->m_nPlayRate >= Rate_10X)
+					if (pThis->m_nPlayInterval < nRefreshInvertal)	//播放间隔小于显示器刷新间隔，即播速度快于显示器刷新速度,则需要跳帧
 					{// 查找时间上最匹配的帧,并删除不匹配的非I帧
 						int nSkipFrames = 0;
 						CAutoLock lock(&pThis->m_csVideoCache);
 						for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 						{
-							if (((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) >= (40*pThis->m_nPlayRate*1000)
+							time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime)/1000;
+							if (tFrameSpan >= nRefreshInvertal*pThis->m_fPlayRate
 								|| StreamFrame::IsIFrame(*it))
 							{
 								bPopFrame = true;
@@ -2037,7 +2013,7 @@ public:
 				}
 			}
 			else
-			{
+			{// IPC 码流，则直接播放
 				bool bPopFrame = false;
 				::EnterCriticalSection(&pThis->m_csVideoCache);
 				if (pThis->m_listVideoCache.size() > 0)
@@ -2051,21 +2027,6 @@ public:
 					Sleep(10);
 			}
 
-			// 动态计算帧间隔和实际帧率
-			if (pThis->m_tLastFrameTime)
-			{
-				int nFrameInterval = (FramePtr->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime)/1000;
-				if (nFrameInterval > 0)
-				{
-					if (pThis->m_nPlayRate >= Rate_01X && pThis->m_nPlayRate <= Rate_32X)
-						pThis->m_nPlayInterval = nFrameInterval / pThis->m_nPlayRate;
-					else if (pThis->m_nPlayRate >= Rate_One32th && pThis->m_nPlayRate <= Rate_Half)
-						pThis->m_nPlayInterval = nFrameInterval *(-pThis->m_nPlayRate);
-					else
-						pThis->m_nPlayInterval = 40;
-					pThis->m_nFPS = 1000  / pThis->m_nPlayInterval;
-				}
-			}
 			pThis->m_tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
 // 此为最大帧率真测试代码,建议不要删除
 // xionggao.lee @2016.01.15 
@@ -2193,7 +2154,7 @@ public:
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			nTimeSpan = (int)((GetExactTime() - dfT1) * 1000);
-			if (pThis->m_nPlayRate > 4 || pThis->m_nPlayRate < -4)
+			if (pThis->m_fPlayRate > 4 || pThis->m_fPlayRate < -4)
 			{// 播放倍率超过4或小于1/4都不再播放音频,因为此时音频严重失真，影响听觉
 				if (m_pDsPlayer->IsPlaying())
 					m_pDsPlayer->StopPlay();

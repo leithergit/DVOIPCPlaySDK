@@ -445,17 +445,17 @@ DVOIPCPLAYSDK_API int  dvoplay_GetRate(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayRa
 
 /// @brief			设置当前播放的速度的倍率
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in]		nPlayRate		当前的播放的倍率,@see PlayRate
+/// @param [in]		nPlayRate		当前的播放的倍率,大于1时为加速播放,小于1时为减速播放，不能为0或小于0
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN PlayRate nPlayRate)
+DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN float fPlayRate)
 {
-	if (!hPlayHandle)
+	if (!hPlayHandle ||fPlayRate <= 0.0f )
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	return pPlayer->SetRate(nPlayRate);
+	return pPlayer->SetRate(fPlayRate);
 }
 
 /// @brief			跳跃到指视频帧进行播放

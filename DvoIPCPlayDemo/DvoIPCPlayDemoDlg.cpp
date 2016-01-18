@@ -840,40 +840,31 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 { 
 	DVO_PLAYHANDLE  *hPlayer = (DVO_PLAYHANDLE *)w;
-	int nFrameID,nTotalFrames;
-	time_t tTimeStamp;
-	int nCacheSize;
-	int nFPS;
 	if (hPlayer)
 	{
-		if (dvoplay_GetFrames(hPlayer, nTotalFrames) != DVO_Succeed)
-			return 0;
 		FilePlayInfo fpi;
 		if (dvoplay_GetFilePlayInfo(hPlayer, &fpi) != DVO_Succeed)
 			return 0;
 		int nSlidePos = 0;
-		if (nTotalFrames > 0)
-			nSlidePos = (int)(100 * (double)nFrameID / nTotalFrames);
+		if (fpi.nTotalFrames > 0)
+			nSlidePos = (int)(100 * (double)fpi.nCurFrameID / fpi.nTotalFrames);
 		
 		SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
-		time_t T1 = tTimeStamp / 1000;
-		int nFloat = tTimeStamp - T1 * 1000;
+		time_t T1 = fpi.tCurFrameTime / 1000;
+		int nFloat = fpi.tCurFrameTime - T1 * 1000;
 		int nHour = T1 / 3600;
 		int nMinute = (T1 - nHour * 3600) / 60;
 		int nSecond = T1 % 60;
 		TCHAR szPlayText[64] = { 0 };
 		_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
 		SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
-		_stprintf_s(szPlayText, 64, _T("%d"), nFrameID);
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCurFrameID);
 		SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
-
-		if (dvoplay_GetCacheSize(hPlayer, nCacheSize) != DVO_Succeed)
-			return 0;
-		_stprintf_s(szPlayText, 64, _T("%d"), nCacheSize);
+			
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCacheSize);
 		SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
-		if (dvoplay_GetFps(hPlayer, nFPS) != DVO_Succeed)
-			return 0;
-		_stprintf_s(szPlayText, 64, _T("%d"), nFPS);
+		
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nPlayFPS);
 		SetDlgItemText(IDC_EDIT_FPS, szPlayText);
 	}
 	return 0;
