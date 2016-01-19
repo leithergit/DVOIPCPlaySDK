@@ -275,7 +275,8 @@ private:
 
 	DVO_CODEC	m_nVideoCodec;			///< 视频编码格式 @see DVO_CODEC	
 	static		CAvRegister avRegister;	
-	static shared_ptr<CDSoundPlayer> m_pDsPlayer;///< DirectSound播放对象指针
+	static shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
+	CDSoundBuffer* m_pDsBuffer;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
 	static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
@@ -564,6 +565,13 @@ public:
 			}
 		}
 		*/
+		if (m_pDsBuffer)
+		{
+			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
+#ifdef _DEBUG
+			m_pDsBuffer = nullptr;
+#endif
+		}
 		if (m_pDxSurface)
 		{
 			delete m_pDxSurface;
@@ -728,11 +736,13 @@ public:
 			
 			if (bEnaleAudio)
 			{
-				m_bThreadPlayAudioRun = true;
-				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
 				if (!m_pDsPlayer->IsInitialized())
 					m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-				m_pDsPlayer->StartPlay();
+				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
+				m_bThreadPlayAudioRun = true;
+				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
+				
+				m_pDsBuffer->StartPlay();
 				m_bEnableAudio = true;	
 			}
 		}
@@ -886,9 +896,10 @@ public:
 			CloseHandle(m_hThreadGetFileSummary);
 			DxTraceMsg("%s ThreadGetFileSummary has exit.\n", __FUNCTION__);
 		}
-		if (m_pDsPlayer && m_bEnableAudio)
+		if (m_pDsBuffer && m_bEnableAudio)
 		{
-			m_pDsPlayer->StopPlay();
+			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
+			m_pDsBuffer = nullptr;
 		}
 		if (m_pFrameOffsetTable)
 			delete []m_pFrameOffsetTable;
@@ -1094,18 +1105,18 @@ public:
 	/// @retval			-1	输入参数无效
 	void  SetVolume(IN int nVolume)
 	{
-		if (m_bEnableAudio/* && m_DsPlayer*/)
+		if (m_bEnableAudio && m_pDsBuffer)
 		{
 			int nDsVolume = nVolume * 100 - 10000;
-			m_pDsPlayer->SetVolume(nDsVolume);
+			m_pDsBuffer->SetVolume(nDsVolume);
 		}
 	}
 
 	/// @brief			取得当前播放的音量
 	int  GetVolume()
 	{
-		if (m_bEnableAudio/* && m_DsPlayer*/)
-			return (m_pDsPlayer->GetVolume() + 10000) / 100;
+		if (m_bEnableAudio && m_pDsBuffer)
+			return (m_pDsBuffer->GetVolume() + 10000) / 100;
 		else
 			return 0;
 	}
@@ -1216,24 +1227,25 @@ public:
 		
 		if (bEnable)
 		{
-			m_pDsPlayer->StartPlay();
+			if (!m_pDsPlayer->IsInitialized())
+				m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
+
+			if (!m_pDsBuffer)			
+				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
+			
+			m_pDsBuffer->StartPlay();
 			if (!m_hThreadPlayAudio)
 			{
 				m_bThreadPlayAudioRun = true;
 				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
-			}
-			if (!m_pDsPlayer->IsInitialized())
-				m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-			
+			}	
 			m_dfLastTimeAudioPlay = 0.0f;
 			m_dfLastTimeAudioSample = 0.0f;
-			
 			m_bEnableAudio = true;
 		}
 		else
 		{
-			m_bEnableAudio = false;
-			
+			m_bEnableAudio = false;			
 			m_bThreadPlayAudioRun = false;
 			if (m_hThreadPlayAudio)
 			{
@@ -1243,7 +1255,8 @@ public:
 				m_hThreadPlayAudio = nullptr;
 				DxTraceMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
 			}
-			m_pDsPlayer->StopPlay();
+			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
+			m_pDsBuffer = nullptr;
 		}
 		return DVO_Succeed;
 	}
@@ -1256,7 +1269,6 @@ public:
 	{
 		if (m_hWnd)
 			::InvalidateRect(m_hWnd, nullptr, true);
-
 	}
 	
 	/// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
@@ -2154,10 +2166,10 @@ public:
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			nTimeSpan = (int)((GetExactTime() - dfT1) * 1000);
-			if (pThis->m_fPlayRate > 4 || pThis->m_fPlayRate < -4)
-			{// 播放倍率超过4或小于1/4都不再播放音频,因为此时音频严重失真，影响听觉
-				if (m_pDsPlayer->IsPlaying())
-					m_pDsPlayer->StopPlay();
+			if (pThis->m_fPlayRate != 1.0f)
+			{// 只有正常倍率才播放声音
+				if (pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->StopPlay();
 				::EnterCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_listAudioCache.size() > 0)	
 					pThis->m_listAudioCache.pop_front();
@@ -2165,8 +2177,8 @@ public:
 			}
 			if (nTimeSpan >= nAudioFrameInterval)
 			{
-				if (!m_pDsPlayer->IsPlaying())
-					m_pDsPlayer->StartPlay();
+				if (!pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->StartPlay();
 				bool bPopFrame = false;
 				::EnterCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_listAudioCache.size() > 0)
@@ -2244,10 +2256,10 @@ public:
 				nPCMSize = nDecodeSize;
 			}
 
-			if (m_pDsPlayer->IsPlaying() && 
+			if (pThis->m_pDsBuffer->IsPlaying() &&
 				pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(), FramePtr->FrameHeader()->nLength) != 0)
 			{
-				m_pDsPlayer->PutWaveData(pPCM, nPCMSize);
+				pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize);
 // #ifdef _DEBUG
 // 				TPlayArray[nPlayCount++] = TimeSpanEx(dfT1);	
 // 				dfT1 = GetExactTime();

@@ -2,18 +2,12 @@
 #include <dsound.h>
 #include <memory>
 #include <list>
+#include "autolock.h"
 using namespace std;
+using namespace std::tr1;
 // #include <mmstream.h>
 // #include <MMReg.h>
 
-//创建基于CWinThread类的线程
-//pThreadClass	CWinThread类指针，用于指向创建后的线程对象
-//ThreadFunc	线程的执行函数
-//Param			线程的入口参数
-//ThreadPririty	线程的优先级
-#ifndef BeginWinThread
-#define		BeginWinThread(pThreadClass,ThreadFunc,Param,ThreadPririty)		{pThreadClass = AfxBeginThread(ThreadFunc,Param,ThreadPririty,0,CREATE_SUSPENDED);pThreadClass->m_bAutoDelete = FALSE;pThreadClass->ResumeThread();}
-#endif
 using namespace std;
 using namespace std::tr1;
 
@@ -46,10 +40,298 @@ using namespace std::tr1;
 #define DsTrace	
 #endif
 
-#define Audio_Play_Segments		25
+#define Audio_Play_Segments		50
 
-class CDSoundBuffer;
-class CDsound
+class CDSoundBuffer
+{
+
+public:
+
+	explicit CDSoundBuffer(int nNotifyCount, DWORD dwNotifySize)
+		:m_nNotifyCount(nNotifyCount)
+		, m_dwNotifySize(dwNotifySize)
+	{
+		m_pDSBuffer = NULL;
+		m_pDSPosNotify = NULL;
+		m_hEventArray = NULL;
+		m_lVolume = 0;
+		m_bPause = FALSE;
+		m_bMute = FALSE;
+		InitializeCriticalSection(&m_csBuffer);
+		m_bPlayed = false;
+	}
+
+	~CDSoundBuffer(void)
+	{
+		StopPlay();
+		if (m_hEventArray)
+		{
+			for (int i = 0; i < m_nNotifyCount; i++)
+				CloseHandle(m_hEventArray[i]);
+			delete[]m_hEventArray;
+		}
+
+		//释放缓冲区
+		SAFE_RELEASE(m_pDSBuffer);
+		SAFE_DELETE_ARRAY(m_pDSPosNotify);
+		DeleteCriticalSection(&m_csBuffer);
+	}
+
+	BOOL IsPlaying()
+	{
+		BOOL bIsPlaying = FALSE;
+		if (m_pDSBuffer == NULL)
+			return FALSE;
+		DWORD dwStatus = 0;
+		m_pDSBuffer->GetStatus(&dwStatus);
+		bIsPlaying |= ((dwStatus & DSBSTATUS_PLAYING) != 0);
+		return bIsPlaying;
+	}
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// 初始化，主要是生成播放缓冲区和设置通知事件
+	//bGlobalFocus如果为TRUE，在失去焦点时仍然播放
+	//////////////////////////////////////////////////////////////////////////	
+	bool Create(LPDIRECTSOUNDBUFFER pDSBPrimary = nullptr, int nPlayTime = 1/*Second*/)
+	{
+		if (!pDSBPrimary)
+			return false;
+		//创建副冲区
+		if (FAILED(pDSBPrimary->QueryInterface(IID_IDirectSoundBuffer, (LPVOID*)&m_pDSBuffer)))
+		{
+			DsTrace("%s Create Slave Sound buffer Failed.\n", __FUNCTION__);
+			return false;
+		}
+
+		IDirectSoundNotify *pDSNotify = NULL;
+		if (FAILED(m_pDSBuffer->QueryInterface(IID_IDirectSoundNotify, (LPVOID*)&pDSNotify)))
+		{
+			DsTrace("%s m_pDSBSlavely->QueryInterface Failed.\n", __FUNCTION__);
+			SAFE_DELETE(m_pDSBuffer);
+			return FALSE;
+		}
+
+		m_pDSPosNotify = new DSBPOSITIONNOTIFY[m_nNotifyCount];
+		m_hEventArray = new HANDLE[m_nNotifyCount];
+		for (int i = 0; i < m_nNotifyCount; i++)
+		{
+			m_pDSPosNotify[i].dwOffset = i*m_dwNotifySize;
+			m_hEventArray[i] = ::CreateEvent(NULL, false, false, NULL);
+			m_pDSPosNotify[i].hEventNotify = m_hEventArray[i];
+		}
+		pDSNotify->SetNotificationPositions(m_nNotifyCount, m_pDSPosNotify);
+		pDSNotify->Release();
+		pDSNotify = NULL;
+		return TRUE;
+	}
+
+	inline DWORD WaitForPosNotify()
+	{
+		return (WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 1000 / m_nNotifyCount) - WAIT_OBJECT_0);
+	}
+
+#define DSBPLAY_ONCE 0x00000000
+	// 尝试进入播放流程，可以通用GetBuffer()取得缓冲区，往缓冲区中添加音频数据
+	// 返回0时，进入播放流程失败，可能其它线程已经进入播放流程
+	// 否则返回单次可填充音频缓冲区的长度
+	// 线程或进程退时，必须调用StopPlay以退出播放流程，否则可能造成死锁
+	bool StartPlay(bool bLoopPlay = true, bool bContinue = false)
+	{
+		if (m_pDSBuffer)
+		{
+			if (!RestoreBuffer())
+				return false;
+			if (bContinue)
+				m_pDSBuffer->SetCurrentPosition(m_nPlayOffset);
+			else
+				m_pDSBuffer->SetCurrentPosition(0);
+
+			if (bLoopPlay)
+				m_pDSBuffer->Play(0, 0, DSBPLAY_LOOPING);
+			else
+				m_pDSBuffer->Play(0, 0, DSBPLAY_ONCE);
+			m_bPlayed = true;
+		}
+		return true;
+	}
+	// 退出播放流程
+	BOOL StopPlay()
+	{
+		if (!m_bPlayed)
+			return FALSE;
+
+		m_bPlayed = false;
+
+		if (m_pDSBuffer == NULL)
+			return FALSE;
+		m_bPause = FALSE;
+		HRESULT hr = m_pDSBuffer->Stop();
+		if (FAILED(hr))
+		{
+			DsTrace("%s m_pDSBSlavely->Stop() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
+			return FALSE;
+		}
+		hr = m_pDSBuffer->SetCurrentPosition(0L);
+		if (FAILED(hr))
+		{
+			DsTrace("%s m_pDSBSlavely->SetCurrentPosition() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
+			return FALSE;
+		}
+		return TRUE;
+	}
+
+	void Pause()
+	{
+		if (m_pDSBuffer == NULL)
+		{
+			return;
+		}
+
+		m_pDSBuffer->Stop();
+		m_bPause = TRUE;
+	}
+
+	void SetMute(BOOL bMute)
+	{
+		if (m_pDSBuffer == NULL)
+		{
+			return;
+		}
+
+		m_bMute = bMute;
+		if (bMute)
+		{
+			m_pDSBuffer->SetVolume(-10000);
+		}
+		else
+		{
+			m_pDSBuffer->SetVolume(m_lVolume);
+		}
+	}
+
+	// 音量范围-10000,0
+	// -10000	静音,0	最大音量
+	void SetVolume(long lVolume)
+	{
+		if (m_pDSBuffer == NULL)
+		{
+			return;
+		}
+
+		m_lVolume = lVolume;
+		if (m_bMute == FALSE)
+		{
+			m_pDSBuffer->SetVolume(m_lVolume);
+		}
+	}
+
+	int  GetVolume()
+	{
+		return m_lVolume;
+	}
+	BOOL GetMute()
+	{
+		return m_bMute;
+	}
+
+	BOOL GetPause()
+	{
+		return m_bPause;
+	}
+
+	bool RestoreBuffer()
+	{
+		DWORD dwStatus;
+		if (FAILED(m_pDSBuffer->GetStatus(&dwStatus)))
+		{
+			DsTrace("%s m_pDSBuffer->GetStatus() Failed.\n", __FUNCTION__);
+			return false;
+		}
+		if (dwStatus & DSBSTATUS_BUFFERLOST)
+		{
+			DsTrace("%s DsBuffer lost ,Now try to restore.\n", __FUNCTION__);
+			int nRestoreCount = 0;
+			bool bRestored = false;
+			while (nRestoreCount < 5)
+			{
+				if (SUCCEEDED(m_pDSBuffer->Restore()))
+				{
+					bRestored = true;
+					break;
+				}
+				else
+				{
+					nRestoreCount++;
+					Sleep(10);
+				}
+			}
+			if (!bRestored)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	bool WritePCM(IN byte *pPCM, IN int nPCMLength)
+	{
+		LPVOID  pBuffer1;
+		DWORD	nBuffer1Length;
+		LPVOID  pBuffer2;
+		DWORD	nBuffer2Length;
+
+		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 1000 / m_nNotifyCount);
+		if (nResult == WAIT_TIMEOUT)
+			return false;
+
+		if (!TryEnterCriticalSection(&m_csBuffer))
+			return false;
+
+		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csBuffer, ::LeaveCriticalSection);
+		if (!m_pDSBuffer)
+			return false;
+		HRESULT hr = S_OK;
+
+		if (!RestoreBuffer())
+			return false;
+		hr = m_pDSBuffer->Lock(m_nPlayOffset, nPCMLength, &pBuffer1, &nBuffer1Length, &pBuffer2, &nBuffer2Length, 0);
+
+		if (FAILED(hr))
+		{
+			DsTrace("%s m_pDSBSlavely->Lock() Failed.\n", __FUNCTION__);
+			return false;
+		}
+		// 写入声音数据
+		CopyMemory(pBuffer1, pPCM, nBuffer1Length);
+		if (nullptr != pBuffer2)
+		{
+			CopyMemory(pBuffer2, pPCM + nBuffer1Length, nBuffer2Length);
+		}
+		m_nPlayOffset += nPCMLength;
+		hr = m_pDSBuffer->Unlock(pBuffer1, nBuffer1Length, pBuffer2, nBuffer2Length);
+		if (FAILED(hr))
+		{
+			DsTrace("%s m_pDSBSlavely->Unlock() Failed.\n", __FUNCTION__);
+			return false;
+		}
+		return true;
+	}
+private:
+	DWORD m_nPlayOffset = 0;
+	DWORD m_nPositoin = 0;
+	CRITICAL_SECTION m_csBuffer;// 缓冲区互斥量
+	bool	m_bPlayed = false;	// 是否已进入播放流程
+	LPDIRECTSOUNDBUFFER m_pDSBuffer;	// 副缓冲区
+	DSBPOSITIONNOTIFY *m_pDSPosNotify;	// 播放通知
+	HANDLE* m_hEventArray = nullptr;
+	long m_lVolume = 0;
+	BOOL m_bPause = false;
+	BOOL m_bMute;
+	int &m_nNotifyCount;
+	DWORD &m_dwNotifySize;
+};
+
+class CDSound
 {
 #ifdef _DEBUG
 	static void DxTrace(LPCSTR pFormat, ...)
@@ -98,10 +380,11 @@ class CDsound
 			hInstance,
 			NULL);
 	}
-	CDsound()
+public:
+	CDSound()
 	{
 		m_nBufferPlayLength = 1;	// 默认1秒
-		m_nNotificationsNum = 25;	// 把1秒分成25段
+		m_nNotifyCount = 25;	// 把1秒分成25段
 		m_pDirectSound = NULL;
 		m_pDSBPrimary = NULL;
 		m_dwDSBufferSize = 0;
@@ -109,12 +392,12 @@ class CDsound
 		ZeroMemory(&m_wfx, sizeof(WAVEFORMATEX));
 		m_wfx.cbSize = sizeof(WAVEFORMATEX);
 		InitializeCriticalSection(&m_csDsound);
-		
+		InitializeCriticalSection(&m_csListBuffer);
 	}
-	CDsound(HWND hWnd)
+	CDSound(HWND hWnd)
 	{
 		m_nBufferPlayLength = 1;	// 默认1秒
-		m_nNotificationsNum = 25;	// 把1秒分成25段
+		m_nNotifyCount = 25;	// 把1秒分成25段
 		m_pDirectSound = NULL;
 		m_pDSBPrimary = NULL;
 		m_dwDSBufferSize = 0;
@@ -122,9 +405,10 @@ class CDsound
 		ZeroMemory(&m_wfx, sizeof(WAVEFORMATEX));
 		m_wfx.cbSize = sizeof(WAVEFORMATEX);
 		InitializeCriticalSection(&m_csDsound);
+		InitializeCriticalSection(&m_csListBuffer);
 		m_hWnd = hWnd;
 	}
-	~CDsound()
+	~CDSound()
 	{
 		//释放缓冲区
 		SAFE_RELEASE(m_pDSBPrimary);
@@ -137,7 +421,15 @@ class CDsound
 			::PostMessage(m_hWnd, WM_DESTROY, 0, 0);
 		
 		DeleteCriticalSection(&m_csDsound);
+		DeleteCriticalSection(&m_csListBuffer);
 	}
+
+	bool IsInitialized()
+	{
+		CAutoLock lock(&m_csDsound);		
+		return (m_pDirectSound != nullptr);
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	// 初始化，主要是生成播放缓冲区和设置通知事件
 	//bGlobalFocus如果为TRUE，在失去焦点时仍然播放
@@ -150,11 +442,11 @@ class CDsound
 		if (m_pDirectSound)
 			return TRUE;
 	
-
+		HRESULT hr = S_OK;
 		//创建directsound
 		if (FAILED(hr = DirectSoundCreate(NULL, &m_pDirectSound, NULL)))
 		{
-			DsTrace("CDSoundPlayer::Initialize() DirectSoundCreate Failed.\n");
+			DsTrace("%s DirectSoundCreate Failed.\n",__FUNCTION__);
 			return FALSE;
 		}
 
@@ -165,19 +457,19 @@ class CDsound
 			{
 				if (FAILED(m_pDirectSound->SetCooperativeLevel(m_hWnd, DSSCL_PRIORITY)))
 				{
-					DsTrace("CDSoundPlayer::Initialize() SetCooperativeLevel Failed.\n");
+					DsTrace("%s SetCooperativeLevel Failed.\n",__FUNCTION__);
 					return FALSE;
 				}
 			}
 			else
 			{
-				DsTrace("CDSoundPlayer::Initialize() CreateSimpleWindow Failed.\n");
+				DsTrace("%s CreateSimpleWindow Failed.\n",__FUNCTION__);
 				return FALSE;
 			}
 		}
 		else if (FAILED(m_pDirectSound->SetCooperativeLevel(hWnd, DSSCL_PRIORITY)))
 		{
-			DsTrace("CDSoundPlayer::Initialize() SetCooperativeLevel Failed.\n");
+			DsTrace("%s SetCooperativeLevel Failed.\n",__FUNCTION__);
 			return FALSE;
 		}
 
@@ -187,358 +479,84 @@ class CDsound
 		m_wfx.cbSize = 0;
 		m_wfx.wFormatTag = (WORD)WAVE_FORMAT_PCM;		// 音频格式
 		m_wfx.nChannels = 1;							// 音频通道数量
-		m_wfx.nSamplesPerSec = 8000;						// 采样率
+		m_wfx.nSamplesPerSec = 8000;					// 采样率
 		m_wfx.wBitsPerSample = 16;
 		m_wfx.nBlockAlign = (WORD)((m_wfx.wBitsPerSample / 8) * m_wfx.nChannels);
 		m_wfx.nAvgBytesPerSec = (DWORD)(m_wfx.nSamplesPerSec * m_wfx.nBlockAlign);
 
-		m_nNotificationsNum = nNotifyCount;
+		m_nNotifyCount = nNotifyCount;
 		m_nBufferPlayLength = nPlayTime;
 
 		//定义一个m_nBufferPlayLength秒的缓冲区,并将这个缓冲区分成m_nNotificationsNum个通知块;
-		m_dwNotifySize = m_wfx.nSamplesPerSec*m_nBufferPlayLength*m_wfx.nBlockAlign / m_nNotificationsNum;
+		m_dwNotifySize = m_wfx.nSamplesPerSec*m_nBufferPlayLength*m_wfx.nBlockAlign / m_nNotifyCount;
 		//确保m_dwNotifySize是nBlockAlign的倍数
 		m_dwNotifySize = m_dwNotifySize - m_dwNotifySize%m_wfx.nBlockAlign;		
-		m_dwDSBufferSize = m_dwNotifySize*m_nNotificationsNum;		
+		m_dwDSBufferSize = m_dwNotifySize*m_nNotifyCount;		
 
 		DSBUFFERDESC dsbd;
 		ZeroMemory(&dsbd, sizeof(DSBUFFERDESC));
 		dsbd.dwSize = sizeof(DSBUFFERDESC);
-		dsbd.dwFlags = DSBCAPS_GLOBALFOCUS |
-			DSBCAPS_CTRLVOLUME |
-			DSBCAPS_CTRLPOSITIONNOTIFY |
-			DSBCAPS_GETCURRENTPOSITION2;
+		dsbd.dwFlags =  DSBCAPS_GLOBALFOCUS |
+						DSBCAPS_CTRLVOLUME |
+						DSBCAPS_CTRLPOSITIONNOTIFY |
+						DSBCAPS_GETCURRENTPOSITION2;
 		//DSBCAPS_PRIMARYBUFFER;
 		dsbd.dwBufferBytes = m_dwDSBufferSize;
 		dsbd.lpwfxFormat = &m_wfx;
 
 		if (FAILED(hr = m_pDirectSound->CreateSoundBuffer(&dsbd, &m_pDSBPrimary, NULL)))
 		{
-			DsTrace("CDSoundPlayer::Initialize() CreateSoundBuffer Failed.\n");
+			DsTrace("%s CreateSoundBuffer Failed.\n",__FUNCTION__);
 			SAFE_DELETE(m_pDirectSound);
-			return FALSE;
+			return false;
 		}
+		return true;
 	}
 	CDSoundBuffer *CreateDsoundBuffer()
 	{
-		CDSoundBuffer *pDsBuffer = new CDSoundBuffer();
-		if (!TryEnterCriticalSection(&m_csDsound))
-			return FALSE;
-		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csDsound, ::LeaveCriticalSection);
-		
-		
-		return TRUE;
+		CDSoundBuffer *pDsBuffer = new CDSoundBuffer(m_nNotifyCount,m_dwNotifySize);
+		if (pDsBuffer->Create())
+		{
+			::EnterCriticalSection(&m_csListBuffer);
+			m_listDsBuffer.push_back(pDsBuffer);
+			::LeaveCriticalSection(&m_csListBuffer);
+			return pDsBuffer;
+		}
+		else
+		{
+			delete pDsBuffer;
+			return nullptr;
+		}
+	}
+
+	void DestroyDsoundBuffer(CDSoundBuffer *pDsBuffer)
+	{
+		if (!pDsBuffer)
+			return;
+		::EnterCriticalSection(&m_csListBuffer);
+		for (auto it = m_listDsBuffer.begin(); it != m_listDsBuffer.end();)
+			if ((*it) == pDsBuffer)
+			{
+				m_listDsBuffer.erase(it);
+				break;
+			}
+			else
+				it++;
+		::LeaveCriticalSection(&m_csListBuffer);
 	}
 
 public:
-	list<CDSoundBuffer>	m_listDsBuffer;
-	CRITICAL_SECTION	m_csDsoundBuffer;	
+	list<CDSoundBuffer*>	m_listDsBuffer;
 	LPDIRECTSOUND m_pDirectSound	 = nullptr;
-	CRITICAL_SECTION m_csDsound;		// 用于控制m_pDirectSound多象，防止同进程创建多个DIRECTSOUND对象
 	LPDIRECTSOUNDBUFFER m_pDSBPrimary = nullptr;
+	CRITICAL_SECTION m_csListBuffer;
 	CRITICAL_SECTION m_csDsound;
-	int m_nNotificationsNum			 = 0;
+	int m_nNotifyCount			 = 0;
 	int m_nBufferPlayLength			 = 0;
 	DWORD m_dwDSBufferSize			 = 0;
 	DWORD m_dwNotifySize			 = 0;
 	HWND	m_hWnd					 = nullptr;
+	WAVEFORMATEX m_wfx;
 };
-class CDSoundBuffer
-{
-private:
-	explicit CDSoundBuffer()
-	{
-	}
-public:
 
-	CDSoundBuffer(CDsound *pDsound)
-	{
-		m_pDsound = pDsound;
-		m_pDSBuffer = NULL;		
-		m_pDSPosNotify = NULL;	
-		m_hEventArray = NULL;	
-		m_lVolume = 0;
-		m_bPause = FALSE;
-		m_bMute = FALSE;
-		InitializeCriticalSection(&m_csBuffer);
-		m_bPlayed = false;
-	}
-	
-	~CDSoundBuffer(void)
-	{
-		StopPlay();
-		m_bPlayThreadRun = false;
-		if (m_hEventArray)
-		{
-			for (int i = 0; i < m_pDsound->m_nNotificationsNum; i++)
-				CloseHandle(m_hEventArray[i]);
-			delete []m_hEventArray;
-		}
-		if (m_hPlayThread)
-		{
-			if (WaitForSingleObject(m_hPlayThread,1000) == WAIT_TIMEOUT)
-				TerminateThread(m_hPlayThread,0xFF);
-			CloseHandle(m_hPlayThread);
-			m_hPlayThread = NULL;
-		}
-				
-		//释放缓冲区
-		SAFE_RELEASE(m_pDSBuffer);
-		SAFE_DELETE_ARRAY(m_pDSPosNotify);				
-		DeleteCriticalSection(&m_csBuffer);
-	}
 
-	BOOL IsPlaying()
-	{
-		BOOL bIsPlaying = FALSE;	
-		if(m_pDSBuffer == NULL )
-			return FALSE; 
-		DWORD dwStatus = 0;
-		m_pDSBuffer->GetStatus( &dwStatus );
-		bIsPlaying |= ( ( dwStatus & DSBSTATUS_PLAYING ) != 0 );
-		return bIsPlaying;
-	}
-	
-		
-	//////////////////////////////////////////////////////////////////////////
-	// 初始化，主要是生成播放缓冲区和设置通知事件
-	//bGlobalFocus如果为TRUE，在失去焦点时仍然播放
-	//////////////////////////////////////////////////////////////////////////	
-	bool Create(int nPlayTime = 1/*Second*/)
-	{
-		if (!m_pDsound)
-			return false;
-		//创建副冲区
-		if (FAILED(m_pDsound->m_pDSBPrimary->QueryInterface(IID_IDirectSoundBuffer,(LPVOID*)&m_pDSBuffer)))
-		{
-			DsTrace("%s Create Slave Sound buffer Failed.\n",__FUNCTION__);		
-			return false;
-		}
-
-		IDirectSoundNotify *pDSNotify = NULL;
-		if(FAILED(m_pDSBuffer->QueryInterface(IID_IDirectSoundNotify,(LPVOID*)&m_pDSNotify)))
-		{
-			DsTrace("%s m_pDSBSlavely->QueryInterface Failed.\n",__FUNCTION__);
-			SAFE_DELETE(m_pDSBuffer);
-			return FALSE ;
-		}
-
-		m_pDSPosNotify = new DSBPOSITIONNOTIFY[m_pDsound->m_nNotificationsNum];
-		m_hEventArray = new HANDLE[m_pDsound->m_nNotificationsNum];
-		for (int i = 0; i < m_pDsound->m_nNotificationsNum; i++)
-		{
-			m_pDSPosNotify[i].dwOffset = i*m_pDsound->m_dwNotifySize;
-			m_hEventArray[i] = ::CreateEvent(NULL,false,false,NULL); 
-			m_pDSPosNotify[i].hEventNotify = m_hEventArray[i];
-		}
-		pDSNotify->SetNotificationPositions(m_pDsound->m_nNotificationsNum, m_pDSPosNotify);
-		pDSNotify->Release();	
-		pDSNotify = NULL;
-		return TRUE;
-	}
-
-	inline DWORD WaitForPosNotify()
-	{
-		return (WaitForMultipleObjects(m_pDsound->m_nNotificationsNum, m_hEventArray, FALSE, 1000 / m_pDsound->m_nNotificationsNum) - WAIT_OBJECT_0);
-	}
-
-#define DSBPLAY_ONCE 0x00000000
-	// 尝试进入播放流程，可以通用GetBuffer()取得缓冲区，往缓冲区中添加音频数据
-	// 返回0时，进入播放流程失败，可能其它线程已经进入播放流程
-	// 否则返回单次可填充音频缓冲区的长度
-	// 线程或进程退时，必须调用StopPlay以退出播放流程，否则可能造成死锁
-	bool StartPlay(bool bLoopPlay = true)
-	{		
-		if (m_pDSBuffer)
-		{
-			if (!RestoreBuffer())
-				return false;
-			m_pDSBuffer->SetCurrentPosition(0);
-			if (bLoopPlay)
-				m_pDSBuffer->Play(0,0,DSBPLAY_LOOPING);
-			else
-				m_pDSBuffer->Play(0, 0, DSBPLAY_ONCE);
-			m_bPlayed = true;
-		}
-		return 
-	}
-	// 退出播放流程
-	BOOL StopPlay()
-	{
-		if (!m_bPlayed)
-			return FALSE;
-		
-		m_bPlayed = false;
-			
-		if(m_pDSBuffer == NULL)
-			return FALSE;
-		m_bPause = FALSE;	
-		HRESULT hr = m_pDSBuffer->Stop();
-		if(FAILED(hr))
-		{
-			DsTrace("%s m_pDSBSlavely->Stop() Failed,hr = 0x%08X.\n",__FUNCTION__,hr);
-			return FALSE;
-		}
-		hr = m_pDSBuffer->SetCurrentPosition(0L);
-		if(FAILED(hr))
-		{
-			DsTrace("%s m_pDSBSlavely->SetCurrentPosition() Failed,hr = 0x%08X.\n",__FUNCTION__,hr);
-			return FALSE;
-		}
-		return TRUE;
-	}
-		
-	void Pause()
-	{
-		if(m_pDSBuffer == NULL)
-		{
-			return;
-		}
-
-		m_pDSBuffer->Stop();
-		m_bPause = TRUE;
-	}
-	
-	void SetMute(BOOL bMute)
-	{
-		if(m_pDSBuffer == NULL)
-		{
-			return;
-		}
-
-		m_bMute = bMute;
-		if(bMute)
-		{
-			m_pDSBuffer->SetVolume(-10000);
-		}
-		else
-		{
-			m_pDSBuffer->SetVolume(m_lVolume);
-		}
-
-	}
-
-	// 音量范围-10000,0
-	// -10000	静音,0	最大音量
-
-	void SetVolume(long lVolume)
-	{
-		if(m_pDSBuffer == NULL)
-		{
-			return;
-		}
-
-		m_lVolume = lVolume;
-		if(m_bMute == FALSE)
-		{
-			m_pDSBuffer->SetVolume(m_lVolume);	
-		}
-	}
-	
-	int  GetVolume()
-	{
-		return m_lVolume;
-	}
-	BOOL GetMute()
-	{
-		return m_bMute;
-	}
-
-	BOOL GetPause()
-	{
-		return m_bPause;
-	}
-	
-	bool RestoreBuffer()
-	{
-		DWORD dwStatus;
-		if (FAILED(m_pDSBuffer->GetStatus(&dwStatus)))
-		{
-			DsTrace("%s m_pDSBuffer->GetStatus() Failed.\n", __FUNCTION__);
-			return false;
-		}
-		if (dwStatus & DSBSTATUS_BUFFERLOST)
-		{
-			DsTrace("%s DsBuffer lost ,Now try to restore.\n", __FUNCTION__);
-			int nRestoreCount = 0;
-			bool bRestored = false;
-			while (nRestoreCount < 5)
-			{
-				if (SUCCEEDED(m_pDSBuffer->Restore()))
-				{
-					bRestored = true;
-					break;
-				}
-				else
-				{
-					nRestoreCount++;
-					Sleep(10);
-				}
-			}
-			if (!bRestored)
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-	bool WritePCM(IN byte *pPCM,IN int nPCMLength)
-	{
-		LPVOID  pBuffer1;
-		DWORD	nBuffer1Length;
-		LPVOID  pBuffer2;
-		DWORD	nBuffer2Length;
-
-		DWORD nResult = WaitForMultipleObjects(m_pDsound->m_nNotificationsNum, m_hEventArray, FALSE, 1000 / m_pDsound->m_nNotificationsNum);
-		if (nResult == WAIT_TIMEOUT)
-			return false;
-		
-		if (!TryEnterCriticalSection(&m_csBuffer))
-			return false;
-			
-		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csBuffer, ::LeaveCriticalSection);
-		if (!m_pDSBuffer)
-			return false;
-		HRESULT hr = S_OK;
-		
-		if (!RestoreBuffer())
-			return false;
-		hr = m_pDSBuffer->Lock(m_nPlayOffset, nPCMLength, &pBuffer1, &nBuffer1Length, &pBuffer2, &nBuffer2Length, 0);
-	
-		if (FAILED(hr))
-		{
-			DsTrace("%s m_pDSBSlavely->Lock() Failed.\n", __FUNCTION__);
-			return false;
-		}
-		// 写入声音数据
-		CopyMemory(pBuffer1, pPCM, nBuffer1Length);
-		if (nullptr != pBuffer2)
-		{
-			CopyMemory(pBuffer2, pPCM + nBuffer1Length, nBuffer2Length);
-		}
-		m_nPlayOffset += nPCMLength;
-		hr = m_pDSBuffer->Unlock(pBuffer1, nBuffer1Length, pBuffer2, nBuffer2Length);
-		if (FAILED(hr))
-		{
-			DsTrace("%s m_pDSBSlavely->Unlock() Failed.\n", __FUNCTION__);
-			return false;
-		}
-		return true;
-	}
-private:
-	DWORD m_nPlayOffset = 0;
-	CRITICAL_SECTION m_csBuffer;// 缓冲区互斥量
-	bool	m_bPlayed;			// 是否已进入播放流程
-	LPDIRECTSOUNDBUFFER m_pDSBuffer;	// 副缓冲区
-	DSBPOSITIONNOTIFY *m_pDSPosNotify;	// 播放通知
-	
-	HANDLE* m_hEventArray;
-	long m_lVolume;
-	BOOL m_bPause;
-	BOOL m_bMute;		
-	int m_nWaveBufferSize;		// 声音缓冲区的总长度
-	int m_nWaveDataLength;		// 声音数据的长度
-	bool m_bPlayThreadRun;
-	HANDLE m_hPlayThread;
-	CDsound*	m_pDsound;
-};
