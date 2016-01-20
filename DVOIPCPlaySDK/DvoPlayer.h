@@ -275,7 +275,8 @@ private:
 
 	DVO_CODEC	m_nVideoCodec;			///< 视频编码格式 @see DVO_CODEC	
 	static		CAvRegister avRegister;	
-	static shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
+	//static shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
+	shared_ptr<CDSound> m_pDsPlayer;	///< DirectSound播放对象指针
 	CDSoundBuffer* m_pDsBuffer;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
 	static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
@@ -294,10 +295,6 @@ private:
 	bool		m_bFitWindow;			///< 视频显示是否填满窗口
 										///< 为true时，则把视频填满窗口,这样会把图像拉伸,可能会造成图像变形
 										///< 为false时，则只按图像原始比例在窗口中显示,超出比例部分,则以黑色背景显示
-private:
-// 	USER_HANDLE	m_hUserHandle;
-// 	REAL_HANDLE	m_hStreamHandle;
-
 private:	// 音频播放相关变量
 
 	DVO_CODEC	m_nAudioCodec;			///< 音频编码格式 @see DVO_CODEC
@@ -715,10 +712,12 @@ public:
 			
 			// 启动文件解析线程
 			m_bThreadParserRun = true;
-			m_hThreadParser = (HANDLE)_beginthreadex(nullptr, 0, ThreadParser, this, 0, 0);
+			//m_hThreadParser = (HANDLE)_beginthreadex(nullptr, 0, ThreadParser, this, 0, 0);
+			m_hThreadParser = CreateThread(nullptr, 0, ThreadParser, this, 0, 0);
 			// 启动文件信息摘要线程
 			m_bThreadFileAbstractRun = true;
-			m_hThreadGetFileSummary = (HANDLE)_beginthreadex(nullptr, 0, ThreadGetFileSummary, this, 0, 0);
+			//m_hThreadGetFileSummary = (HANDLE)_beginthreadex(nullptr, 0, ThreadGetFileSummary, this, 0, 0);
+			m_hThreadGetFileSummary = CreateThread(nullptr, 0, ThreadGetFileSummary, this, 0, 0);
 		}
 		else
 		{
@@ -732,15 +731,22 @@ public:
 		{
 			// 启动流播放线程
 			m_bThreadPlayVideoRun = true;			
-			m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);			
+			//m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+			m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
 			
 			if (bEnaleAudio)
 			{
-				if (!m_pDsPlayer->IsInitialized())
-					m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
+				if (!m_pDsPlayer)
+				{
+					m_pDsPlayer = make_shared<CDSound>(nullptr);
+					if (!m_pDsPlayer->IsInitialized())
+						m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
+				}
  				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
 				m_bThreadPlayAudioRun = true;
-				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
+
+				//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
+				m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
 				
 				m_pDsBuffer->StartPlay();
 				m_bEnableAudio = true;	
@@ -896,10 +902,16 @@ public:
 			CloseHandle(m_hThreadGetFileSummary);
 			DxTraceMsg("%s ThreadGetFileSummary has exit.\n", __FUNCTION__);
 		}
+		
 		if (m_pDsBuffer)
 		{
 			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
 			m_pDsBuffer = nullptr;
+		}
+		if (m_pDsPlayer)
+		{
+			m_pDsPlayer.reset();
+			m_pDsPlayer = nullptr;
 		}
 		if (m_pFrameOffsetTable)
 			delete []m_pFrameOffsetTable;
@@ -1029,24 +1041,28 @@ public:
 			return DVO_Error_NotFilePlayer;
 	}
 	/// @brief			取得当前播放视频的即时信息
-	int GetFilePlayInfo(FilePlayInfo *pFilePlayInfo)
+	int GetFilePlayInfo(PlayerInfo *pPlayInfo)
 	{
-		if (!pFilePlayInfo)
+		if (!pPlayInfo)
 			return DVO_Error_InvalidParameters;
 		if (m_hThreadPlayVideo)
 		{
-			pFilePlayInfo->nCurFrameID	 = m_nCurVideoFrame;
-			pFilePlayInfo->nTotalFrames	 = m_nTotalFrames; 
-			pFilePlayInfo->nFileFPS		 = m_nFileFPS;
-			pFilePlayInfo->nPlayFPS		 = m_nPlayFPS;
+			pPlayInfo->nVideoCodec	 = m_nVideoCodec;
+			pPlayInfo->nVideoWidth	 = m_nVideoWidth;
+			pPlayInfo->nVideoHeight	 = m_nVideoHeight;
+			pPlayInfo->nAudioCodec	 = m_nAudioCodec;
+			pPlayInfo->nCurFrameID	 = m_nCurVideoFrame;
+			pPlayInfo->nTotalFrames	 = m_nTotalFrames; 
+			pPlayInfo->nFileFPS		 = m_nFileFPS;
+			pPlayInfo->nPlayFPS		 = m_nPlayFPS;
 			EnterCriticalSection(&m_csVideoCache);
-			pFilePlayInfo->nCacheSize = m_listVideoCache.size();
+			pPlayInfo->nCacheSize = m_listVideoCache.size();
 			LeaveCriticalSection(&m_csVideoCache);
 			if (m_hThreadGetFileSummary &&
 				WaitForSingleObject(m_hThreadGetFileSummary,0) == WAIT_OBJECT_0)
 			{
-				pFilePlayInfo->tCurFrameTime = (m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
-				pFilePlayInfo->tTotalTime = (m_pFrameOffsetTable[m_nTotalFrames - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
+				pPlayInfo->tCurFrameTime = (m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
+				pPlayInfo->tTotalTime = (m_pFrameOffsetTable[m_nTotalFrames - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
 				return DVO_Succeed;
 			}
 			else
@@ -1226,9 +1242,12 @@ public:
 		
 		if (bEnable)
 		{
-			if (!m_pDsPlayer->IsInitialized())
-				m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-
+			if (!m_pDsPlayer)
+			{
+				m_pDsPlayer = make_shared<CDSound>(nullptr);
+				if (!m_pDsPlayer->IsInitialized())
+					m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
+			}
 			if (!m_pDsBuffer)			
 				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
 			
@@ -1236,7 +1255,8 @@ public:
 			if (!m_hThreadPlayAudio)
 			{
 				m_bThreadPlayAudioRun = true;
-				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+				//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+				m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, 0, 0);
 			}	
 			m_dfLastTimeAudioPlay = 0.0f;
 			m_dfLastTimeAudioSample = 0.0f;
@@ -1254,8 +1274,17 @@ public:
 				m_hThreadPlayAudio = nullptr;
 				DxTraceMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
 			}
-			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
-			m_pDsBuffer = nullptr;
+
+			if (m_pDsBuffer)
+			{
+				m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
+				m_pDsBuffer = nullptr;
+			}
+			if (m_pDsPlayer)
+			{
+				m_pDsPlayer.reset();
+				m_pDsPlayer = nullptr;
+			}
 		}
 		return DVO_Succeed;
 	}
@@ -1356,7 +1385,7 @@ public:
 		return true;
 	}
 	///< @brief 视频文件解析线程
-	static UINT __stdcall ThreadParser(void *p)
+	static DWORD WINAPI ThreadParser(void *p)
 	{// 若指定了有效的窗口句柄，则把解析后的文件数据放入播放队列，否则不放入播放队列
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 		LONG nSeekOffset = 0;
@@ -1478,7 +1507,7 @@ public:
 	}
 	
 	/// 文件摘要线程
-	static UINT __stdcall ThreadGetFileSummary(void *p)
+	static DWORD WINAPI ThreadGetFileSummary(void *p)
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 		if (pThis->m_nTotalFrames == 0)
@@ -1731,7 +1760,6 @@ public:
 		int nCacheSize = pThis->m_listVideoCache.size();
 		//DxTraceMsg("%s Video Cache size = %d.\n", __FUNCTION__, nCacheSize);
 #endif
-
 		FramePtr = pThis->m_listVideoCache.front();
 		if (pThis->m_bProbeMode)
 		{
@@ -1797,7 +1825,7 @@ public:
 		return nReturnVal;
 	}
 
-	static UINT __stdcall ThreadPlayVideo(void *p)
+	static DWORD WINAPI ThreadPlayVideo(void *p)
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 		int nAvError = 0;
@@ -2153,7 +2181,7 @@ public:
 			av_free(pYUV);
 		return 0;
 	}
-	static UINT __stdcall ThreadPlayAudio(void *p)
+	static DWORD WINAPI ThreadPlayAudio(void *p)
 	{
 		CDvoPlayer *pThis = (CDvoPlayer *)p;
 		int nAudioFrameInterval = pThis->m_nPlayInterval / 2;
@@ -2213,10 +2241,9 @@ public:
 			}
 			else
 			{	// 控制播放速度
-				nTimeSpan = (int)(1000 * (GetExactTime() - dfT1));
 				int nSleepTime = nAudioFrameInterval - nTimeSpan;
 				if (nSleepTime > dwSleepPricision)
-					ThreadSleep(nSleepTime);
+					Sleep(nSleepTime);
 				continue;
 			}
 			

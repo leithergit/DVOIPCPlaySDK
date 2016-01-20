@@ -15,6 +15,8 @@
 enum _SubItem
 {
 	Item_VCodecType,
+	Item_VideoWidth,
+	Item_VideoHeight,
 	Item_ACodecType,
 	Item_StreamRate,
 	Item_FrameRate,
@@ -140,6 +142,8 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	m_wndStreamInfo.InsertColumn(nCol++, _T("内容"), LVCFMT_LEFT, 120);
 	int nItem = 0;
 	m_wndStreamInfo.InsertItem(nItem++, _T("视频编码"));
+	m_wndStreamInfo.InsertItem(nItem++, _T("视频宽度"));
+	m_wndStreamInfo.InsertItem(nItem++, _T("视频高度"));
 	m_wndStreamInfo.InsertItem(nItem++, _T("音频编码"));
 	m_wndStreamInfo.InsertItem(nItem++, _T("码      率"));
 	m_wndStreamInfo.InsertItem(nItem++, _T("帧      率"));
@@ -176,6 +180,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		SendDlgItemMessage(nSliderIDArray[i], TBM_SETRANGEMAX, bRedraw, 100);
 	}
 
+	SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_SETPOS, TRUE, 80);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -474,6 +479,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
 				dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow);
+				int nVolume = SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_GETPOS);
+				dvoplay_SetVolume(m_pPlayContext->hPlayer, nVolume);
 				SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("停止播放"));
 			
 				EnableDlgItems(m_hWnd, true, 6,
@@ -892,24 +899,26 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdateStreamInfo(WPARAM w, LPARAM l)
 
 	DVO_CODEC nVideoCodec = CODEC_UNKNOWN;
 	DVO_CODEC nAudioCodec = CODEC_UNKNOWN;
-// 	if (dvoplay_GetCodec(m_pPlayContext->hPlayer, &nVideoCodec, &nAudioCodec) == DVO_Succeed)
-// 	{
-// 		if (nVideoCodec >= CODEC_UNKNOWN && nVideoCodec <= CODEC_AAC)
-// 			m_wndStreamInfo.SetItemText(Item_VCodecType, 1, szCodecString[nVideoCodec + 1]);// 视频编码类型
-// 		else
-// 			m_wndStreamInfo.SetItemText(Item_VCodecType, 1, _T("N/A"));
-// 
-// 		if (nAudioCodec >= CODEC_UNKNOWN && nAudioCodec <= CODEC_AAC)
-// 			m_wndStreamInfo.SetItemText(Item_ACodecType, 1, szCodecString[nAudioCodec + 1]);// 音频编码类型
-// 		else
-// 			m_wndStreamInfo.SetItemText(Item_ACodecType, 1, _T("N/A"));
-// 	}
-// 	int nStreamRate = m_pPlayContext->pStreamInfo->GetVideoCodeRate();
-// 	_stprintf_s(szText, 64, _T("%d Kbps"), nStreamRate);
-// 	m_wndStreamInfo.SetItemText(Item_StreamRate, 1, szText);// 码率
-// 
-// 	_stprintf_s(szText, 64, _T("%d fps"), m_pPlayContext->nFPS);
-// 	m_wndStreamInfo.SetItemText(Item_FrameRate, 1, szText);// 帧率
+	FilePlayInfo fpi;
+	dvoplay_GetFilePlayInfo(m_pPlayContext->hPlayer)
+	if (dvoplay_GetCodec(m_pPlayContext->hPlayer, &nVideoCodec, &nAudioCodec) == DVO_Succeed)
+	{
+		if (nVideoCodec >= CODEC_UNKNOWN && nVideoCodec <= CODEC_AAC)
+			m_wndStreamInfo.SetItemText(Item_VCodecType, 1, szCodecString[nVideoCodec + 1]);// 视频编码类型
+		else
+			m_wndStreamInfo.SetItemText(Item_VCodecType, 1, _T("N/A"));
+
+		if (nAudioCodec >= CODEC_UNKNOWN && nAudioCodec <= CODEC_AAC)
+			m_wndStreamInfo.SetItemText(Item_ACodecType, 1, szCodecString[nAudioCodec + 1]);// 音频编码类型
+		else
+			m_wndStreamInfo.SetItemText(Item_ACodecType, 1, _T("N/A"));
+	}
+	int nStreamRate = m_pPlayContext->pStreamInfo->GetVideoCodeRate();
+	_stprintf_s(szText, 64, _T("%d Kbps"), nStreamRate);
+	m_wndStreamInfo.SetItemText(Item_StreamRate, 1, szText);// 码率
+
+	_stprintf_s(szText, 64, _T("%d fps"), m_pPlayContext->nFPS);
+	m_wndStreamInfo.SetItemText(Item_FrameRate, 1, szText);// 帧率
 	int nCache = 0;
 	if (m_pPlayContext->hPlayer)
 		dvoplay_GetCacheSize(m_pPlayContext->hPlayer, nCache);
@@ -918,7 +927,7 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdateStreamInfo(WPARAM w, LPARAM l)
 	m_wndStreamInfo.SetItemText(Item_FrameCache, 1, szText);	// 帧缓存
 
 	_stprintf_s(szText, 64, _T("%d KB"), (m_pPlayContext->pStreamInfo->nVideoBytes + m_pPlayContext->pStreamInfo->nAudioBytes) / 1024);
-	//m_wndStreamInfo.SetItemText(Item_TotalStream, 1, szText);	// 收到总码流长度
+	m_wndStreamInfo.SetItemText(Item_TotalStream, 1, szText);	// 收到总码流长度
 
 	if (m_pPlayContext->pStreamInfo->tFirstTime > 0)
 	{
@@ -928,26 +937,26 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdateStreamInfo(WPARAM w, LPARAM l)
 	}
 	else
 		_tcscpy_s(szText, 64, _T("00:00:00"));
-	//m_wndStreamInfo.SetItemText(Item_ConnectTime, 1, szText);		// 连接时长
+	m_wndStreamInfo.SetItemText(Item_ConnectTime, 1, szText);		// 连接时长
 
-// 	if (m_pPlayContext->pRecFile)
-// 	{
-// 		m_wndStreamInfo.SetItemText(Item_RecFile, 1, m_pPlayContext->szRecFilePath);// 文件名
-// 		time_t nRecTime = time(0) - m_pPlayContext->tRecStartTime;
-// 		CTimeSpan tSpan(nRecTime);
-// 		_stprintf_s(szText, 64, _T("%02d:%02d:%02d"), tSpan.GetHours(), tSpan.GetMinutes(), tSpan.GetSeconds());
-// 		m_wndStreamInfo.SetItemText(Item_RecTime, 1, szText);				// 录像时长
-// 
-// 		_stprintf_s(szText, _T("%d KB"), m_pPlayContext->pRecFile->GetLength() / 1024);
-// 		m_wndStreamInfo.SetItemText(Item_FileLength, 1, szText);
-// 	}
-// 	else
-// 	{
-// 		_tcscpy_s(szText, 128, _T("暂未录像"));
-// 		m_wndStreamInfo.SetItemText(Item_RecFile, 1, szText);				// 文件名
-// 		m_wndStreamInfo.SetItemText(Item_RecTime, 1, _T("00:00:00"));		// 录像时长
-// 		m_wndStreamInfo.SetItemText(Item_FileLength, 1, szText);
-// 	}
+	if (m_pPlayContext->pRecFile)
+	{
+		m_wndStreamInfo.SetItemText(Item_RecFile, 1, m_pPlayContext->szRecFilePath);// 文件名
+		time_t nRecTime = time(0) - m_pPlayContext->tRecStartTime;
+		CTimeSpan tSpan(nRecTime);
+		_stprintf_s(szText, 64, _T("%02d:%02d:%02d"), tSpan.GetHours(), tSpan.GetMinutes(), tSpan.GetSeconds());
+		m_wndStreamInfo.SetItemText(Item_RecTime, 1, szText);				// 录像时长
+
+		_stprintf_s(szText, _T("%d KB"), m_pPlayContext->pRecFile->GetLength() / 1024);
+		m_wndStreamInfo.SetItemText(Item_FileLength, 1, szText);
+	}
+	else
+	{
+		_tcscpy_s(szText, 128, _T("暂未录像"));
+		m_wndStreamInfo.SetItemText(Item_RecFile, 1, szText);				// 文件名
+		m_wndStreamInfo.SetItemText(Item_RecTime, 1, _T("00:00:00"));		// 录像时长
+		m_wndStreamInfo.SetItemText(Item_FileLength, 1, szText);
+	}
 
 	return 0;
 }

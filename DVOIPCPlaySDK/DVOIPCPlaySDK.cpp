@@ -234,24 +234,6 @@ DVOIPCPLAYSDK_API int dvoplay_Pause(IN DVO_PLAYHANDLE hPlayHandle)
 	return DVO_Succeed;
 }
 
-/// @brief			获取码流类型
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in]		pVideoCodec		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	pAudioCodec	返回当前hPlayHandle是否已开启硬解码功能
-/// @remark 码流类型定义请参考:@see DVO_CODEC
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-/// @retval			DVO_Error_PlayerNotStart	播放器尚未启动,无法取得播放过程的信息或属性
-DVOIPCPLAYSDK_API int dvoplay_GetCodec(IN DVO_PLAYHANDLE hPlayHandle, DVO_CODEC *pVideoCodec, DVO_CODEC *pAudioCodec)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	return pPlayer->GetCodec(pVideoCodec, pAudioCodec);
-}
-
 /// @brief			开启硬解码功能
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnableHaccel	是否开启硬解码功能
@@ -295,37 +277,6 @@ DVOIPCPLAYSDK_API int  dvoplay_GetHaccelStatus(IN DVO_PLAYHANDLE hPlayHandle, OU
 DVOIPCPLAYSDK_API bool  dvoplay_IsSupportHaccel(IN DVO_CODEC nCodec)
 {
 	return CDvoPlayer::IsSupportHaccel(nCodec);
-}
-
-/// @brief			返回流播放时，当前播放队列中的视频帧的数量
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-/// @remark			播放流数据时，相应的帧数据其实并未立即播放，而是被放了播放队列中，应该根据dvoplay_PlayStream
-///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停播放
-DVOIPCPLAYSDK_API int dvoplay_GetCacheSize(IN DVO_PLAYHANDLE hPlayHandle, int &nCacheCount)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	return pPlayer->GetCacheSize(nCacheCount);
-}
-
-/// @brief			取得文件播放的视频帧率
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nFPS			返回文件中视频的帧率
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetFps(IN DVO_PLAYHANDLE hPlayHandle, OUT int &nFPS)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	return pPlayer->GetFps(nFPS);
 }
 
 /// @brief			取得文件中包括的有效视频帧总数量
