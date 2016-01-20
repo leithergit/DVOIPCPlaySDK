@@ -388,43 +388,25 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		if (ComboBox_FindString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), 0, szIPAddress) == CB_ERR)
 			ComboBox_AddString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), szIPAddress);
 
-		m_pPlayContext = make_shared<PlayerContext>(hUser);
-		REAL_HANDLE hStreamHandle = DVO2_NET_StartRealPlay(hUser,
-			0,
-			nStream,
-			DVO_TCP,
-			0,
-			NULL,
-			(fnDVOCallback_RealAVData_T)StreamCallBack,
-			(void *)m_pPlayContext.get(),
-			&nError);
-		if (!hStreamHandle)
-		{
-			m_wndStatus.SetWindowText(_T("打开码流失败"));
-			m_wndStatus.SetAlarmGllitery();	
-			DVO2_NET_Logout(hUser);
-			return;
-		}
-		m_pPlayContext->hStream = hStreamHandle;
+		m_pPlayContext = make_shared<PlayerContext>(hUser);		
 		m_pPlayContext->pThis = this;
+		m_pPlayContext->hUser = hUser;
 		_tcscpy_s(m_pPlayContext->szIpAddress, 32, szIPAddress);
 		SaveSetting();
 
 		EnableDlgItem(IDC_BUTTON_DISCONNECT, true);
-		EnableDlgItem(IDC_BUTTON_PLAYSTREAM, true);
-		EnableDlgItem(IDC_BUTTON_RECORD, true);
 		EnableDlgItem(IDC_BUTTON_CONNECT, false);
 		EnableDlgItem(IDC_EDIT_ACCOUNT, false);
 		EnableDlgItem(IDC_EDIT_PASSWORD, false);
+		EnableDlgItem(IDC_BUTTON_PLAYSTREAM, true);		
+		EnableDlgItem(IDC_BUTTON_RECORD, false);
 		EnableDlgItem(IDC_IPADDRESS, false);
-		EnableDlgItem(IDC_COMBO_STREAM, false);
 		EnableDlgItem(IDC_BUTTON_PLAYFILE, false);
 		EnableDlgItem(IDC_BUTTON_PAUSE, false);
 		EnableDlgItem(IDC_COMBO_PLAYSPEED, false);
 		EnableDlgItem(IDC_SLIDER_PLAYER, false);
 	}
 }
-
 
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonDisconnect()
 {
@@ -456,39 +438,69 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 	{
 		bool bEnableWnd = false;
 		CWaitCursor Wait;
-		if (!m_pPlayContext->hPlayer)
+		if (m_pPlayContext->hStream == -1)
 		{
-			int nFreePanel = 0;
-			m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(nFreePanel);
-			m_pVideoWndFrame->SetPanelParam(nFreePanel, m_pPlayContext.get());
-			m_pPlayContext->hPlayer = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0);
-			if (!m_pPlayContext->hPlayer)
+			int nStream = SendDlgItemMessage(IDC_COMBO_STREAM, CB_GETCURSEL);
+			int nError = 0;
+			REAL_HANDLE hStreamHandle = DVO2_NET_StartRealPlay(m_pPlayContext->hUser,
+				0,
+				nStream,
+				DVO_TCP,
+				0,
+				NULL,
+				(fnDVOCallback_RealAVData_T)StreamCallBack,
+				(void *)m_pPlayContext.get(),
+				&nError);
+			if (hStreamHandle == -1)
 			{
-				m_wndStatus.SetWindowText(_T("打开流播放句柄失败"));
+				m_wndStatus.SetWindowText(_T("连接码流失败"));
 				m_wndStatus.SetAlarmGllitery();
 				return;
 			}
-			bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
-			bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
-			dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow);
-			SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("停止播放"));
+			m_pPlayContext->hStream = hStreamHandle;
+			m_pPlayContext->pThis = this;
+			if (!m_pPlayContext->hPlayer)
+			{
+				int nFreePanel = 0;
+				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(nFreePanel);
+				m_pVideoWndFrame->SetPanelParam(nFreePanel, m_pPlayContext.get());
+				m_pPlayContext->hPlayer = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0);
+				if (!m_pPlayContext->hPlayer)
+				{
+					m_wndStatus.SetWindowText(_T("打开流播放句柄失败"));
+					m_wndStatus.SetAlarmGllitery();
+					return;
+				}
+				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
+				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
+				dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow);
+				SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("停止播放"));
 			
-			EnableDlgItems(m_hWnd, true, 6,
-				IDC_SLIDER_SATURATION,
-				IDC_SLIDER_BRIGHTNESS,
-				IDC_SLIDER_CONTRAST,
-				IDC_SLIDER_CHROMA,
-				IDC_SLIDER_PICSCALE,
-				IDC_SLIDER_VOLUME);
-			EnableDlgItem(IDC_SLIDER_PLAYER, false);
-			bEnableWnd = false;
+				EnableDlgItems(m_hWnd, true, 6,
+					IDC_SLIDER_SATURATION,
+					IDC_SLIDER_BRIGHTNESS,
+					IDC_SLIDER_CONTRAST,
+					IDC_SLIDER_CHROMA,
+					IDC_SLIDER_PICSCALE,
+					IDC_SLIDER_VOLUME);
+				EnableDlgItem(IDC_SLIDER_PLAYER, false);
+				EnableDlgItem(IDC_COMBO_STREAM, false);
+			}
+			
 		}
 		else
 		{
-			dvoplay_Stop(m_pPlayContext->hPlayer);
-			//dvoplay_Refresh(m_pCurPlayer->hPlayer);
-			dvoplay_Close(m_pPlayContext->hPlayer);
-			m_pPlayContext->hPlayer = nullptr;
+			DVO2_NET_StopRealPlay(m_pPlayContext->hStream);
+			m_pPlayContext->hStream = -1;		
+			
+			if (m_pPlayContext->hPlayer)
+			{
+				dvoplay_Stop(m_pPlayContext->hPlayer);
+				//dvoplay_Refresh(m_pPlayContext->hPlayer);
+				dvoplay_Close(m_pPlayContext->hPlayer);
+
+				m_pPlayContext->hPlayer = nullptr;
+			}
 			SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("播放码流"));
 			EnableDlgItems(m_hWnd, false, 6,
 				IDC_SLIDER_SATURATION,
@@ -497,11 +509,10 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				IDC_SLIDER_CHROMA,
 				IDC_SLIDER_PICSCALE,
 				IDC_SLIDER_VOLUME);
-			EnableDlgItem(IDC_SLIDER_PLAYER, false);
-			bEnableWnd = true;
-
+			EnableDlgItem(IDC_SLIDER_PLAYER, false);					
+			EnableDlgItem(IDC_BUTTON_PLAYFILE, true);
+			EnableDlgItem(IDC_COMBO_STREAM, true);
 		}
-		EnableDlgItem(IDC_BUTTON_PLAYFILE, bEnableWnd);
 	}
 }
 
@@ -735,8 +746,9 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
 	int nSizeofHeader = sizeof(app_net_tcp_enc_stream_head_t);
 	byte *pFrameData = (byte *)(pStreamHeader)+nSizeofHeader;
-	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);
-	time_t tFrame = pStreamHeader->sec * 1000 * 1000 + pStreamHeader->usec;
+	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);	
+	time_t tSec = pStreamHeader->sec;
+	time_t tFrame = tSec * 1000 * 1000 + pStreamHeader->usec;
 	
 	switch (pStreamHeader->frame_type)
 	{
@@ -760,7 +772,8 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 
 		int nFrameTimeSpan = (tFrame - pContext->tLastFrame) / 1000;
 		pContext->tLastFrame = tFrame;
-		pContext->nFPS = 1000 / nFrameTimeSpan;
+		if (nFrameTimeSpan)
+			pContext->nFPS = 1000 / nFrameTimeSpan;
 		break;
 	}
 	case APP_NET_TCP_COM_DST_P_FRAME:
@@ -778,7 +791,8 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 
 		int nFrameTimeSpan = (tFrame - pContext->tLastFrame)/1000;
 		pContext->tLastFrame = tFrame;
-		pContext->nFPS = 1000 / nFrameTimeSpan;
+		if (nFrameTimeSpan)
+			pContext->nFPS = 1000 / nFrameTimeSpan;
 		break;
 	}
 	case APP_NET_TCP_COM_DST_711_ALAW:      // 711 A律编码帧
@@ -1163,3 +1177,5 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 		m_wndStatus.SetAlarmGllitery();
 	}
 }
+
+
