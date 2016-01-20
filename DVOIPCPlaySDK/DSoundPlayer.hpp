@@ -44,10 +44,9 @@ using namespace std::tr1;
 
 class CDSoundBuffer
 {
-
 public:
-
-	explicit CDSoundBuffer(int nNotifyCount, DWORD dwNotifySize)
+	/// 类内引用成员的初始化时,在必须以引用的方式导入类构造参数,否则类成员的引用会指向无法预测的地址
+	explicit CDSoundBuffer(int &nNotifyCount, DWORD &dwNotifySize)
 		:m_nNotifyCount(nNotifyCount)
 		, m_dwNotifySize(dwNotifySize)
 	{
@@ -93,7 +92,7 @@ public:
 	// 初始化，主要是生成播放缓冲区和设置通知事件
 	//bGlobalFocus如果为TRUE，在失去焦点时仍然播放
 	//////////////////////////////////////////////////////////////////////////	
-	bool Create(LPDIRECTSOUNDBUFFER pDSBPrimary = nullptr, int nPlayTime = 1/*Second*/)
+	bool Create(LPDIRECTSOUNDBUFFER pDSBPrimary)
 	{
 		if (!pDSBPrimary)
 			return false;
@@ -166,13 +165,14 @@ public:
 		if (m_pDSBuffer == NULL)
 			return FALSE;
 		m_bPause = FALSE;
-		HRESULT hr = m_pDSBuffer->Stop();
+		HRESULT hr = m_pDSBuffer->SetCurrentPosition(0L);
+		hr = m_pDSBuffer->Stop();
 		if (FAILED(hr))
 		{
 			DsTrace("%s m_pDSBSlavely->Stop() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
 			return FALSE;
 		}
-		hr = m_pDSBuffer->SetCurrentPosition(0L);
+		
 		if (FAILED(hr))
 		{
 			DsTrace("%s m_pDSBSlavely->SetCurrentPosition() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
@@ -280,20 +280,32 @@ public:
 		LPVOID  pBuffer2;
 		DWORD	nBuffer2Length;
 
-		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 1000 / m_nNotifyCount);
+		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 200);
 		if (nResult == WAIT_TIMEOUT)
+		{
+			DsTrace("%s Wait for Dsound Play evnet timeout.\n",__FUNCTION__);
 			return false;
+		}
 
 		if (!TryEnterCriticalSection(&m_csBuffer))
+		{
+			DsTrace("%s Failed to lock dsound buffer.\n", __FUNCTION__);
 			return false;
-
-		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csBuffer, ::LeaveCriticalSection);
+		}
 		if (!m_pDSBuffer)
+		{
+			DsTrace("%s Dsound Buffer is invalid.\n", __FUNCTION__);
 			return false;
+		}
+		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csBuffer, ::LeaveCriticalSection);
+		
 		HRESULT hr = S_OK;
 
 		if (!RestoreBuffer())
+		{
+			DsTrace("%s Restore dsound Buffer is invalid.\n", __FUNCTION__);
 			return false;
+		}
 		hr = m_pDSBuffer->Lock(m_nPlayOffset, nPCMLength, &pBuffer1, &nBuffer1Length, &pBuffer2, &nBuffer2Length, 0);
 
 		if (FAILED(hr))
@@ -308,6 +320,7 @@ public:
 			CopyMemory(pBuffer2, pPCM + nBuffer1Length, nBuffer2Length);
 		}
 		m_nPlayOffset += nPCMLength;
+		m_nPlayOffset %= (m_dwNotifySize * m_nNotifyCount);
 		hr = m_pDSBuffer->Unlock(pBuffer1, nBuffer1Length, pBuffer2, nBuffer2Length);
 		if (FAILED(hr))
 		{
@@ -327,10 +340,10 @@ private:
 	long m_lVolume = 0;
 	BOOL m_bPause = false;
 	BOOL m_bMute;
-	int &m_nNotifyCount;
-	DWORD &m_dwNotifySize;
+	const int &m_nNotifyCount;
+	const DWORD &m_dwNotifySize;
 };
-
+typedef shared_ptr<CDSoundBuffer> CDSoundBufferPtr;
 class CDSound
 {
 #ifdef _DEBUG
@@ -514,17 +527,19 @@ public:
 	}
 	CDSoundBuffer *CreateDsoundBuffer()
 	{
-		CDSoundBuffer *pDsBuffer = new CDSoundBuffer(m_nNotifyCount,m_dwNotifySize);
-		if (pDsBuffer->Create())
+		int a = 1234;
+		int &b = a;
+		CDSoundBufferPtr pDsBuffer = make_shared<CDSoundBuffer>(m_nNotifyCount,m_dwNotifySize);
+
+		if (pDsBuffer->Create(m_pDSBPrimary))
 		{
 			::EnterCriticalSection(&m_csListBuffer);
 			m_listDsBuffer.push_back(pDsBuffer);
 			::LeaveCriticalSection(&m_csListBuffer);
-			return pDsBuffer;
+			return pDsBuffer.get();
 		}
 		else
 		{
-			delete pDsBuffer;
 			return nullptr;
 		}
 	}
@@ -535,7 +550,7 @@ public:
 			return;
 		::EnterCriticalSection(&m_csListBuffer);
 		for (auto it = m_listDsBuffer.begin(); it != m_listDsBuffer.end();)
-			if ((*it) == pDsBuffer)
+			if ((*it).get() == pDsBuffer)
 			{
 				m_listDsBuffer.erase(it);
 				break;
@@ -546,7 +561,7 @@ public:
 	}
 
 public:
-	list<CDSoundBuffer*>	m_listDsBuffer;
+	list<CDSoundBufferPtr>m_listDsBuffer;
 	LPDIRECTSOUND m_pDirectSound	 = nullptr;
 	LPDIRECTSOUNDBUFFER m_pDSBPrimary = nullptr;
 	CRITICAL_SECTION m_csListBuffer;

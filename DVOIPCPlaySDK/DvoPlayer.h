@@ -518,10 +518,10 @@ public:
 			OSVERSIONINFOEX osVer;
 			osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
 			GetVersionEx((OSVERSIONINFO *)&osVer);
-			if (osVer.dwMajorVersion < 6)
+			//if (osVer.dwMajorVersion < 6)
 				m_pDxSurface = _New CDxSurface();
-			else
-				m_pDxSurface = _New CDxSurfaceEx();
+// 			else
+// 				m_pDxSurface = _New CDxSurfaceEx();
 
 			//m_DsPlayer = _New CDSoundPlayer();
 			//m_DsPlayer.Initialize(m_hWnd, Audio_Play_Segments);
@@ -529,7 +529,7 @@ public:
 		m_nMaxFrameSize	 = 1024 * 256;
 		m_nFileFPS		 = 25;				// FPS的默认值为25
 		m_fPlayRate		 = 1;
-		m_nPlayInterval = 25;
+		m_nPlayInterval	 = 40;
 		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
 		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
 #ifdef _DEBUG
@@ -738,7 +738,7 @@ public:
 			{
 				if (!m_pDsPlayer->IsInitialized())
 					m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
+ 				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
 				m_bThreadPlayAudioRun = true;
 				m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
 				
@@ -896,7 +896,7 @@ public:
 			CloseHandle(m_hThreadGetFileSummary);
 			DxTraceMsg("%s ThreadGetFileSummary has exit.\n", __FUNCTION__);
 		}
-		if (m_pDsBuffer && m_bEnableAudio)
+		if (m_pDsBuffer)
 		{
 			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
 			m_pDsBuffer = nullptr;
@@ -1164,7 +1164,6 @@ public:
 		EnterCriticalSection(&m_csAudioCache);
 		m_listAudioCache.clear();
 		LeaveCriticalSection(&m_csAudioCache);
-		
 		
 		// 从文件摘要中，取得文件偏移信息
 		// 查找最近的I帧
@@ -1826,9 +1825,9 @@ public:
 		// 等待I帧
 		double tFirst = GetExactTime();
 #ifdef _DEBUG
-		double dfTimeout = 900.0f;
+		double dfTimeout = 8.0f;
 #else
-		double dfTimeout = 4.0f;		// 等待I帧时间
+		double dfTimeout = 2.0f;		// 等待I帧时间
 #endif
 		while (true)
 		{
@@ -1872,9 +1871,15 @@ public:
 			return 0;
 		}
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_H264)
+		{
 			pThis->m_nVideoCodec = CODEC_H264;
+			DxTraceMsg("%s Video Codec:%H.264 Width = %d\tHeight = %d.\n", __FUNCTION__, pDecodec->m_pAVCtx->width, pDecodec->m_pAVCtx->height);
+		}
 		else if (pDecodec->m_nCodecId == AV_CODEC_ID_HEVC)
+		{
 			pThis->m_nVideoCodec = CODEC_H265;
+			DxTraceMsg("%s Video Codec:%H.265 Width = %d\tHeight = %d.\n", __FUNCTION__, pDecodec->m_pAVCtx->width, pDecodec->m_pAVCtx->height);
+		}
 		else
 		{
 			pThis->m_nVideoCodec = CODEC_UNKNOWN;
@@ -2008,7 +2013,10 @@ public:
 					}
 					
 					if (!bPopFrame)
+					{
 						Sleep(10);
+						continue;
+					}
 					else
 					{
 						dfT1 = GetExactTime();
@@ -2032,13 +2040,17 @@ public:
 				{
 					FramePtr = pThis->m_listVideoCache.front();
 					pThis->m_listVideoCache.pop_front();
-					bool bPopFrame = true;
+					bPopFrame = true;
 				}
 				::LeaveCriticalSection(&pThis->m_csVideoCache);
 				if (!bPopFrame)
+				{
 					Sleep(10);
+					continue;
+				}
 			}
-
+			pAvPacket->data = (uint8_t *)FramePtr->Framedata();
+			pAvPacket->size = FramePtr->FrameHeader()->nLength;
 			pThis->m_tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
 // 此为最大帧率真测试代码,建议不要删除
 // xionggao.lee @2016.01.15 
@@ -2175,10 +2187,14 @@ public:
 					pThis->m_listAudioCache.pop_front();
 				::LeaveCriticalSection(&pThis->m_csAudioCache);
 			}
+			
 			if (nTimeSpan >= nAudioFrameInterval)
 			{
-				if (!pThis->m_pDsBuffer->IsPlaying())
+				if (nTimeSpan > 100)			// 连续100ms没有音频数据，则视为音频暂停
+					pThis->m_pDsBuffer->StopPlay();
+				else if(!pThis->m_pDsBuffer->IsPlaying())
 					pThis->m_pDsBuffer->StartPlay();
+				
 				bool bPopFrame = false;
 				::EnterCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_listAudioCache.size() > 0)
@@ -2189,7 +2205,11 @@ public:
 				}
 				::LeaveCriticalSection(&pThis->m_csAudioCache);
 				if (!bPopFrame)
-					ThreadSleep(10);
+				{
+					Sleep(10);
+					continue;
+				}
+				dfT1 = GetExactTime();
 			}
 			else
 			{	// 控制播放速度
@@ -2199,8 +2219,7 @@ public:
 					ThreadSleep(nSleepTime);
 				continue;
 			}
-			if (!FramePtr)
-				continue;
+			
 			if (pAudioDecoder->GetCodecType() == CODEC_UNKNOWN)
 			{
 				const DVOFrameHeaderEx *pHeader = FramePtr->FrameHeader();
@@ -2259,7 +2278,10 @@ public:
 			if (pThis->m_pDsBuffer->IsPlaying() &&
 				pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(), FramePtr->FrameHeader()->nLength) != 0)
 			{
-				pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize);
+				if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize))
+				{
+					DxTraceMsg("%s Write PCM Failed.\n", __FUNCTION__);
+				}
 // #ifdef _DEBUG
 // 				TPlayArray[nPlayCount++] = TimeSpanEx(dfT1);	
 // 				dfT1 = GetExactTime();

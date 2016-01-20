@@ -874,7 +874,6 @@ public:
 				 BOOL bIsWindowed = TRUE,
 				 D3DFORMAT nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 	{
-
 		TraceFunction();
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
@@ -1311,7 +1310,8 @@ _Failed:
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
- 				if (pAvFrame->format == AV_PIX_FMT_YUV420P &&
+ 				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
+					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
  					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
  				else
@@ -1824,7 +1824,7 @@ public:
 		assert(IsWindow(hWnd));
 		assert(nVideoWidth != 0 || nVideoHeight != 0);
 		bool bSucceed = false;
-
+		double dfTStart = GetExactTime();		
 		D3DCAPS9 caps;
 		m_pDirect3D9Ex->GetDeviceCaps(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,&caps);
 		int vp = 0;
@@ -1832,12 +1832,12 @@ public:
 			vp = D3DCREATE_HARDWARE_VERTEXPROCESSING;
 		else		
 			vp = D3DCREATE_SOFTWARE_VERTEXPROCESSING;
-
+		
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
 		if(FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&d3ddm)))
 			goto _Failed;
-
+		
 		ZeroMemory(&m_d3dpp, sizeof(D3DPRESENT_PARAMETERS));
 		m_d3dpp.BackBufferFormat		= d3ddm.Format;
 		m_d3dpp.BackBufferCount			= 1;
@@ -1895,7 +1895,7 @@ public:
 			m_dwStyle	 &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
-
+		dfTStart = GetExactTime();
 		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT, 
 														D3DDEVTYPE_HAL, 
 														m_d3dpp.hDeviceWindow,
@@ -1907,6 +1907,8 @@ public:
 														&m_pDirect3DDeviceEx)))
 			goto _Failed;
 
+		DxTraceMsg("%s Timespan[%d] = %.3f.\n", __FUNCTION__, __LINE__, TimeSpanEx(dfTStart));
+		dfTStart = GetExactTime();
 
 		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth, 
 			nVideoHeight, 
@@ -1915,6 +1917,8 @@ public:
 			&m_pDirect3DSurfaceRender, 
 			NULL)))	
 			goto _Failed;
+		DxTraceMsg("%s Timespan[%d] = %.3f.\n", __FUNCTION__, __LINE__, TimeSpanEx(dfTStart));
+		dfTStart = GetExactTime();
 		D3DSURFACE_DESC SrcSurfaceDesc;			
 		m_pDirect3DSurfaceRender->GetDesc(&SrcSurfaceDesc);
 		// ±£´æ²ÎÊý
@@ -2232,7 +2236,8 @@ _Failed:
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
-				if (pAvFrame->format == AV_PIX_FMT_YUV420P &&
+				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
+					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
 				else
