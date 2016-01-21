@@ -279,37 +279,19 @@ DVOIPCPLAYSDK_API bool  dvoplay_IsSupportHaccel(IN DVO_CODEC nCodec)
 	return CDvoPlayer::IsSupportHaccel(nCodec);
 }
 
-/// @brief			取得文件中包括的有效视频帧总数量
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile返回的播放句柄
-/// @param [out]	nFrames			返回文件中视频的总帧数
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetFrames(IN DVO_PLAYHANDLE hPlayHandle, OUT int &nFrames)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	if (pPlayer->IsFilePlayer())
-		return pPlayer->GetFrames(nFrames);
-	else
-		return DVO_Error_NotFilePlayer;
-}
-
 /// @brief			取得当前播放视频的帧信息
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [out]	pFilePlayInfo	文件播放的相关信息，参见@see FilePlayInfo
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetFilePlayInfo(IN DVO_PLAYHANDLE hPlayHandle,OUT FilePlayInfo *pFilePlayInfo)
+DVOIPCPLAYSDK_API int  dvoplay_GetPlayerInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayerInfo *pPlayerInfo)
 {
-	if (!hPlayHandle || !pFilePlayInfo)
+	if (!hPlayHandle || !pPlayerInfo)
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	return pPlayer->GetFilePlayInfo(pFilePlayInfo);
+	return pPlayer->GetPlayerInfo(pPlayerInfo);
 }
 
 /// @brief			截取正放播放的视频图像
@@ -375,22 +357,6 @@ DVOIPCPLAYSDK_API int  dvoplay_GetVolume(IN DVO_PLAYHANDLE hPlayHandle, OUT int 
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
 	pPlayer->SetVolume(nVolume);
-	return DVO_Succeed;
-}
-
-/// @brief			取得当前播放的速度的倍率
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nPlayRate		当前的播放的倍率,@see PlayRate
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetRate(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayRate &nPlayRate)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	nPlayRate = (PlayRate)pPlayer->GetRate();
 	return DVO_Succeed;
 }
 
@@ -490,20 +456,6 @@ DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle)
 		return DVO_Error_InvalidParameters;
 	pPlayer->Refresh();
 	return DVO_Succeed;
-}
-
-/// @brief			获取已放时间,单位毫秒
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetTimeEplased(IN DVO_PLAYHANDLE hPlayHandle, LONGLONG &nEplaseTime)
-{
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	return pPlayer->GetTimeEplased(nEplaseTime);
 }
 
 /// @brief			设置外部绘制回调接口

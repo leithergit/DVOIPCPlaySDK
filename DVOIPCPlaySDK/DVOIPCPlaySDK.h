@@ -95,6 +95,8 @@ enum PlayRate
 #define		DVO_Error_BufferSizeNotEnough	(-15)	///< 提供的缓冲区长度不足
 #define		DVO_Error_VideoThreadNotRun		(-16)	///< 视频解码线程尚未启动或已经退出
 #define		DVO_Error_AudioThreadNotRun		(-17)	///< 音频频解码线程尚未启动或已经退出
+#define		DVO_Error_ReadFileFailed		(-18)	///< 读文件失败
+#define		DVO_Error_FileNotExist			(-19)	///< 文件不存在
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 /// @brief 播放器即时信息
@@ -104,15 +106,16 @@ struct PlayerInfo
 	DVO_CODEC	nAudioCodec;
 	USHORT		nVideoWidth;
 	USHORT		nVideoHeight;
-	UINT		nTotalFrames;	///< 视频总帧数
-	time_t		tTotalTime;		///< 文件总时长(单位:毫秒)
-	UINT		nCurFrameID;	///< 当前播放视频的帧ID
+	BOOL		bAudioEnabled;	///< 是否已开启音频
+	UINT		nTotalFrames;	///< 视频总帧数,只有文件播放时才有效
+	time_t		tTotalTime;		///< 文件总时长(单位:毫秒),只有文件播放时才有效
+	UINT		nCurFrameID;	///< 当前播放视频的帧ID,只有文件播放时才有效
 	time_t		tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒)
 	time_t		tTimeEplased;	///< 已播放时间(单位:毫秒)
-	USHORT		nFileFPS;		///< 文件中视频的原始帧率
+	USHORT		nFPS;			///< 文件或码流中视频的原始帧率
 	USHORT		nPlayFPS;		///< 当前播放的帧率
 	UINT		nCacheSize;		///< 播放缓存
-	float		fPlayRate;		///< 播放速率
+	float		fPlayRate;		///< 播放速率,只有文件播放时才有效
 	UINT		nReserver[4];
 };
 ///	@def	DVO_PLAYHANDLE
@@ -272,7 +275,7 @@ DVOIPCPLAYSDK_API bool  dvoplay_IsSupportHaccel(IN DVO_CODEC nCodec);
 /// @param [out]	tTimeStamp		返回当前播放视频的帧相对起点的时间(单位:毫秒)
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetPlayerInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayerInfo *pFilePlayInfo);
+DVOIPCPLAYSDK_API int  dvoplay_GetPlayerInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayerInfo *pPlayInfo);
 
 /// @brief			截取正放播放的视频图像
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
