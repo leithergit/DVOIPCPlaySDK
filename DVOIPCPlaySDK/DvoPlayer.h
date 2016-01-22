@@ -247,8 +247,9 @@ enum SleepWay
 
 struct FileFrameInfo
 {
-	UINT	nOffset;
-	bool	bIFrame;
+	UINT	nOffset;	///< 帧数据所在的文件偏移
+	UINT	nFrameSize;	///< 包含 DVOFrameHeaderEx在内的帧数据的尺寸
+	bool	bIFrame;	///< 是否I帧
 	time_t	tTimeStamp;
 };
 class CDvoPlayer
@@ -256,7 +257,6 @@ class CDvoPlayer
 public:
 	int		nSize;
 private:
-	
 	list<StreamFramePtr>::iterator ItLoop;
 	list<StreamFramePtr>m_listAudioCache;///< 流播放帧缓冲
 	list<StreamFramePtr>m_listVideoCache;///< 流播放帧缓冲	
@@ -280,6 +280,7 @@ private:
 	//shared_ptr<CDSound> m_pDsPlayer;	///< DirectSound播放对象指针
 	CDSoundBuffer* m_pDsBuffer;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
+	shared_ptr<CVideoDecoder>m_pDecodec;
 	static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
 	int			m_nVideoWidth;			///< 视频宽度
@@ -322,10 +323,11 @@ private:
 	shared_ptr<byte>m_pYUVPtr;
 private:	// 文件播放相关变量
 	HANDLE		m_hDvoFile;				///< 正在播放的文件句柄
-	shared_ptr<DVO_MEDIAINFO>m_pMediaHeader;/// 媒体文件头	
+	shared_ptr<DVO_MEDIAINFO>m_pMediaHeader;/// 媒体文件头
+	UINT		m_nFrametoRead;			///< 当前将要读取的视频帧ID
 	char		*m_pszFileName;			///< 正在播放的文件名,该字段仅在文件播放时间有效
 	FileFrameInfo	*m_pFrameOffsetTable;///< 视频帧ID对应文件偏移表
-	volatile LONG m_nSeekOffset;		///< 读文件的偏移
+	volatile LONGLONG m_nSeekOffset;	///< 读文件的偏移
 	CRITICAL_SECTION	m_csSeekOffset;
 	float		m_fPlayRate;			///< 当前的播放的倍率,大于1时为加速播放,小于1时为减速播放，不能为0或小于0
 	int			m_nSDKVersion;			///< 生成录像文件的SDK版本	
@@ -341,7 +343,7 @@ private:
 	CaptureYUVEx	m_pfnCaptureYUVEx;
 	void*			m_pUserCaptureYUVEx;
 	FilePlayProc	m_pFilePlayCallBack;
-	void*			m_pUserFilePlaye;
+	void*			m_pUserFilePlayer;
 	SleepWay		m_nSleepWay;		///< 线程休眠的方式,@see SleepWay
 public:
 	
@@ -354,12 +356,12 @@ private:
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
-	LONG GetSeekOffset()
+	LONGLONG GetSeekOffset()
 	{
 		CAutoLock lock(&m_csSeekOffset);
 		return m_nSeekOffset;
 	}
-	void SetSeekOffset(UINT nSeekOffset)
+	void SetSeekOffset(LONGLONG nSeekOffset)
 	{
 		CAutoLock lock(&m_csSeekOffset);
 		m_nSeekOffset = nSeekOffset;
@@ -409,8 +411,9 @@ private:
 		LARGE_INTEGER liFileSize;
 		if (!GetFileSizeEx(m_hDvoFile, &liFileSize))
 			return GetLastError();
+		
 		if (liFileSize.QuadPart >= m_nMaxFrameSize && 
-			SetFilePointer(m_hDvoFile, -m_nMaxFrameSize,nullptr, FILE_END) == INVALID_SET_FILE_POINTER)
+			LargerFileSeek(m_hDvoFile, -m_nMaxFrameSize, FILE_END) == INVALID_SET_FILE_POINTER)
 			return GetLastError();
 		DWORD nBytesRead = 0;
 		DWORD nDataLength = m_nMaxFrameSize;
@@ -488,12 +491,81 @@ private:
 		else
 			return DVO_Error_MaxFrameSizeNotEnough;
 	}
-public:
+	/// @brief 渲染一帧
+	void RenderFrame(AVFrame *pAvFrame)
+	{
+		if (m_bFitWindow)
+			m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr);
+		else
+		{
+			RECT rtRender;
+			GetWindowRect(m_hWnd, &rtRender);
+			POINT ptLeftTop, ptRightBottom;
+			ptLeftTop.x = rtRender.left;
+			ptLeftTop.y = rtRender.top;
+			ptRightBottom.x = rtRender.right;
+			ptRightBottom.y = rtRender.bottom;
 
+			ScreenToClient(m_hWnd, &ptLeftTop);
+			ScreenToClient(m_hWnd, &ptRightBottom);
+			rtRender.left = ptLeftTop.x;
+			rtRender.top = ptLeftTop.y;
+			rtRender.right = ptRightBottom.x;
+			rtRender.bottom = ptRightBottom.y;
+			int nWndWidth = rtRender.right - rtRender.left;
+			int nWndHeight = rtRender.bottom - rtRender.top;
+			float fScaleWnd = (float)nWndWidth / nWndHeight;
+			float fScaleVideo = (float)pAvFrame->width / pAvFrame->height;
+			if (fScaleVideo > fScaleWnd)			// 窗口高度超出比例,需要去掉一部分高度,视频需要上下居中
+			{
+				int nNewHeight = (int)nWndWidth / fScaleVideo;
+				int nOverHeight = nWndHeight - nNewHeight;
+				if ((float)nOverHeight / nWndHeight > 0.1f)	// 窗口高度超出10%,则调整高度，否则忽略该差异
+				{
+					rtRender.top += nOverHeight / 2;
+					rtRender.bottom -= nOverHeight / 2;
+				}
+			}
+			else if (fScaleVideo < fScaleWnd)		// 窗口宽度超出比例,需要去掉一部分宽度，视频需要左右居中
+			{
+				int nNewWidth = nWndHeight*fScaleVideo;
+				int nOverWidth = nWndWidth - nNewWidth;
+				if ((float)nOverWidth / nWndWidth > 0.1f)
+				{
+					rtRender.left += nOverWidth / 2;
+					rtRender.right -= nOverWidth / 2;
+				}
+			}
+			m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+		}
+	}
+	// 二分查找
+	int BinarySearch(time_t tTime)
+	{
+		int low = 0;
+		int high = m_nTotalFrames - 1;
+		int middle = 0;
+		while (low <= high)
+		{
+			middle = (low + high) / 2;
+			if (tTime >= m_pFrameOffsetTable[middle].tTimeStamp &&
+				tTime <= m_pFrameOffsetTable[middle + 1].tTimeStamp)
+				return middle;
+			//在左半边
+			else if (tTime < m_pFrameOffsetTable[middle].tTimeStamp)
+				high = middle - 1;
+			//在右半边
+			else if (tTime > m_pFrameOffsetTable[middle + 1].tTimeStamp)
+				low = middle + 1;
+		}
+		//没找到
+		return -1;
+	}
+public:
 	void SetPlayCallBack(FilePlayProc pFilePlayCallBack,void *pUserPtr)
 	{
 		m_pFilePlayCallBack = pFilePlayCallBack;
-		m_pUserFilePlaye = pUserPtr;
+		m_pUserFilePlayer = pUserPtr;
 	}
 
 	CDvoPlayer(HWND hWnd,CHAR *szFileName =  NULL)
@@ -622,9 +694,12 @@ public:
 			return DVO_Error_InsufficentMemory;
 	}
 
-	void SetMaxFrameSize(int nMaxFrameSize = 256*1024)
+	int SetMaxFrameSize(int nMaxFrameSize = 256*1024)
 	{
+		if (m_hThreadParser || m_hThreadPlayVideo)
+			return DVO_Error_PlayerHasStart;
 		m_nMaxFrameSize = nMaxFrameSize;
+		return DVO_Succeed;
 	}
 
 	inline int GetMaxFrameSize()
@@ -1077,11 +1152,14 @@ public:
 	}
 
 	/// @brief			跳跃到指视频帧进行播放
-	/// @param [in]		nFrameID		要播放帧的起始ID
+	/// @param [in]		nFrameID	要播放帧的起始ID
+	/// @param [in]		bUpdate		是否更新画面,bUpdate为true则予以更新画面,画面则不更新
 	/// @retval			0	操作成功
 	/// @retval			-1	输入参数无效
-	/// @remark			若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
-	int  SeekFrame(IN int nFrameID)
+	/// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
+	///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
+	///					3.只有在播放暂时,bUpdate参数才有效
+	int  SeekFrame(IN int nFrameID,bool bUpdate = false)
 	{
 		if (!m_hDvoFile || !m_pFrameOffsetTable)
 			return DVO_Error_NotFilePlayer;
@@ -1107,45 +1185,88 @@ public:
 				break;
 			nForward++;
 		}
-		while (nBackWord > 0 )
+		if (nForward >= m_nTotalFrames)
+			nForward--;
+		
+		while (nBackWord > 0 && nBackWord < m_nTotalFrames)
 		{
 			if (m_pFrameOffsetTable[nBackWord].bIFrame)
 				break;
 			nBackWord --;
 		}
-		if ((nForward - nFrameID) <= (nFrameID - nBackWord ))
+		if (nBackWord < 0)
+			nBackWord = 0;
+		if ((nForward - nFrameID) <= (nFrameID - nBackWord))
+		{
+			m_nFrametoRead = nForward;
 			SetSeekOffset(m_pFrameOffsetTable[nForward].nOffset);
+		}
 		else
+		{
+			m_nFrametoRead = nBackWord;
 			SetSeekOffset(m_pFrameOffsetTable[nBackWord].nOffset);
+		}
+		if (bUpdate && 
+			m_hThreadPlayVideo &&	// 必须启动播放线程
+			m_bPause &&				// 必须是暂停模式			
+			m_pDecodec)				// 解码器必须已启动
+		{
+			// 读取一帧,并予以解码,显示
+			DWORD nBufferSize = m_pFrameOffsetTable[m_nFrametoRead].nFrameSize;
+			LONGLONG nOffset = m_pFrameOffsetTable[m_nFrametoRead].nOffset;
+
+			byte *pBuffer = _New byte[nBufferSize + 1];
+			if (!pBuffer)
+				return DVO_Error_InsufficentMemory;
+
+			unique_ptr<byte>BufferPtr(pBuffer);			
+			DWORD nBytesRead = 0;
+			if (LargerFileSeek(m_hDvoFile, nOffset, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+			{
+				DxTraceMsg("%s LargerFileSeek  Failed,Error = %d.\n", __FUNCTION__, GetLastError());
+				return GetLastError();
+			}
+
+			if (!ReadFile(m_hDvoFile, pBuffer, nBufferSize, &nBytesRead, nullptr))
+			{
+				DxTraceMsg("%s ReadFile Failed,Error = %d.\n", __FUNCTION__, GetLastError());
+				return GetLastError();
+			}
+			AVPacket *pAvPacket = (AVPacket *)av_malloc(sizeof(AVPacket));
+			shared_ptr<AVPacket>AvPacketPtr(pAvPacket, av_free);
+			AVFrame *pAvFrame = av_frame_alloc();
+			shared_ptr<AVFrame>AvFramePtr(pAvFrame, av_free);
+			av_init_packet(pAvPacket);
+			pAvPacket->size = Frame(pBuffer)->nLength;
+			pAvPacket->data = pBuffer + sizeof(DVOFrameHeaderEx);
+			int nGotPicture = 0;
+			char szAvError[1024] = { 0 };
+			int nAvError = m_pDecodec->Decode(pAvFrame, nGotPicture, pAvPacket);
+			if (nAvError < 0)
+			{
+				av_strerror(nAvError, szAvError, 1024);
+				DxTraceMsg("%s Decode error:%s.\n", __FUNCTION__, szAvError);
+				return DVO_Error_DecodeFailed;
+			}
+			av_packet_unref(pAvPacket);
+			if (nGotPicture)
+			{
+				RenderFrame(pAvFrame);
+			}
+			return DVO_Succeed;
+		}
 		return DVO_Succeed;
 	}
-
-
-// 	int binary_search(int len, int goal)
-// 	{
-// 		int low = 0;
-// 		int high = len - 1;
-// 		while (low <= high)
-// 		{
-// 			int middle = (low + high) / 2;
-// 			if (m_pFrameOffsetTable[middle] == goal)
-// 				return middle;
-// 			//在左半边
-// 			else if (m_pFrameOffsetTable[middle] > goal)
-// 				high = middle - 1;
-// 			//在右半边
-// 			else
-// 				low = middle + 1;
-// 		}
-// 		//没找到
-// 		return -1;
-// 	}
+	
 	/// @brief			跳跃到指定时间偏移进行播放
-	/// @param [in]		nTimeSet		要播放的起始时间,单位秒,如FPS=25,则0.04秒为第2帧，1.00秒，为第25帧
+	/// @param [in]		tTimeOffset		要播放的起始时间,单位秒,如FPS=25,则0.04秒为第2帧，1.00秒，为第25帧
+	/// @param [in]		bUpdate		是否更新画面,bUpdate为true则予以更新画面,画面则不更新
 	/// @retval			0	操作成功
 	/// @retval			-1	输入参数无效
-	/// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
-	int  SeekTime(IN time_t tTimeSet)
+	/// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
+	///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
+	///					3.只有在播放暂时,bUpdate参数才有效
+	int  SeekTime(IN time_t tTimeOffset, bool bUpdate)
 	{
 		if (!m_hDvoFile)
 			return DVO_Error_NotFilePlayer;
@@ -1156,25 +1277,55 @@ public:
 			if (nError != DVO_Succeed)
 				return nError;
 		}
-		EnterCriticalSection(&m_csVideoCache);
-		m_listVideoCache.clear();
-		ItLoop = m_listVideoCache.begin();
-		m_nFrameOffset = 0;
-		LeaveCriticalSection(&m_csVideoCache);
 
-		EnterCriticalSection(&m_csAudioCache);
-		m_listAudioCache.clear();
-		LeaveCriticalSection(&m_csAudioCache);
-
-		// 使用二分法查找
-
-// 		if ((nForward - nFrameID) <= (nFrameID - nBackWord))
-// 			SetSeekOffset(m_pFrameOffsetTable[nForward].nOffset);
-// 		else
-// 			SetSeekOffset(m_pFrameOffsetTable[nBackWord].nOffset);
-		return DVO_Succeed;
+		int nFrameID = 0;
+		if (m_nFileFPS == 0 || m_nFileFrameInterval == 0)
+		{// 使用二分法查找
+			nFrameID = BinarySearch(tTimeOffset);
+			if (nFrameID == -1)
+				return DVO_Error_InvalidTimeOffset;
+		}
+		else
+		{
+			int nTimeDiff = tTimeOffset - m_pFrameOffsetTable[0].tTimeStamp;
+			if (nTimeDiff < 0)
+				return DVO_Error_InvalidTimeOffset;
+			nFrameID = nTimeDiff / m_nFileFrameInterval;
+		}
+		return SeekFrame(nFrameID, bUpdate);
 	}
-
+	/// @brief 从文件中读取一帧，读取的起点默认值为0,SeekFrame或SeekTime可设定其起点位置
+	/// @param [in,out]		pBuffer		帧数据缓冲区,可设置为null
+	/// @param [in,out]		nBufferSize 帧缓冲区的大小
+	/// @remark 备注:当pBuffer为null时,不作实标读数据操作,nBufferSize返回读取当前帧数据所需要缓存的尺寸
+	int GetFrame(INOUT byte *pBuffer, INOUT UINT &nBufferSize)
+	{
+		if (!m_hDvoFile)
+			return DVO_Error_NotFilePlayer;
+		if (m_hThreadPlayVideo || m_hThreadParser)
+			return DVO_Error_PlayerHasStart;
+		if (!m_pFrameOffsetTable || !m_nTotalFrames)
+			return DVO_Error_SummaryNotReady;
+		if (!pBuffer)
+		{
+			nBufferSize = m_pFrameOffsetTable[m_nFrametoRead].nFrameSize;
+			return DVO_Succeed;
+		}
+		else if (nBufferSize < m_pFrameOffsetTable[m_nFrametoRead].nFrameSize)		
+			return DVO_Error_BufferSizeNotEnough;
+		else
+		{
+			nBufferSize = m_pFrameOffsetTable[m_nFrametoRead].nFrameSize;
+			DWORD nBytesRead = 0;
+			if (!ReadFile(m_hDvoFile, pBuffer, nBufferSize, &nBytesRead, nullptr))
+			{
+				DxTraceMsg("%s ReadFile Failed,Error = %d.\n", __FUNCTION__, GetLastError());
+				return GetLastError();
+			}
+			return DVO_Succeed;
+		}
+	}
+	
 	/// @brief			播放下一帧
 	/// @param [in]		nTimeSet		要播放的起始时间
 	/// @retval			0	操作成功
@@ -1346,7 +1497,7 @@ public:
 	static DWORD WINAPI ThreadParser(void *p)
 	{// 若指定了有效的窗口句柄，则把解析后的文件数据放入播放队列，否则不放入播放队列
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
-		LONG nSeekOffset = 0;
+		LONGLONG nSeekOffset = 0;
 		DWORD nBufferSize = 1024 * 1024;
 		DWORD nBytesRead = 0;
 		DWORD nDataLength = 0;
@@ -1354,6 +1505,13 @@ public:
 		shared_ptr<byte>BufferPtr(pBuffer);
 		FrameParser Parser;
 		pThis->m_tLastFrameTime = 0;
+	
+		if (SetFilePointer(pThis->m_hDvoFile, (LONG)sizeof(DVO_MEDIAINFO), nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+		{
+			DxTraceMsg("%s SetFilePointer Failed,Error = %d.\n", __FUNCTION__, GetLastError());
+			assert(false);
+			return 0;
+		}
 		
 		while (pThis->m_bThreadParserRun)
 		{
@@ -1367,7 +1525,7 @@ public:
 				DxTraceMsg("Detect SeekFrame Operation.\n");
 				pThis->SetSeekOffset(0);
 				nDataLength = 0;
-				if (SetFilePointer(pThis->m_hDvoFile, nSeekOffset, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)				
+				if (SetFilePointer(pThis->m_hDvoFile, (LONG)nSeekOffset, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)				
 					DxTraceMsg("%s SetFilePointer Failed,Error = %d.\n",__FUNCTION__, GetLastError());
 			}
 			if (!ReadFile(pThis->m_hDvoFile, &pBuffer[nDataLength], (nBufferSize - nDataLength), &nBytesRead, nullptr))
@@ -1558,9 +1716,10 @@ public:
 					break;
 				if (IsDVOVideoFrame(Parser.pHeaderEx, bIFrame))	// 只记录视频帧的文件偏移
 				{
-					m_pFrameOffsetTable[nFrames].nOffset = nFrameOffset;
-					m_pFrameOffsetTable[nFrames].bIFrame = bIFrame;
-					m_pFrameOffsetTable[nFrames].tTimeStamp = Parser.pHeaderEx->nTimestamp;
+					m_pFrameOffsetTable[nFrames].nOffset	 = nFrameOffset;
+					m_pFrameOffsetTable[nFrames].nFrameSize	 = Parser.nFrameSize;
+					m_pFrameOffsetTable[nFrames].bIFrame	 = bIFrame;
+					m_pFrameOffsetTable[nFrames].tTimeStamp	 = Parser.pHeaderEx->nTimestamp;
 					nFrames++;
 				}
 				nFrameOffset += Parser.nFrameSize;
@@ -1573,7 +1732,7 @@ public:
 		DxTraceMsg("%s TimeSpan = %.3f.\n", __FUNCTION__, TimeSpanEx(dfTimeStart));
 #endif
 		// 查找最一个I帧
-		int nLastIFrameID = m_nTotalFrames;
+		int nLastIFrameID = m_nTotalFrames - 1;
 		for (; nLastIFrameID > 0; nLastIFrameID--)
 		{
 			if (m_pFrameOffsetTable[nLastIFrameID].bIFrame)
@@ -1581,6 +1740,7 @@ public:
 		}
 		// 根据录像总时间和总有完整帧数计算FPS
 		m_nFileFPS = nLastIFrameID / ((m_pFrameOffsetTable[nLastIFrameID - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / (1000 * 1000));
+		m_nFileFrameInterval = 1000 / m_nFileFPS;
 		
 		return DVO_Succeed;
 	}
@@ -2022,8 +2182,8 @@ public:
 			}
 		}
 
+		pThis->m_pDecodec = pDecodec;
 		pThis->ItLoop = pThis->m_listVideoCache.begin();
-
 		// 恢复音频线程
 		::EnterCriticalSection(&pThis->m_csAudioCache);
 		pThis->m_listAudioCache.clear();
@@ -2034,16 +2194,17 @@ public:
 		double dfT1 = GetExactTime() - pThis->m_nPlayInterval;
 		double dfTimeSpan = 0.0f;
 		AVPacket *pAvPacket = (AVPacket *)av_malloc(sizeof(AVPacket));
+		shared_ptr<AVPacket>AvPacketPtr(pAvPacket, av_free);		
+		AVFrame *pAvFrame = av_frame_alloc();
+		shared_ptr<AVFrame>AvFramePtr(pAvFrame, av_free);
+		
 		StreamFramePtr FramePtr;
 		int nGot_picture = 0;
-		AVFrame *pAvFrame = av_frame_alloc();
 		DWORD nResult = 0;
 		int nTimeSpan = 0;
 		DWORD dwSleepPricision = GetSleepPricision();		// 取Sleep函数的时间精度
-		int nFrameInterval = 40;
+		int nFrameInterval = pThis->m_nFileFrameInterval;
 		//StreamFramePtr FramePtr;
-		byte *pYUV = nullptr;
-		int nYUVSize = 0;
 		pThis->m_dfTimesStart = GetExactTime();
 		int nFramesProcessed = 0;	// 已处理的帧数
 
@@ -2061,7 +2222,6 @@ public:
 		DxTraceMsg("%s Size of Video cache = %d .\n", __FUNCTION__, pThis->m_listVideoCache.size());
 		LeaveCriticalSection(&pThis->m_csVideoCache);
 #endif
-		RECT rtRender;
 #ifdef _DEBUG
 		int TPlayArray[100] = { 0 };
 		int nPlayCount = 1;
@@ -2207,59 +2367,13 @@ public:
 			{
 				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
 				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
-				if (pThis->m_bFitWindow)
-					pThis->m_pDxSurface->Render(pAvFrame, pThis->m_hWnd, nullptr);
-				else
-				{
-					GetWindowRect(pThis->m_hWnd, &rtRender);
-					POINT ptLeftTop, ptRightBottom;
-					ptLeftTop.x		 = rtRender.left;
-					ptLeftTop.y		 = rtRender.top;
-					ptRightBottom.x	 = rtRender.right;
-					ptRightBottom.y	 = rtRender.bottom;
-
-					ScreenToClient(pThis->m_hWnd, &ptLeftTop);
-					ScreenToClient(pThis->m_hWnd, &ptRightBottom);
-					rtRender.left	 = ptLeftTop.x;
-					rtRender.top	 = ptLeftTop.y;
-					rtRender.right	 = ptRightBottom.x;
-					rtRender.bottom	 = ptRightBottom.y;
-					int nWndWidth	 = rtRender.right - rtRender.left;
-					int nWndHeight	 = rtRender.bottom - rtRender.top;
-					float fScaleWnd	 = (float)nWndWidth / nWndHeight;
-					float fScaleVideo= (float)pAvFrame->width / pAvFrame->height;
-					if (fScaleVideo > fScaleWnd)			// 窗口高度超出比例,需要去掉一部分高度,视频需要上下居中
-					{
-						int nNewHeight = (int)nWndWidth/fScaleVideo;
-						int nOverHeight = nWndHeight - nNewHeight;
-						if ((float)nOverHeight / nWndHeight > 0.1f)	// 窗口高度超出10%,则调整高度，否则忽略该差异
-						{
-							rtRender.top += nOverHeight / 2;
-							rtRender.bottom -= nOverHeight / 2;
-						}
-					}
-					else if (fScaleVideo < fScaleWnd)		// 窗口宽度超出比例,需要去掉一部分宽度，视频需要左右居中
-					{
-						int nNewWidth = nWndHeight*fScaleVideo;
-						int nOverWidth = nWndWidth- nNewWidth;
-						if ((float)nOverWidth / nWndWidth > 0.1f)
-						{
-							rtRender.left += nOverWidth / 2;
-							rtRender.right -= nOverWidth / 2;
-						}
-					}
-					pThis->m_pDxSurface->Render(pAvFrame, pThis->m_hWnd, &rtRender);
-				}
+				pThis->RenderFrame(pAvFrame);
 				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)GetExactTime()*1000);
 				if (pThis->m_pFilePlayCallBack)
-					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlaye);
+					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);
 				av_frame_unref(pAvFrame);
 			}
 		}
-		av_frame_free(&pAvFrame);
-		av_free(pAvPacket);
-		if (pYUV)
-			av_free(pYUV);
 		return 0;
 	}
 	static DWORD WINAPI ThreadPlayAudio(void *p)

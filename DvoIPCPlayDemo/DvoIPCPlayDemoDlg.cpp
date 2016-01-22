@@ -159,7 +159,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	CRect rtClient;
 	GetDlgItemRect(IDC_STATIC_FRAME, rtClient);
 	m_pVideoWndFrame = new CVideoFrame;
-	m_pVideoWndFrame->Create(1024, rtClient, 2, 2, this);
+	m_pVideoWndFrame->Create(1024, rtClient, 1, 1, this);
 	BOOL bRedraw = FALSE;
 
 	UINT nSliderIDArray[] = {
@@ -1101,7 +1101,7 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 		if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer, &pi) == DVO_Succeed)
 		{
 			int nSeekFrame = pi.nTotalFrames*nPos / 100;
-			dvoplay_SeekFrame(m_pPlayContext->hPlayer, nSeekFrame);
+			dvoplay_SeekFrame(m_pPlayContext->hPlayer, nSeekFrame,true);
 		}
 	}
 		break;

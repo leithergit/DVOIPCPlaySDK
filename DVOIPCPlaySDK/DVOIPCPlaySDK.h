@@ -97,6 +97,8 @@ enum PlayRate
 #define		DVO_Error_AudioThreadNotRun		(-17)	///< 音频频解码线程尚未启动或已经退出
 #define		DVO_Error_ReadFileFailed		(-18)	///< 读文件失败
 #define		DVO_Error_FileNotExist			(-19)	///< 文件不存在
+#define		DVO_Error_InvalidTimeOffset		(-20)	///< 无效的时间偏移或时间超出文件长度范围
+#define		DVO_Error_DecodeFailed			(-21)	///< 解码失败
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 /// @brief 播放器即时信息
@@ -323,26 +325,57 @@ DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN float f
 
 /// @brief			跳跃到指视频帧进行播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		bUpdate			是否更新画面,bUpdate为true则予以更新画面,画面则不更新
 /// @param [in]		nFrameID		要播放帧的起始ID
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-/// @remark			若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
-DVOIPCPLAYSDK_API int  dvoplay_SeekFrame(IN DVO_PLAYHANDLE hPlayHandle, IN int nFrameID);
+/// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
+///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
+///					3.只有在播放暂时,bUpdate参数才有效
+DVOIPCPLAYSDK_API int  dvoplay_SeekFrame(IN DVO_PLAYHANDLE hPlayHandle, IN int nFrameID,bool bUpdate = false);
 
 /// @brief			跳跃到指定时间偏移进行播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in]		nTimeSet		要播放的起始时间
+/// @param [in]		nTimeOffset		要播放的起始时间(单位:毫秒)
+/// @param [in]		bUpdate			是否更新画面,bUpdate为true则予以更新画面,画面则不更新
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+/// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
+///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
+///					3.只有在播放暂时,bUpdate参数才有效
+DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN time_t nTimeOffset,bool bUpdate = false);
+
+/// @brief 从文件中读取一帧，读取的起点默认值为0,SeekFrame或SeekTime可设定其起点位置
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in,out]	pFrameBuffer	帧数据缓冲区,可设置为null
+/// @param [in,out]	nBufferSize		帧缓冲区的大小
+/// @remark 备注:当pFrameBuffer为null时,不作实标读数据操作,nBufferSize返回读取当前帧数据所需要缓存的尺寸
+DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, INOUT byte *pFrameBuffer, INOUT UINT nBufferSize);
+
+/// @brief			设置文件播放时,支持的最大视频帧的尺寸,默认最大的视频的尺寸为256K,当视频帧
+/// 大于256K时,可能会造文件读取文件错误,因此需要设置视频帧的大小,在dvoplay_Start前调用才有效
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		nMaxFrameSize	最大视频帧的尺寸
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
-DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN double nTimeSet);
+DVOIPCPLAYSDK_API int  dvoplay_SetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, IN UINT nMaxFrameSize = 256*1024);
+
+/// @brief			取得文件播放时,支持的最大视频帧的尺寸,默认最大的视频的尺寸为256K,当视频帧
+/// 大于256K时,可能会造文件读取文件错误,因此需要设置视频帧的大小,在dvoplay_Start前调用才有效
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		nMaxFrameSize	最大视频帧的尺寸
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+/// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
+DVOIPCPLAYSDK_API int  dvoplay_GetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, INOUT UINT &nMaxFrameSize);
 
 /// @brief			播放下一帧
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			该函数仅适用于单帧播放
-DVOIPCPLAYSDK_API int  dvoplay_SeekNextFrame(IN DVO_PLAYHANDLE hPlayHandle);
+// DVOIPCPLAYSDK_API int  dvoplay_SeekNextFrame(IN DVO_PLAYHANDLE hPlayHandle);
 
 /// @brief			开/关音频播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

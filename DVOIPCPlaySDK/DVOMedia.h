@@ -85,7 +85,7 @@ struct DVOFrameHeader
 	~DVOFrameHeader()
 	{
 	}
-	long	nLength;				///< 帧数据长度,以字节为单位
+	long	nLength;				///< 码流数据长度,以字节为单位
 	long	nType;					///< 取值于枚举类型FrameType 
 	__int64	nTimestamp;				///< 时间戳,单位微秒
 	long	nFrameTag;				///< DVO_TAG
