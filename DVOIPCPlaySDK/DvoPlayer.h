@@ -726,6 +726,10 @@ public:
 	{
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;
+		if (!m_hWnd || !IsWindow(m_hWnd))
+		{
+			return DVO_Error_InvalidWindow;
+		}
 		if (m_pszFileName)
 		{
 			// 打开文件
@@ -777,7 +781,7 @@ public:
 						m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
 				//}
  				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
-				if (m_pDsPlayer)
+				if (m_pDsPlayer && m_pDsBuffer)
 				{
 					m_bThreadPlayAudioRun = true;
 					//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);

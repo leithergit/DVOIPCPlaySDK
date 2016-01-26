@@ -93,6 +93,7 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_SNAPSHOT, &CDvoIPCPlayDemoDlg::OnBnClickedButtonSnapshot)
 	ON_CBN_SELCHANGE(IDC_COMBO_PLAYSPEED, &CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CDvoIPCPlayDemoDlg::OnBnClickedButtonPause)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -485,7 +486,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 			int nVolume = SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_GETPOS);
 			dvoplay_SetVolume(m_pPlayContext->hPlayer, nVolume);
 			SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("停止播放"));
-			
+					
 			EnableDlgItems(m_hWnd, true, 6,
 				IDC_SLIDER_SATURATION,
 				IDC_SLIDER_BRIGHTNESS,
@@ -519,8 +520,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				IDC_SLIDER_CHROMA,
 				IDC_SLIDER_PICSCALE,
 				IDC_SLIDER_VOLUME);
-			EnableDlgItem(IDC_SLIDER_PLAYER, false);					
-			
+			EnableDlgItem(IDC_SLIDER_PLAYER, false);
 		}
 	}
 }
@@ -634,26 +634,87 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					MediaHeader.nMediaTag != 0x44564F4D)	// 头标志 固定为   0x44564F4D 即字符串"MOVD"
 				{
 					m_wndStatus.SetWindowText(_T("指定的文件不是一个有效的DVO录像文件"));
-					m_wndStatus.SetAlarmGllitery();					
+					m_wndStatus.SetAlarmGllitery();	
 					return;
 				}
+				fpMedia.Close();
 				SetDlgItemText(IDC_EDIT_FILEPATH, strFilePath);
 				m_pPlayContext = make_shared<PlayerContext>(-1);
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(nFreePanel);
 				m_pVideoWndFrame->SetPanelParam(nFreePanel, m_pPlayContext.get());
-				m_pPlayContext->hPlayer = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
-				
-				if (!m_pPlayContext->hPlayer)
-				{
-					_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
-					m_wndStatus.SetWindowText(szText);
-					m_wndStatus.SetAlarmGllitery();
-					m_pPlayContext.reset();
-					return;
-				}
-				fpMedia.Close();
+
+				PlayRate RateArray[] =
+					{
+						Rate_One32th,
+						Rate_One24th,
+						Rate_One20th,
+						Rate_One16th,
+						Rate_One10th,
+						Rate_One08th,
+						Rate_Quarter,
+						Rate_Half,
+						Rate_01X,
+						Rate_02X,
+						Rate_04X,
+						Rate_08X,
+						Rate_10X,
+						Rate_16X,
+						Rate_20X,
+						Rate_24X,
+						Rate_32X
+					};
 				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
+				if (IsDlgButtonChecked(IDC_CHECK_STREAMPLAY) != BST_CHECKED)
+				{
+					m_pPlayContext->hPlayer = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
+					if (!m_pPlayContext->hPlayer)
+					{
+						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
+						m_wndStatus.SetWindowText(szText);
+						m_wndStatus.SetAlarmGllitery();
+						m_pPlayContext.reset();
+						return;
+					}
+					
+					
+				
+					if (dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow) != DVO_Succeed)
+					{
+						m_wndStatus.SetWindowText(_T("无法启动播放器"));
+						m_wndStatus.SetAlarmGllitery();
+						m_pPlayContext.reset();
+						return;
+					}				
+				}
+				else
+				{
+					// 创建文件解析句柄
+					// 一般在流媒体服务端创建,用于向客户端提供媒体流数据
+					m_pPlayContext->hPlayer = dvoplay_OpenFile(nullptr, (CHAR *)(LPCTSTR)strFilePath);					
+					if (!m_pPlayContext->hPlayer)
+					{
+						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
+						m_wndStatus.SetWindowText(szText);
+						m_wndStatus.SetAlarmGllitery();
+						m_pPlayContext.reset();
+						return;
+					}
+					// 创建文件流播放句柄
+					// 一般在客户端创建,用于播放服务端发送的媒体流数据
+					m_pPlayContext->hPlayerStream = dvoplay_OpenStream(m_pPlayContext->hWndView, (CHAR*)&MediaHeader, sizeof(DVO_MEDIAINFO));
+					if (!m_pPlayContext->hPlayerStream)
+					{
+						m_wndStatus.SetWindowText(_T("无法启动流播放器"));
+						m_wndStatus.SetAlarmGllitery();
+						m_pPlayContext.reset();
+						return;
+					}
+					// 创建读文件帧线程
+					m_bThreadReadFrame = true;
+					m_hThreadReadFrame = (HANDLE)_beginthreadex(nullptr, 0, ThreadReadFrame, this, 0, nullptr);
+					
+				}
 				
 				if (dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow) != DVO_Succeed)
 				{
@@ -662,34 +723,15 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					m_pPlayContext.reset();
 					return;
 				}
-				PlayRate RateArray[] =
-				{
-					Rate_One32th,
-					Rate_One24th,
-					Rate_One20th,
-					Rate_One16th,
-					Rate_One10th,
-					Rate_One08th,
-					Rate_Quarter,
-					Rate_Half,
-					Rate_01X,
-					Rate_02X,
-					Rate_04X,
-					Rate_08X,
-					Rate_10X,
-					Rate_16X,
-					Rate_20X,
-					Rate_24X,
-					Rate_32X
-				};
-				int nCurSecl = SendDlgItemMessage(IDC_COMBO_PLAYSPEED, CB_GETCURSEL);
-				if (nCurSecl <= 0 && nCurSecl > 16)
+				int nCurSpeedIndex = 8;
+				nCurSpeedIndex = SendDlgItemMessage(IDC_COMBO_PLAYSPEED, CB_GETCURSEL);
+				if (nCurSpeedIndex <= 0 && nCurSpeedIndex > 16)
 				{
 					m_wndStatus.SetWindowText(_T("无效的播放速度,现以原始速度播放."));
 					m_wndStatus.SetAlarmGllitery();
-					nCurSecl = 8;
-				}
-				dvoplay_SetRate(m_pPlayContext->hPlayer, RateArray[nCurSecl]);
+					nCurSpeedIndex = 8;
+				}	
+				dvoplay_SetRate(m_pPlayContext->hPlayer, RateArray[nCurSpeedIndex]);
 				m_pPlayContext->pThis = this;
 				SetDlgItemText(IDC_BUTTON_PLAYFILE, _T("停止播放"));
 				bEnableWnd = false;
@@ -711,6 +753,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 	}
 	// 禁用所有其它码流播放相关按钮
 	EnableDlgItem(IDC_BUTTON_DISCONNECT, bEnableWnd);
+	EnableDlgItem(IDC_CHECK_STREAMPLAY, bEnableWnd);
 	EnableDlgItem(IDC_BUTTON_PLAYSTREAM, bEnableWnd);
 	EnableDlgItem(IDC_BUTTON_RECORD, bEnableWnd);
 	EnableDlgItem(IDC_BUTTON_CONNECT, bEnableWnd);
@@ -891,29 +934,36 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 	if (hPlayer)
 	{
 		PlayerInfo fpi;
-		if (dvoplay_GetPlayerInfo(hPlayer, &fpi) != DVO_Succeed)
-			return 0;
-		int nSlidePos = 0;
-		if (fpi.nTotalFrames > 0)
-			nSlidePos = (int)(100 * (double)fpi.nCurFrameID / fpi.nTotalFrames);
-		
-		SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
-		time_t T1 = fpi.tCurFrameTime / 1000;
-		int nFloat = fpi.tCurFrameTime - T1 * 1000;
-		int nHour = T1 / 3600;
-		int nMinute = (T1 - nHour * 3600) / 60;
-		int nSecond = T1 % 60;
-		TCHAR szPlayText[64] = { 0 };
-		_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
-		SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
-		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCurFrameID);
-		SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
+		int nDvoError = dvoplay_GetPlayerInfo(hPlayer, &fpi);
+		if (nDvoError == DVO_Succeed ||
+			nDvoError == DVO_Error_FileNotExist)
+		{
+			if (nDvoError != DVO_Error_FileNotExist)
+			{
+				int nSlidePos = 0;
+				if (fpi.nTotalFrames > 0)
+					nSlidePos = (int)(100 * (double)fpi.nCurFrameID / fpi.nTotalFrames);
+
+				SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
+			}
 			
-		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCacheSize);
-		SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
-		
-		_stprintf_s(szPlayText, 64, _T("%d"), fpi.nPlayFPS);
-		SetDlgItemText(IDC_EDIT_FPS, szPlayText);
+			time_t T1 = fpi.tCurFrameTime / 1000;
+			int nFloat = fpi.tCurFrameTime - T1 * 1000;
+			int nHour = T1 / 3600;
+			int nMinute = (T1 - nHour * 3600) / 60;
+			int nSecond = T1 % 60;
+			TCHAR szPlayText[64] = { 0 };
+			_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
+			SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
+			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCurFrameID);
+			SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
+
+			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCacheSize);
+			SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
+
+			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nPlayFPS);
+			SetDlgItemText(IDC_EDIT_FPS, szPlayText);
+		}
 	}
 	return 0;
 }
@@ -929,7 +979,8 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdateStreamInfo(WPARAM w, LPARAM l)
 	PlayerInfo fpi;
 	int nResult = dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer, &fpi);
 	if (nResult == DVO_Succeed ||
-		nResult == DVO_Error_SummaryNotReady)	// 文件播放概要信息尚未做准备好
+		nResult == DVO_Error_SummaryNotReady ||	// 文件播放概要信息尚未做准备好
+		nResult == DVO_Error_FileNotExist)
 	{
 		if (fpi.nVideoCodec >= CODEC_UNKNOWN && fpi.nVideoCodec <= CODEC_AAC)
 			_stprintf_s(szText, 128, _T("%s(%dx%d)"), szCodecString[fpi.nVideoCodec + 1], fpi.nVideoWidth, fpi.nVideoHeight);
@@ -1224,4 +1275,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 	}
 }
 
-
+void CDvoIPCPlayDemoDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	CDialogEx::OnTimer(nIDEvent);
+}

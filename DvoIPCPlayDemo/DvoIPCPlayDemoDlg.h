@@ -129,6 +129,7 @@ public:
 	USER_HANDLE hUser;
 	REAL_HANDLE hStream;
 	DVO_PLAYHANDLE	hPlayer;
+	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
 	HWND		hWndView;
 	int			nItem;
 	void*		pThis;
@@ -290,4 +291,63 @@ public:
 	afx_msg void OnBnClickedButtonSnapshot();
 	afx_msg void OnCbnSelchangeComboPlayspeed();
 	afx_msg void OnBnClickedButtonPause();
+	volatile bool m_bThreadReadFrame = false;
+	HANDLE  m_hThreadReadFrame = nullptr;
+	static  UINT __stdcall ThreadReadFrame(void *p)
+	{
+		CDvoIPCPlayDemoDlg *pThis = (CDvoIPCPlayDemoDlg *)p;
+		if (!pThis->m_pPlayContext || 
+			!pThis->m_pPlayContext->hPlayer ||
+			!pThis->m_pPlayContext->hPlayerStream)
+			return 0;
+		shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
+		UINT nBufferSize = 256 * 1024;
+		UINT nBufferNeeded = nBufferSize;
+		byte *pFrameBuffer = new byte[nBufferSize];
+		int nDvoError = 0;
+		while (pThis->m_bThreadReadFrame)
+		{
+			// 取下一帧的尺寸
+			if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, nullptr, nBufferNeeded) != DVO_Succeed)
+			{
+				TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
+				Sleep(10);
+				continue;
+			}
+			// 缓冲区比实际需要的小，则需要重新申请
+			bool bAdjustBuffer = false;
+			while (nBufferSize < nBufferNeeded)	// 为防止频繁调整内存容量,令其以nBufferSize的2倍增长
+			{
+				bAdjustBuffer = true;
+				nBufferSize *= 2;
+			}
+			if (bAdjustBuffer)
+			{
+				delete[]pFrameBuffer;
+				pFrameBuffer = new byte[nBufferSize];
+				if (!pFrameBuffer)
+				{
+					TraceMsgA("%s Insufficent Memory:%d.\n", __FUNCTION__);
+					assert(false);
+					return 0;
+				}
+			}
+			// 读取下一帧
+			if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, pFrameBuffer, nBufferSize) != DVO_Succeed)
+			{
+				TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
+				Sleep(10);
+				continue;
+			}
+			if (nDvoError = dvoplay_InputStream(pPlayCtx->hPlayer, pFrameBuffer, nBufferNeeded) != DVO_Succeed)
+			{
+				TraceMsgA("%s dvoplay_InputStream Failed:%d.\n", __FUNCTION__, nDvoError);
+				Sleep(10);
+				continue;
+			}
+			Sleep(5);
+		}
+		return 0;
+	}
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 };

@@ -40,7 +40,7 @@ struct DVOIPC_StreamHeader
 ///	GetLastError的返回值
 DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr)
 {
-	if (!hWnd || !IsWindow(hWnd) || !szFileName)
+	if (!szFileName)
 	{
 		SetLastError(DVO_Error_InvalidParameters);
 		return nullptr;
@@ -426,7 +426,7 @@ DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN time_t
 /// @param [in,out]	pFrameBuffer	帧数据缓冲区,可设置为null
 /// @param [in,out]	nBufferSize		帧缓冲区的大小
 /// @remark 备注:当pFrameBuffer为null时,不作实标读数据操作,nBufferSize返回读取当前帧数据所需要缓存的尺寸
-DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, INOUT byte *pFrameBuffer, INOUT UINT nBufferSize)
+DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, INOUT byte *pFrameBuffer, INOUT UINT &nBufferSize)
 {
 	if (!hPlayHandle || !nBufferSize)
 		return DVO_Error_InvalidParameters;
