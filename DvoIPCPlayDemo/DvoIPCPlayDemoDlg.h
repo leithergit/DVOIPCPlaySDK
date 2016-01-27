@@ -173,6 +173,11 @@ public:
 			dvoplay_Close(hPlayer);
 			hPlayer = nullptr;
 		}
+		if (hPlayerStream)
+		{
+			dvoplay_Close(hPlayerStream);
+			hPlayerStream = nullptr;
+		}
 		if (hUser != -1)
 		{
 			DVO2_NET_Logout(hUser);
@@ -291,61 +296,133 @@ public:
 	afx_msg void OnBnClickedButtonSnapshot();
 	afx_msg void OnCbnSelchangeComboPlayspeed();
 	afx_msg void OnBnClickedButtonPause();
-	volatile bool m_bThreadReadFrame = false;
-	HANDLE  m_hThreadReadFrame = nullptr;
-	static  UINT __stdcall ThreadReadFrame(void *p)
+	bool m_bPuased = false;
+	volatile bool m_bThreadStream = false;
+	HANDLE  m_hThreadSendStream = nullptr;
+	HANDLE  m_hThreadPlayStream = nullptr;
+	struct DvoStream
+	{
+		DvoStream(byte *pBuffer,int nBufferSize)
+		{
+			pStream = new byte[nBufferSize];
+			nStreamSize = nBufferSize;
+			if (pStream)
+				memcpy(pStream, pBuffer, nBufferSize);
+		}
+		~DvoStream()
+		{
+			if (pStream)
+				delete[]pStream;
+		}
+		byte *pStream;
+		int  nStreamSize;
+	};
+	typedef shared_ptr<DvoStream> DvoStreamPtr;
+	CRITICAL_SECTION m_csListStream;
+	list<DvoStreamPtr> m_listStream;	// 流播放队列
+	// 发送数据流
+	// 这里只是把数据放入流播放队列来模拟发送操作
+	int SendStream(byte *pFrameBuffer, int nFrameSize)
+	{
+		CAutoLock lock(&m_csListStream);
+		DvoStreamPtr pStream = make_shared<DvoStream>(pFrameBuffer, nFrameSize);
+		m_listStream.push_back(pStream);
+		return m_listStream.size();
+	}
+	// 接收数据流
+	// 这里只是从流队列中取出数据来模拟接收操作
+	int RecvStream(DvoStreamPtr &pStream,bool &bRecved)
+	{
+		CAutoLock lock(&m_csListStream);
+		if (m_listStream.size() > 0)
+		{
+			pStream = m_listStream.front();
+			m_listStream.pop_front();
+			bRecved = true;
+		}
+		else
+			bRecved = false;
+		return m_listStream.size();
+	}
+
+	// 解码录像文件线程,一般在服务端,把一帧数的解析出来后放到流队列中
+	// 在实际的流媒体服务器中，应该是把数据直接发送到播放客户端去
+	static  DWORD WINAPI ThreadSendStream(void *p)
 	{
 		CDvoIPCPlayDemoDlg *pThis = (CDvoIPCPlayDemoDlg *)p;
 		if (!pThis->m_pPlayContext || 
-			!pThis->m_pPlayContext->hPlayer ||
+			!pThis->m_pPlayContext->hPlayer )
+			return 0;
+		shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
+		
+		byte *pFrameBuffer = nullptr;
+		UINT nFrameSize = 0;
+				
+		int nDvoError = 0;
+		int nStreamListSize = 0;
+		int nFrames = 0;
+		while (pThis->m_bThreadStream)
+		{
+			// 读取下一帧
+			if (nStreamListSize < 128)
+			{
+				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, &pFrameBuffer, nFrameSize) != DVO_Succeed)
+				{
+					TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
+					Sleep(10);
+					continue;
+				}
+				nFrames++;
+				TraceMsgA("%s nFrames = %d FrameSize = %d.\n", __FUNCTION__, nFrames,nFrameSize);
+				nStreamListSize = pThis->SendStream(pFrameBuffer, nFrameSize);
+			}
+			else
+			{
+				CAutoLock lock(&pThis->m_csListStream);
+				nStreamListSize = pThis->m_listStream.size();
+			}
+			
+			Sleep(5);
+		}
+		return 0;
+	}
+	// 流播放线程,从流队列中取出数据进行播放
+	// 实际开发中，应该是从服务端接数据进行播放
+	static  DWORD WINAPI ThreadPlayStream(void *p)
+	{
+		CDvoIPCPlayDemoDlg *pThis = (CDvoIPCPlayDemoDlg *)p;
+		if (!pThis->m_pPlayContext ||
 			!pThis->m_pPlayContext->hPlayerStream)
 			return 0;
 		shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
-		UINT nBufferSize = 256 * 1024;
-		UINT nBufferNeeded = nBufferSize;
-		byte *pFrameBuffer = new byte[nBufferSize];
 		int nDvoError = 0;
-		while (pThis->m_bThreadReadFrame)
+		int nStreamListSize = 0;
+		DvoStreamPtr pStream;
+		bool bRecved = false;
+		int nLoopCount = 0;
+		bool bInputList = true;
+		while (pThis->m_bThreadStream)
 		{
-			// 取下一帧的尺寸
-			if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, nullptr, nBufferNeeded) != DVO_Succeed)
+			if (bInputList)
 			{
-				TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
-				Sleep(10);
-				continue;
-			}
-			// 缓冲区比实际需要的小，则需要重新申请
-			bool bAdjustBuffer = false;
-			while (nBufferSize < nBufferNeeded)	// 为防止频繁调整内存容量,令其以nBufferSize的2倍增长
-			{
-				bAdjustBuffer = true;
-				nBufferSize *= 2;
-			}
-			if (bAdjustBuffer)
-			{
-				delete[]pFrameBuffer;
-				pFrameBuffer = new byte[nBufferSize];
-				if (!pFrameBuffer)
+				nStreamListSize = pThis->RecvStream(pStream, bRecved);
+				if (!bRecved)
 				{
-					TraceMsgA("%s Insufficent Memory:%d.\n", __FUNCTION__);
-					assert(false);
-					return 0;
+					Sleep(10);
+					continue;
 				}
 			}
-			// 读取下一帧
-			if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, pFrameBuffer, nBufferSize) != DVO_Succeed)
-			{
-				TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
-				Sleep(10);
-				continue;
-			}
-			if (nDvoError = dvoplay_InputStream(pPlayCtx->hPlayer, pFrameBuffer, nBufferNeeded) != DVO_Succeed)
+			
+			nLoopCount++;
+			if (nDvoError = dvoplay_InputStream(pPlayCtx->hPlayerStream, pStream->pStream, pStream->nStreamSize) != DVO_Succeed)
 			{
 				TraceMsgA("%s dvoplay_InputStream Failed:%d.\n", __FUNCTION__, nDvoError);
+				bInputList = false;
 				Sleep(10);
 				continue;
-			}
-			Sleep(5);
+			}	
+			bInputList = true;
+			Sleep(10);
 		}
 		return 0;
 	}

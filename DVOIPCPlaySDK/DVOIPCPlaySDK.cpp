@@ -423,12 +423,11 @@ DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN time_t
 
 /// @brief 从文件中读取一帧，读取的起点默认值为0,SeekFrame或SeekTime可设定其起点位置
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in,out]	pFrameBuffer	帧数据缓冲区,可设置为null
-/// @param [in,out]	nBufferSize		帧缓冲区的大小
-/// @remark 备注:当pFrameBuffer为null时,不作实标读数据操作,nBufferSize返回读取当前帧数据所需要缓存的尺寸
-DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, INOUT byte *pFrameBuffer, INOUT UINT &nBufferSize)
+/// @param [out]	pFrameBuffer	帧数据缓冲区
+/// @param [out]	nBufferSize		帧缓冲区的大小
+DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, OUT byte **pFrameBuffer, OUT UINT &nBufferSize)
 {
-	if (!hPlayHandle || !nBufferSize)
+	if (!hPlayHandle)
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))

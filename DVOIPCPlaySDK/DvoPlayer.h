@@ -316,6 +316,11 @@ private:
 	volatile bool m_bThreadParserRun;
 	volatile bool m_bThreadPlayVideoRun;
 	volatile bool m_bThreadPlayAudioRun;
+	byte*		m_pParserBuffer;		///< 数据解析缓冲区
+	UINT		m_nParserBufferSize;	///< 数据解析缓冲区尺寸
+	DWORD		m_nParserDataLength;	///< 数据解析缓冲区中的有效数据长度
+	UINT		m_nParserOffset;		///< 数据解析缓冲区尺寸当前已经解析的偏移
+	CRITICAL_SECTION m_csParser;		
 	//volatile bool m_bThreadFileAbstractRun;
 	bool		m_bPause;				///< 是否处于暂停状态
 	byte		*m_pYUV;				///< YVU捕捉专用内存
@@ -353,6 +358,7 @@ private:
 		ZeroMemory(&m_csVideoCache, sizeof(CDvoPlayer) - offsetof(CDvoPlayer, m_csVideoCache));
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
+		InitializeCriticalSection(&m_csParser);
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
@@ -577,10 +583,41 @@ public:
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
+		InitializeCriticalSection(&m_csParser);
+		
+		m_nMaxFrameSize	 = 1024 * 256;
+		m_nFileFPS		 = 25;				// FPS的默认值为25
+		m_fPlayRate		 = 1;
+		m_nPlayInterval	 = 40;
+		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
+		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
+#ifdef _DEBUG
+		m_nMaxFrameCache = 200;				// 默认最大视频缓冲数量为200
+#else
+		m_nMaxFrameCache = 100;				// 默认最大视频缓冲数量为100
+#endif
+		nSize = sizeof(CDvoPlayer);
 		if (szFileName)
 		{
 			m_pszFileName = _New char[MAX_PATH];
 			strcpy(m_pszFileName, szFileName);
+			// 打开文件
+			m_hDvoFile = CreateFileA(m_pszFileName,
+				GENERIC_READ,
+				FILE_SHARE_READ,
+				NULL,
+				OPEN_ALWAYS,
+				FILE_ATTRIBUTE_ARCHIVE,
+				NULL);
+			if (m_hDvoFile != INVALID_HANDLE_VALUE)
+			{
+				// 取得文件的概要的信息,如文件总帧数,文件偏移表
+				int nError = GetFileSummary();
+				if (nError != DVO_Succeed)
+					SetLastError(nError);
+			}
+			m_nParserBufferSize	 = m_nMaxFrameSize * 4;
+			m_pParserBuffer		 = new byte[m_nParserBufferSize];
 		}
 		if (hWnd && IsWindow(hWnd))
 		{// 必采要有窗口才会播放视频和声音
@@ -595,18 +632,7 @@ public:
 			//m_DsPlayer = _New CDSoundPlayer();
 			//m_DsPlayer.Initialize(m_hWnd, Audio_Play_Segments);
 		}
-		m_nMaxFrameSize	 = 1024 * 256;
-		m_nFileFPS		 = 25;				// FPS的默认值为25
-		m_fPlayRate		 = 1;
-		m_nPlayInterval	 = 40;
-		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
-		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
-#ifdef _DEBUG
-		m_nMaxFrameCache = 200;				// 默认最大视频缓冲数量为200
-#else
-		m_nMaxFrameCache = 100;				// 默认最大视频缓冲数量为100
-#endif
-		nSize = sizeof(CDvoPlayer);
+
 	}
 	
 	~CDvoPlayer()
@@ -658,6 +684,7 @@ public:
 		DeleteCriticalSection(&m_csVideoCache);
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
+		DeleteCriticalSection(&m_csParser);
 	}
 	/// @brief  是否为文件播放
 	/// @retval			true	文件播放
@@ -730,25 +757,12 @@ public:
 		{
 			return DVO_Error_InvalidWindow;
 		}
-		if (m_pszFileName)
+		if (m_pszFileName )
 		{
-			// 打开文件
-			m_hDvoFile = CreateFileA(m_pszFileName,
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,
-				OPEN_ALWAYS,
-				FILE_ATTRIBUTE_ARCHIVE,
-				NULL);
 			if (m_hDvoFile == INVALID_HANDLE_VALUE)
 			{
 				return GetLastError();
 			}
-			// 取得文件的概要的信息,如文件总帧数,文件偏移表
-			int nError = GetFileSummary();
-			if (nError != DVO_Succeed)
-				return nError;
-			// GetLastFrameID取得的是最后一帧的ID，总帧数还要在此基础上+1
  			if (m_pDxSurface)
  				m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
 			
@@ -860,8 +874,8 @@ public:
 			case FRAME_B:
 			case FRAME_I:
 			{
-				if (!m_hThreadPlayVideo)
-					return DVO_Error_VideoThreadNotRun;
+// 				if (!m_hThreadPlayVideo)
+// 					return DVO_Error_VideoThreadNotRun;
 				CAutoLock lock(&m_csVideoCache);
 				if (m_listVideoCache.size() >= m_nMaxFrameCache)
 					return DVO_Error_FrameCacheIsFulled;
@@ -876,8 +890,8 @@ public:
 			case FRAME_G726:       // G726编码帧
 			case FRAME_AAC:        // AAC编码帧。
 			{
-				if (!m_hThreadPlayVideo)
-					return DVO_Error_AudioThreadNotRun;
+// 				if (!m_hThreadPlayVideo)
+// 					return DVO_Error_AudioThreadNotRun;
 				if (!m_bEnableAudio)
 					break;
 				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize);
@@ -1064,7 +1078,7 @@ public:
 	{
 		if (!pPlayInfo)
 			return DVO_Error_InvalidParameters;
-		if (m_hThreadPlayVideo)
+		if (m_hThreadPlayVideo|| m_hDvoFile)
 		{
 			ZeroMemory(pPlayInfo, sizeof(pPlayInfo));
 			pPlayInfo->nVideoCodec	 = m_nVideoCodec;
@@ -1081,7 +1095,7 @@ public:
 	
 			if (m_pszFileName && ::PathFileExistsA(m_pszFileName))
 			{
-				if (m_nCurVideoFrame == 0 ||
+				if (/*m_nCurVideoFrame == 0 ||*/
 					!m_pFrameOffsetTable)
 				{
 					int nError = GetFileSummary();
@@ -1201,15 +1215,24 @@ public:
 		if (nBackWord < 0)
 			nBackWord = 0;
 		if ((nForward - nFrameID) <= (nFrameID - nBackWord))
-		{
 			m_nFrametoRead = nForward;
-			SetSeekOffset(m_pFrameOffsetTable[nForward].nOffset);
-		}
 		else
-		{
 			m_nFrametoRead = nBackWord;
-			SetSeekOffset(m_pFrameOffsetTable[nBackWord].nOffset);
+		if (m_hThreadParser)
+			SetSeekOffset(m_pFrameOffsetTable[m_nFrametoRead].nOffset);
+		else
+		{// 只用于单纯的解析文件时移动文件指针
+			CAutoLock lock(&m_csParser);
+			m_nParserOffset = 0;
+			m_nParserDataLength = 0;
+			LONGLONG nOffset = m_pFrameOffsetTable[m_nFrametoRead].nOffset;
+			if (LargerFileSeek(m_hDvoFile, nOffset, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+			{
+				DxTraceMsg("%s LargerFileSeek  Failed,Error = %d.\n", __FUNCTION__, GetLastError());
+				return GetLastError();
+			}
 		}
+
 		if (bUpdate && 
 			m_hThreadPlayVideo &&	// 必须启动播放线程
 			m_bPause &&				// 必须是暂停模式			
@@ -1301,8 +1324,7 @@ public:
 	/// @brief 从文件中读取一帧，读取的起点默认值为0,SeekFrame或SeekTime可设定其起点位置
 	/// @param [in,out]		pBuffer		帧数据缓冲区,可设置为null
 	/// @param [in,out]		nBufferSize 帧缓冲区的大小
-	/// @remark 备注:当pBuffer为null时,不作实标读数据操作,nBufferSize返回读取当前帧数据所需要缓存的尺寸
-	int GetFrame(INOUT byte *pBuffer, INOUT UINT &nBufferSize)
+	int GetFrame(INOUT byte **pBuffer, OUT UINT &nBufferSize)
 	{
 		if (!m_hDvoFile)
 			return DVO_Error_NotFilePlayer;
@@ -1310,24 +1332,32 @@ public:
 			return DVO_Error_PlayerHasStart;
 		if (!m_pFrameOffsetTable || !m_nTotalFrames)
 			return DVO_Error_SummaryNotReady;
-		if (!pBuffer)
+
+		DWORD nBytesRead = 0;
+		FrameParser Parser;
+		CAutoLock lock(&m_csParser);
+		byte *pFrameBuffer = &m_pParserBuffer[m_nParserOffset];
+		if (!ParserFrame(&pFrameBuffer, m_nParserDataLength, &Parser))
 		{
-			nBufferSize = m_pFrameOffsetTable[m_nFrametoRead].nFrameSize;
-			return DVO_Succeed;
-		}
-		else if (nBufferSize < m_pFrameOffsetTable[m_nFrametoRead].nFrameSize)		
-			return DVO_Error_BufferSizeNotEnough;
-		else
-		{
-			nBufferSize = m_pFrameOffsetTable[m_nFrametoRead].nFrameSize;
-			DWORD nBytesRead = 0;
-			if (!ReadFile(m_hDvoFile, pBuffer, nBufferSize, &nBytesRead, nullptr))
+			// 残留数据长为nDataLength
+			memmove(m_pParserBuffer, pFrameBuffer, m_nParserDataLength);
+			if (!ReadFile(m_hDvoFile, &m_pParserBuffer[m_nParserDataLength], (m_nParserBufferSize - m_nParserDataLength), &nBytesRead, nullptr))
 			{
 				DxTraceMsg("%s ReadFile Failed,Error = %d.\n", __FUNCTION__, GetLastError());
 				return GetLastError();
 			}
-			return DVO_Succeed;
+			m_nParserOffset = 0;
+			m_nParserDataLength += nBytesRead;
+			pFrameBuffer = m_pParserBuffer;
+			if (!ParserFrame(&pFrameBuffer, m_nParserDataLength, &Parser))
+			{
+				return DVO_Error_NotDvoVideoFile;
+			}
 		}
+		m_nParserOffset += Parser.nFrameSize;
+		*pBuffer = (byte *)Parser.pHeaderEx;
+		nBufferSize = Parser.nFrameSize;
+		return DVO_Succeed;
 	}
 	
 	/// @brief			播放下一帧
@@ -1502,10 +1532,10 @@ public:
 	{// 若指定了有效的窗口句柄，则把解析后的文件数据放入播放队列，否则不放入播放队列
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 		LONGLONG nSeekOffset = 0;
-		DWORD nBufferSize = 1024 * 1024;
+		DWORD nBufferSize = pThis->m_nMaxFrameSize * 4;
 		DWORD nBytesRead = 0;
-		DWORD nDataLength = 0;
-		byte *pBuffer = _New byte[nBufferSize];
+		DWORD nDataLength = 0;		
+		byte *pBuffer = _New byte[nBufferSize];		
 		shared_ptr<byte>BufferPtr(pBuffer);
 		FrameParser Parser;
 		pThis->m_tLastFrameTime = 0;
@@ -1625,6 +1655,52 @@ public:
 			*pAudioCodec = m_nAudioCodec;
 		return DVO_Succeed;
 	}
+
+	// 探测视频码流类型,要求必须输入I帧
+	bool ProbeStream(byte *szFrameBuffer,int nBufferLength)
+	{	
+		shared_ptr<CVideoDecoder>pDecodec = make_shared<CVideoDecoder>();
+		InputStream(szFrameBuffer, nBufferLength);
+		auto ItLoop = m_listVideoCache.begin();
+		m_bProbeMode = true;
+		if (pDecodec->ProbeStream(this, ReadAvData, m_nMaxFrameSize) != 0)
+		{
+			DxTraceMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+		pDecodec->CancelProbe();		
+		m_bProbeMode = false;
+		::EnterCriticalSection(&m_csAudioCache);
+		m_listVideoCache.clear();		
+		::LeaveCriticalSection(&m_csAudioCache);
+		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE)
+		{
+			DxTraceMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+		if (pDecodec->m_nCodecId == AV_CODEC_ID_H264)
+		{
+			m_nVideoCodec = CODEC_H264;
+			DxTraceMsg("%s Video Codec:%H.264 Width = %d\tHeight = %d.\n", __FUNCTION__, pDecodec->m_pAVCtx->width, pDecodec->m_pAVCtx->height);
+		}
+		else if (pDecodec->m_nCodecId == AV_CODEC_ID_HEVC)
+		{
+			m_nVideoCodec = CODEC_H265;
+			DxTraceMsg("%s Video Codec:%H.265 Width = %d\tHeight = %d.\n", __FUNCTION__, pDecodec->m_pAVCtx->width, pDecodec->m_pAVCtx->height);
+		}
+		else
+		{
+			m_nVideoCodec = CODEC_UNKNOWN;
+			DxTraceMsg("%s Unsupported Video Codec.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+		m_nVideoWidth = pDecodec->m_pAVCtx->width;
+		m_nVideoHeight = pDecodec->m_pAVCtx->height;
+		return true;
+	}
 	/// @brief			取得文件的概要的信息,如文件总帧数,文件偏移表
 	int GetFileSummary()
 	{
@@ -1703,6 +1779,7 @@ public:
 		FrameParser Parser;
 		int nFrameOffset = sizeof(DVO_MEDIAINFO);
 		bool bIFrame = false;
+		bool bStreamProbed = false;		// 是否已经探测过码流
 		while (true)
 		{
 			if (!ReadFile(m_hDvoFile, &pBuffer[nDataLength], (nBufferSize - nDataLength), &nBytesRead, nullptr))
@@ -1720,12 +1797,18 @@ public:
 					break;
 				if (IsDVOVideoFrame(Parser.pHeaderEx, bIFrame))	// 只记录视频帧的文件偏移
 				{
-					m_pFrameOffsetTable[nFrames].nOffset	 = nFrameOffset;
-					m_pFrameOffsetTable[nFrames].nFrameSize	 = Parser.nFrameSize;
-					m_pFrameOffsetTable[nFrames].bIFrame	 = bIFrame;
-					m_pFrameOffsetTable[nFrames].tTimeStamp	 = Parser.pHeaderEx->nTimestamp;
+					if (bIFrame && !bStreamProbed)
+					{// 尝试探测码流
+						bStreamProbed = ProbeStream((byte *)Parser.pHeaderEx, Parser.nFrameSize);
+					}
+					m_pFrameOffsetTable[nFrames].nOffset = nFrameOffset;
+					m_pFrameOffsetTable[nFrames].nFrameSize = Parser.nFrameSize;
+					m_pFrameOffsetTable[nFrames].bIFrame = bIFrame;
+					m_pFrameOffsetTable[nFrames].tTimeStamp = Parser.pHeaderEx->nTimestamp;
 					nFrames++;
 				}
+				else
+					m_nAudioCodec = (DVO_CODEC)Parser.pHeaderEx->nType;
 				nFrameOffset += Parser.nFrameSize;
 			}
 			nOffset += nBytesRead;
@@ -1745,7 +1828,13 @@ public:
 		// 根据录像总时间和总有完整帧数计算FPS
 		m_nFileFPS = nLastIFrameID / ((m_pFrameOffsetTable[nLastIFrameID - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / (1000 * 1000));
 		m_nFileFrameInterval = 1000 / m_nFileFPS;
-		
+		// 把文件指针重新移回到文件头部
+		nOffset = sizeof(DVO_MEDIAINFO);
+		if (SetFilePointer(m_hDvoFile, nOffset, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+		{
+			assert(false);
+			return 0;
+		}
 		return DVO_Succeed;
 	}
 	
@@ -2119,7 +2208,7 @@ public:
 		// 探测码流类型
 		pThis->ItLoop = pThis->m_listVideoCache.begin();
 		pThis->m_bProbeMode = true;
-		if (pDecodec->ProbeStream(pThis,ReadAvData, 1024 * 256) != 0)
+		if (pDecodec->ProbeStream(pThis,ReadAvData, pThis->m_nMaxFrameSize) != 0)
 		{
 			DxTraceMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
 			assert(false);

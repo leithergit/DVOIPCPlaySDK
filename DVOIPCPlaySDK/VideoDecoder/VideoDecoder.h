@@ -440,6 +440,36 @@ public:
 			DxTraceMsg("%s avformat_find_stream_info Failed:%s.\n", __FUNCTION__,szAvError);
 			return nAvError;
 		}
+		for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
+		{
+			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
+				(m_nVideoIndex < 0))
+			{
+				m_nVideoIndex = i;
+			}
+			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
+				(m_nAudioIndex < 0))
+			{
+				m_nAudioIndex = i;
+			}
+		}
+
+		if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
+		{
+			DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
+			return false;
+		}
+
+		m_nCodecId = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
+		AVCodec*  pAvCodec = avcodec_find_decoder(m_nCodecId);
+		if (pAvCodec == NULL)
+		{
+			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+		m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
+
 		return 0;
 	}
 	void CancelProbe()
@@ -469,37 +499,39 @@ public:
 			assert(false);
 			return false;
 		}
-		
-		m_nVideoIndex = -1;
-		m_nAudioIndex = -1;
-		for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
+		AVCodecID nCodecID = AV_CODEC_ID_NONE;
+		AVCodec*  pAvCodec = nullptr;
+		if (m_nVideoIndex == -1)
 		{
-			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
-				(m_nVideoIndex < 0))
+			for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
 			{
-				m_nVideoIndex = i;
+				if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
+					(m_nVideoIndex < 0))
+				{
+					m_nVideoIndex = i;
+				}
+				if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
+					(m_nAudioIndex < 0))
+				{
+					m_nAudioIndex = i;
+				}
 			}
-			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
-				(m_nAudioIndex < 0))
+
+			if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
 			{
-				m_nAudioIndex = i;
+				DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
+				return false;
 			}
-		}
-
-		if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
-		{
-			DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
-			return false;
-		}
 		
-		AVCodecID nCodecID = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
-
-		AVCodec*  pAvCodec = avcodec_find_decoder(nCodecID);
-		if (pAvCodec == NULL)
-		{
-			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
-			assert(false);
-			return false;
+			nCodecID = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
+			pAvCodec = avcodec_find_decoder(nCodecID);
+			if (pAvCodec == NULL)
+			{
+				DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+				assert(false);
+				return false;
+			}
+			m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
 		}
 
 		UINT nAdapter = D3DADAPTER_DEFAULT;
@@ -532,7 +564,7 @@ public:
 			}
 		}
 		
-		m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
+		
 		if (m_nManufacturer == FFMPEG)
 		{
 			if (InitFFmpegDecoder(bEnableHaccel) == 0)
