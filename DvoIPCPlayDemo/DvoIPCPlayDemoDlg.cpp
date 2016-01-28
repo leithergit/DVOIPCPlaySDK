@@ -128,7 +128,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
-
+	m_pPlayerInfo = make_shared<PlayerInfo>();
 	m_wndStatus.SubclassDlgItem(IDC_STATIC_STATUS, this);
 
 	SendDlgItemMessage(IDC_COMBO_PICTYPE, CB_SETCURSEL, 1, 0);		// 默认使用JPG截图
@@ -746,7 +746,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					// 创建文件流播放句柄
 					// 一般在客户端创建,用于播放服务端发送的媒体流数据
 					// 设置较小的播放缓存,移动进度条时,可以及时更新
-					m_pPlayContext->hPlayerStream = dvoplay_OpenStream(m_pPlayContext->hWndView, (CHAR*)&MediaHeader, sizeof(DVO_MEDIAINFO),16);
+					m_pPlayContext->hPlayerStream = dvoplay_OpenStream(m_pPlayContext->hWndView, (CHAR*)&MediaHeader, sizeof(DVO_MEDIAINFO),4);
 					if (!m_pPlayContext->hPlayerStream)
 					{
 						m_wndStatus.SetWindowText(_T("无法打开流播放器."));
@@ -860,7 +860,11 @@ void CDvoIPCPlayDemoDlg::PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserP
 	if (pContext->pThis)
 	{
 		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
-		pDlg->PostMessage(WM_UPDATE_PLAYINFO,(WPARAM)hPlayHandle);
+
+		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
+		if (nDvoError == DVO_Succeed ||
+			nDvoError == DVO_Error_FileNotExist)
+			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
 	}
 
 }
@@ -984,40 +988,34 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 
 LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 { 
-	DVO_PLAYHANDLE  *hPlayer = (DVO_PLAYHANDLE *)w;
-	if (hPlayer)
+	PlayerInfo  *fpi = (PlayerInfo *)w;
+	if (fpi)
 	{
-		PlayerInfo fpi;
-		int nDvoError = dvoplay_GetPlayerInfo(hPlayer, &fpi);
-		if (nDvoError == DVO_Succeed ||
-			nDvoError == DVO_Error_FileNotExist)
+		if (l != DVO_Error_FileNotExist)
 		{
-			if (nDvoError != DVO_Error_FileNotExist)
-			{
-				int nSlidePos = 0;
-				if (fpi.nTotalFrames > 0)
-					nSlidePos = (int)(100 * (double)fpi.nCurFrameID / fpi.nTotalFrames);
-
-				SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
-			}
-			
-			time_t T1 = fpi.tCurFrameTime / 1000;
-			int nFloat = fpi.tCurFrameTime - T1 * 1000;
-			int nHour = T1 / 3600;
-			int nMinute = (T1 - nHour * 3600) / 60;
-			int nSecond = T1 % 60;
-			TCHAR szPlayText[64] = { 0 };
-			_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
-			SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
-			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCurFrameID);
-			SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
-
-			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nCacheSize);
-			SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
-
-			_stprintf_s(szPlayText, 64, _T("%d"), fpi.nPlayFPS);
-			SetDlgItemText(IDC_EDIT_FPS, szPlayText);
+			int nSlidePos = 0;
+			if (fpi->nTotalFrames > 0)
+				nSlidePos = (int)(100 * (double)fpi->nCurFrameID / fpi->nTotalFrames);
+			SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
 		}
+
+		time_t T1 = fpi->tCurFrameTime / 1000;
+		int nFloat = fpi->tCurFrameTime - T1 * 1000;
+		int nHour = T1 / 3600;
+		int nMinute = (T1 - nHour * 3600) / 60;
+		int nSecond = T1 % 60;
+		TCHAR szPlayText[64] = { 0 };
+		_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
+		SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nCurFrameID);
+		SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
+
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nCacheSize);
+		SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
+
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nPlayFPS);
+		SetDlgItemText(IDC_EDIT_FPS, szPlayText);
+		
 	}
 	return 0;
 }
@@ -1210,10 +1208,12 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 			bool bUpdate = true;
 			if (bIsStreamPlay)
 			{
+				dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
 				CAutoLock lock(&m_csListStream);
 				m_listStream.clear();
 				bUpdate = false;		// 流播放无法通过这种方式刷新画面
 			}
+			
 			dvoplay_SeekFrame(m_pPlayContext->hPlayer, nSeekFrame, bUpdate);
 		}
 	}

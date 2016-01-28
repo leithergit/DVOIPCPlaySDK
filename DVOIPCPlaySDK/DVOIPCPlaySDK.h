@@ -247,6 +247,12 @@ DVOIPCPLAYSDK_API int dvoplay_Stop(IN DVO_PLAYHANDLE hPlayHandle);
 ///					再次调用时，则会再度播放
 DVOIPCPLAYSDK_API int dvoplay_Pause(IN DVO_PLAYHANDLE hPlayHandle);
 
+/// @brief			清空播放缓存
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+DVOIPCPLAYSDK_API int dvoplay_ClearCache(IN DVO_PLAYHANDLE hPlayHandle);
+
 /// @brief			开启硬解码功能
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnableHaccel	是否开启硬解码功能

@@ -32,3 +32,4 @@ EXPORTS
 	dvoplay_BuildFrameHeader
 	dvoplay_GetMaxFrameSize
 	dvoplay_SetMaxFrameSize
+	dvoplay_ClearCache

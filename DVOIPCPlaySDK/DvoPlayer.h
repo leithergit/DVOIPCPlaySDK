@@ -704,7 +704,7 @@ public:
 
 	// 设置流播放头
 	// 在流播放时，播放之前，必须先设置流头
-	int SetStreamHeader(CHAR *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache)
+	int SetStreamHeader(CHAR *szStreamHeader, int nHeaderSize)
 	{
 		if (nHeaderSize != sizeof(DVO_MEDIAINFO))
 			return DVO_Error_InvalidParameters;
@@ -732,6 +732,22 @@ public:
 	inline int GetMaxFrameSize()
 	{
 		return m_nMaxFrameSize;
+	}
+
+	inline void SetMaxFrameCache(int nMaxFrameCache = 100)
+	{
+		m_nMaxFrameCache = nMaxFrameCache;
+	}
+
+	void ClearFrameCache()
+	{
+		EnterCriticalSection(&m_csVideoCache);
+		m_listVideoCache.clear();
+		LeaveCriticalSection(&m_csVideoCache);
+
+		EnterCriticalSection(&m_csAudioCache);
+		m_listAudioCache.clear();
+		LeaveCriticalSection(&m_csAudioCache);
 	}
 		
 	/// @brief			开始播放

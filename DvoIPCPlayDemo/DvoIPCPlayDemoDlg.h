@@ -285,6 +285,7 @@ public:
 		IN void*       pUser);
 
 	static void __stdcall PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
+	shared_ptr<PlayerInfo>	m_pPlayerInfo;
 	afx_msg void OnNMClickListConnection(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg LRESULT OnUpdateStreamInfo(WPARAM, LPARAM);
 	afx_msg LRESULT OnUpdatePlayInfo(WPARAM, LPARAM);
@@ -364,7 +365,7 @@ public:
 		while (pThis->m_bThreadStream)
 		{
 			// ╤ах║обр╩ж║
-			if (nStreamListSize < 128)
+			if (nStreamListSize < 8)
 			{
 				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, &pFrameBuffer, nFrameSize) != DVO_Succeed)
 				{

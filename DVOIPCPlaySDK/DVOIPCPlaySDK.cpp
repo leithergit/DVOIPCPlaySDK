@@ -90,7 +90,8 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, CHAR *szStream
 		return nullptr;
 	if (szStreamHeader && nHeaderSize)
 	{
-		int nDvoError = pPlayer->SetStreamHeader(szStreamHeader, nHeaderSize, nMaxFramesCache);
+		pPlayer->SetMaxFrameCache(nMaxFramesCache);
+		int nDvoError = pPlayer->SetStreamHeader(szStreamHeader, nHeaderSize);
 		if (nDvoError == DVO_Succeed)
 			return pPlayer;
 		else
@@ -233,6 +234,22 @@ DVOIPCPLAYSDK_API int dvoplay_Pause(IN DVO_PLAYHANDLE hPlayHandle)
 	pPlayer->Pause();
 	return DVO_Succeed;
 }
+
+/// @brief			清空播放缓存
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+DVOIPCPLAYSDK_API int dvoplay_ClearCache(IN DVO_PLAYHANDLE hPlayHandle)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->ClearFrameCache();
+	return DVO_Succeed;
+}
+
 
 /// @brief			开启硬解码功能
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
