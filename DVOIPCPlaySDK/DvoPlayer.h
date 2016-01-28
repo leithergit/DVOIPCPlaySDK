@@ -804,23 +804,22 @@ public:
 			
 			if (bEnaleAudio)
 			{
-// 				if (!m_pDsPlayer)
-// 				{
-					m_pDsPlayer = make_shared<CDSound>(nullptr);
+				if (m_pDsPlayer)
+				{
 					if (!m_pDsPlayer->IsInitialized())
 						m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-				//}
- 				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
-				if (m_pDsPlayer && m_pDsBuffer)
-				{
-					m_bThreadPlayAudioRun = true;
-					//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
-					m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
-					m_pDsBuffer->StartPlay();
-					m_bEnableAudio = true;
+					m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
+					if (m_pDsPlayer && m_pDsBuffer)
+					{
+						m_bThreadPlayAudioRun = true;
+						//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
+						m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
+						m_pDsBuffer->StartPlay();
+						m_bEnableAudio = true;
+					}
+					else
+						m_bEnableAudio = false;
 				}
-				else
-					m_bEnableAudio = false;
 			}
 		}
 		return DVO_Succeed;

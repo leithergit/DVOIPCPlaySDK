@@ -884,7 +884,7 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);	
 	time_t tSec = pStreamHeader->sec;
 	time_t tFrame = tSec * 1000 * 1000 + pStreamHeader->usec;
-	
+
 	switch (pStreamHeader->frame_type)
 	{
 	case 0:
