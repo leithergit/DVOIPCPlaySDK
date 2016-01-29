@@ -78,6 +78,8 @@ bool CVideoFrame::AdjustPanels(int nRow, int nCols)
 	{
 		m_vecPanel.clear();
 	}
+	m_nRows = nRow;
+	m_nCols = nCols;
 	for (int nRow = 0; nRow < m_nRows; nRow++)
 	{
 		for (int nCol = 0; nCol < m_nCols; nCol++)

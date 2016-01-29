@@ -60,6 +60,9 @@ END_MESSAGE_MAP()
 
 // CDvoIPCPlayDemoDlg 对话框
 
+#define _Row	1
+#define _Col	1
+
 
 CDvoIPCPlayDemoDlg::CDvoIPCPlayDemoDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CDvoIPCPlayDemoDlg::IDD, pParent)
@@ -94,10 +97,47 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_COMBO_PLAYSPEED, &CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CDvoIPCPlayDemoDlg::OnBnClickedButtonPause)
 	ON_WM_TIMER()
+	ON_WM_HOTKEY()
+	ON_BN_CLICKED(IDC_BUTTON_TRACECACHE, &CDvoIPCPlayDemoDlg::OnBnClickedButtonTracecache)
 END_MESSAGE_MAP()
 
 
+CFile *CDvoIPCPlayDemoDlg::m_pVldReport = nullptr;
+
+ int __cdecl VLD_REPORT(int reportType, wchar_t *message, int *returnValue)
+{
+	if (CDvoIPCPlayDemoDlg::m_pVldReport)
+	{
+		CDvoIPCPlayDemoDlg::m_pVldReport->Write(message, wcslen(message));
+	}
+	return 0;
+}
+
 // CDvoIPCPlayDemoDlg 消息处理程序
+ 
+void CDvoIPCPlayDemoDlg::OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2)
+{
+	if (nKey2 == VK_F12)
+	{
+		if (m_pVldReport)
+		{
+			delete m_pVldReport;
+			m_pVldReport = nullptr;
+		}
+		else
+		{
+			if (PathFileExists(_T("Vld_Report.txt")))
+				DeleteFile(_T("Vld_Report.txt"));
+			m_pVldReport = new CFile(_T("Vld_Report.txt"), CFile::modeCreate | CFile::modeWrite);
+		}
+		
+// 		VLDSetReportOptions( VLD_OPT_REPORT_TO_DEBUGGER,nullptr);
+// 		VLDReportLeaks();
+	}
+
+	CDialogEx::OnHotKey(nHotKeyId, nKey1, nKey2);
+}
+
 
 BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 {
@@ -160,7 +200,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	CRect rtClient;
 	GetDlgItemRect(IDC_STATIC_FRAME, rtClient);
 	m_pVideoWndFrame = new CVideoFrame;
-	m_pVideoWndFrame->Create(1024, rtClient, 1, 1, this);
+	m_pVideoWndFrame->Create(1024, rtClient, _Row, _Col, this);
 	BOOL bRedraw = FALSE;
 
 	UINT nSliderIDArray[] = {
@@ -182,6 +222,15 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_SETPOS, TRUE, 80);
 
 	InitializeCriticalSection(&m_csListStream);
+	m_nHotkeyID = GlobalAddAtom(_T("{A1C54F9F-A835-4fca-88DA-BF0C0DA0E6C5}"));
+	
+	if (m_nHotkeyID)
+	{
+		RegisterHotKey(m_hWnd, m_nHotkeyID, MOD_ALT | MOD_CONTROL, VK_F12);
+	}
+	//int nStatus = VLDSetReportHook(VLD_RPTHOOK_INSTALL, VLD_REPORT);
+	SetDlgItemText(IDC_EDIT_ROW, _T("1"));
+	SetDlgItemText(IDC_EDIT_COL, _T("1"));
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -333,8 +382,6 @@ HCURSOR CDvoIPCPlayDemoDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
-
 void CDvoIPCPlayDemoDlg::OnSize(UINT nType, int cx, int cy)
 {
 	CDialogEx::OnSize(nType, cx, cy);
@@ -358,7 +405,6 @@ void CDvoIPCPlayDemoDlg::OnSize(UINT nType, int cx, int cy)
 	}
 }
 
-
 void CDvoIPCPlayDemoDlg::OnDestroy()
 {
 	CDialogEx::OnDestroy();
@@ -380,6 +426,7 @@ void CDvoIPCPlayDemoDlg::OnDestroy()
 		delete m_pVideoWndFrame;
 	}
 	DeleteCriticalSection(&m_csListStream);
+	//VLDSetReportHook(VLD_RPTHOOK_REMOVE, VLD_REPORT);
 }
 
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
@@ -405,7 +452,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		if (ComboBox_FindString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), 0, szIPAddress) == CB_ERR)
 			ComboBox_AddString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), szIPAddress);
 
-		m_pPlayContext = make_shared<PlayerContext>(hUser);		
+		m_pPlayContext = make_shared<PlayerContext>(hUser,-1,nullptr,_Row*_Col);		
 		m_pPlayContext->pThis = this;
 		m_pPlayContext->hUser = hUser;
 		_tcscpy_s(m_pPlayContext->szIpAddress, 32, szIPAddress);
@@ -448,7 +495,6 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonDisconnect()
 	}
 }
 
-
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 {
 	if (m_pPlayContext)
@@ -478,25 +524,50 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 			m_pPlayContext->pThis = this;
 			EnableDlgItem(IDC_COMBO_STREAM, false);
 		}
-
-		if (!m_pPlayContext->hPlayer)
+		m_nRow = GetDlgItemInt(IDC_EDIT_ROW);
+		m_nCol = GetDlgItemInt(IDC_EDIT_COL);
+		if (m_pVideoWndFrame->GetRows() != m_nRow ||
+			m_pVideoWndFrame->GetCols() != m_nCol)
+		{
+			if (m_nRow*m_nCol <= 16)
+			{
+				m_pVideoWndFrame->AdjustPanels(m_nRow, m_nCol);
+				m_pPlayContext->nPlayerCount = m_nRow*m_nCol;
+			}
+			else
+			{
+				m_pVideoWndFrame->AdjustPanels(16);
+				m_pPlayContext->nPlayerCount = 16;
+			}
+		}
+		m_pPlayContext->nPlayerCount = m_nCol*m_nRow;
+		if (!m_pPlayContext->hPlayer[0])
 		{
 			int nFreePanel = 0;
-			m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(nFreePanel);
-			m_pVideoWndFrame->SetPanelParam(nFreePanel, m_pPlayContext.get());
-			m_pPlayContext->hPlayer = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0);
-			if (!m_pPlayContext->hPlayer)
-			{
-				m_wndStatus.SetWindowText(_T("打开流播放句柄失败"));
-				m_wndStatus.SetAlarmGllitery();
-				return;
-			}
 			bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 			bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
-			dvoplay_Refresh(m_pPlayContext->hPlayer);
-			dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow);
 			int nVolume = SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_GETPOS);
-			dvoplay_SetVolume(m_pPlayContext->hPlayer, nVolume);
+			
+			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			{
+				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
+				m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0);
+				m_pVideoWndFrame->SetPanelParam(i, m_pPlayContext.get());
+				if (!m_pPlayContext->hPlayer[i])
+				{
+					m_wndStatus.SetWindowText(_T("打开流播放句柄失败"));
+					m_wndStatus.SetAlarmGllitery();
+					return;
+				}
+				dvoplay_Refresh(m_pPlayContext->hPlayer[i]);
+				if (i == 0)
+					bEnableAudio = true;
+				else
+					bEnableAudio = false;
+				dvoplay_Start(m_pPlayContext->hPlayer[i], false, bFitWindow);			
+				dvoplay_SetVolume(m_pPlayContext->hPlayer[i], nVolume);
+			}
+			
 			SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("停止播放"));
 					
 			EnableDlgItems(m_hWnd, true, 6,
@@ -507,6 +578,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				IDC_SLIDER_PICSCALE,
 				IDC_SLIDER_VOLUME);
 			EnableDlgItem(IDC_SLIDER_PLAYER, false);
+			EnableDlgItem(IDC_EDIT_ROW, false);
+			EnableDlgItem(IDC_EDIT_COL, false);
 		}
 		else
 		{
@@ -516,13 +589,13 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				m_pPlayContext->hStream = -1;
 				EnableDlgItem(IDC_COMBO_STREAM, true);
 			}
-						
-			if (m_pPlayContext->hPlayer)
+			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			if (m_pPlayContext->hPlayer[i])
 			{
-				dvoplay_Stop(m_pPlayContext->hPlayer);
+				dvoplay_Stop(m_pPlayContext->hPlayer[i]);
 				//dvoplay_Refresh(m_pPlayContext->hPlayer);
-				dvoplay_Close(m_pPlayContext->hPlayer);
-				m_pPlayContext->hPlayer = nullptr;
+				dvoplay_Close(m_pPlayContext->hPlayer[i]);
+				m_pPlayContext->hPlayer[i] = nullptr;
 			}
 			SetDlgItemText(IDC_BUTTON_PLAYSTREAM, _T("播放码流"));
 			EnableDlgItems(m_hWnd, false, 6,
@@ -533,6 +606,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				IDC_SLIDER_PICSCALE,
 				IDC_SLIDER_VOLUME);
 			EnableDlgItem(IDC_SLIDER_PLAYER, false);
+			EnableDlgItem(IDC_EDIT_ROW, true);
+			EnableDlgItem(IDC_EDIT_COL, true);
 		}
 	}
 }
@@ -680,7 +755,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
 				if (bIsStreamPlay != BST_CHECKED)
 				{
-					m_pPlayContext->hPlayer = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
+					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
 					if (!m_pPlayContext->hPlayer)
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
@@ -691,7 +766,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					}
 				
 					PlayerInfo pi;
-					if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer, &pi) != DVO_Succeed)
+					if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) != DVO_Succeed)
 					{
 						m_wndStatus.SetWindowText(_T("获取文件信息失败."));
 						m_wndStatus.SetAlarmGllitery();
@@ -706,7 +781,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d"), nHour, nMinute, nSecond);
 					SetDlgItemText(IDC_STATIC_TOTALTIME, szPlayText);
 
-					if (dvoplay_Start(m_pPlayContext->hPlayer, !bEnableAudio, bFitWindow) != DVO_Succeed)
+					if (dvoplay_Start(m_pPlayContext->hPlayer[0], !bEnableAudio, bFitWindow) != DVO_Succeed)
 					{
 						m_wndStatus.SetWindowText(_T("无法启动播放器"));
 						m_wndStatus.SetAlarmGllitery();
@@ -718,7 +793,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				{
 					// 创建文件解析句柄
 					// 一般在流媒体服务端创建,用于向客户端提供媒体流数据
-					m_pPlayContext->hPlayer = dvoplay_OpenFile(nullptr, (CHAR *)(LPCTSTR)strFilePath);					
+					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(nullptr, (CHAR *)(LPCTSTR)strFilePath);					
 					if (!m_pPlayContext->hPlayer)
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
@@ -728,7 +803,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 						return;
 					}
 					PlayerInfo pi;
-					if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer, &pi) != DVO_Succeed)
+					if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) != DVO_Succeed)
 					{
 						m_wndStatus.SetWindowText(_T("获取文件信息失败."));
 						m_wndStatus.SetAlarmGllitery();
@@ -775,7 +850,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					m_wndStatus.SetAlarmGllitery();
 					nCurSpeedIndex = 8;
 				}	
-				dvoplay_SetRate(m_pPlayContext->hPlayer, RateArray[nCurSpeedIndex]);
+				dvoplay_SetRate(m_pPlayContext->hPlayer[0], RateArray[nCurSpeedIndex]);
 				m_pPlayContext->pThis = this;
 				SetDlgItemText(IDC_BUTTON_PLAYFILE, _T("停止播放"));
 				bEnableWnd = false;
@@ -861,10 +936,10 @@ void CDvoIPCPlayDemoDlg::PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserP
 	{
 		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
 
-		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
-		if (nDvoError == DVO_Succeed ||
-			nDvoError == DVO_Error_FileNotExist)
-			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
+// 		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
+// 		if (nDvoError == DVO_Succeed ||
+// 			nDvoError == DVO_Error_FileNotExist)
+// 			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
 	}
 
 }
@@ -943,9 +1018,9 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 		//TraceMsgA("%s Audio Frame Length = %d.\n", __FUNCTION__, nFrameLength);
 		break;
 	}
-
-	if (pContext->hPlayer)
-		dvoplay_InputIPCStream(pContext->hPlayer, pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tFrame);
+	for (int i = 0; i < pContext->nPlayerCount;i ++)
+	if (pContext->hPlayer[i])
+		dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tFrame);
 
 	// 写入录像数据
 	if (pContext->pRecFile && pContext->bRecvIFrame)
@@ -1022,6 +1097,7 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 
 LRESULT CDvoIPCPlayDemoDlg::OnUpdateStreamInfo(WPARAM w, LPARAM l)
 {
+	return 0;
 	if (!m_pPlayContext)
 		return 0;
 	TCHAR szText[128] = { 0 };
@@ -1352,4 +1428,20 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 void CDvoIPCPlayDemoDlg::OnTimer(UINT_PTR nIDEvent)
 {
 	CDialogEx::OnTimer(nIDEvent);
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedButtonTracecache()
+{
+	if (m_pPlayContext && m_pPlayContext->nPlayerCount)
+	{
+		PlayerInfo pi;
+		for (int i = 0; i < m_pPlayContext->nPlayerCount;i ++)
+			if (m_pPlayContext->hPlayer[i])
+			{
+				ZeroMemory(&pi, sizeof(PlayerInfo));
+				dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[i], &pi);
+				TraceMsgA("%s Play[%d]:Size = %dx%d\tVideo cache = %d\tAudio Cache = %d.\n", __FUNCTION__, i, pi.nVideoWidth,pi.nVideoHeight,pi.nCacheSize, pi.nCacheSize2);
+			}
+	}
 }

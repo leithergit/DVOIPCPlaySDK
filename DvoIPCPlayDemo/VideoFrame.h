@@ -83,7 +83,7 @@ private:
 		RegisterClassEx(&wcex);
 		RECT* pRtWnd = GetPanelRect(nRow, nCol);
 		_TraceMsgA("Rect(%d,%d) = (%d,%d,%d,%d).\n", nRow, nCol, pRtWnd->left, pRtWnd->right, pRtWnd->top, pRtWnd->bottom);
-
+		
 		return ::CreateWindow(szWindowClass,	// 窗口类
 			szWndName,							// 窗口标题 
 			WS_CHILD,							// 窗口风格
@@ -159,10 +159,10 @@ public:
 	{
 		return m_vecPanel.size();
 	}
-
+	int GetRows(){ return m_nRows; }
+	int GetCols(){ return m_nCols; }
 	bool AdjustPanels(int nRow, int nCols);
 	bool AdjustPanels(int nCount);
-
 
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
 #pragma warning (disable:4996)

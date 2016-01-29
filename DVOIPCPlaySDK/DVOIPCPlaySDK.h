@@ -117,7 +117,8 @@ struct PlayerInfo
 	time_t		tTimeEplased;	///< 已播放时间(单位:毫秒)
 	USHORT		nFPS;			///< 文件或码流中视频的原始帧率
 	USHORT		nPlayFPS;		///< 当前播放的帧率
-	UINT		nCacheSize;		///< 播放缓存
+	WORD		nCacheSize;		///< 播放缓存
+	WORD		nCacheSize2;	///< 音频缓存
 	float		fPlayRate;		///< 播放速率,只有文件播放时才有效
 	UINT		nReserver[4];
 };

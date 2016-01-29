@@ -11,6 +11,7 @@
 /// 修订说明：最初版本 
 /////////////////////////////////////////////////////////////////////////
 #include "stdafx.h"
+#include <vld.h>
 #include <new>
 #include <assert.h>
 #include <list>
@@ -1107,6 +1108,10 @@ public:
 			EnterCriticalSection(&m_csVideoCache);
 			pPlayInfo->nCacheSize = m_listVideoCache.size();
 			LeaveCriticalSection(&m_csVideoCache);
+
+			EnterCriticalSection(&m_csAudioCache);
+			pPlayInfo->nCacheSize2 = m_listAudioCache.size();
+			LeaveCriticalSection(&m_csAudioCache);
 	
 			if (m_pszFileName && ::PathFileExistsA(m_pszFileName))
 			{
@@ -2174,6 +2179,7 @@ public:
 
 	static DWORD WINAPI ThreadPlayVideo(void *p)
 	{
+		//VLDEnable();
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 		int nAvError = 0;
 		char szAvError[1024] = { 0 };

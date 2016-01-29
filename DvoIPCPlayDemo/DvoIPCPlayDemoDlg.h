@@ -128,7 +128,8 @@ public:
 	StreamInfo*	pStreamInfo;
 	USER_HANDLE hUser;
 	REAL_HANDLE hStream;
-	DVO_PLAYHANDLE	hPlayer;
+	int nPlayerCount;
+	DVO_PLAYHANDLE	hPlayer[16];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
 	HWND		hWndView;
 	int			nItem;
@@ -150,13 +151,14 @@ public:
 public:
 	PlayerContext(USER_HANDLE hUserIn,
 		REAL_HANDLE hStreamIn = -1,
-		DVO_PLAYHANDLE hPlayerIn = nullptr)
+		DVO_PLAYHANDLE hPlayerIn = nullptr,int nCount = 1)
 	{
 		ZeroMemory(this, sizeof(PlayerContext));
 		pStreamInfo = new StreamInfo();
 		hUserIn = hUserIn;
 		hStream = hStreamIn;
-		hPlayer = hPlayerIn;
+		nPlayerCount = nCount;
+		hPlayer[0] = hPlayerIn;
 		InitializeCriticalSection(&csRecFile);
 	}
 	~PlayerContext()
@@ -168,11 +170,10 @@ public:
 			hStream = -1;
 		}
 		TraceMsgA("%s Now() = %.5f.\n", __FUNCTION__, GetExactTime());
-		if (hPlayer)
-		{
-			dvoplay_Close(hPlayer);
-			hPlayer = nullptr;
-		}
+		for (int i = 0; i < nPlayerCount;i ++)
+		if (hPlayer[i])
+			dvoplay_Close(hPlayer[i]);
+		ZeroMemory(hPlayer, sizeof(DVO_PLAYHANDLE));
 		if (hPlayerStream)
 		{
 			dvoplay_Close(hPlayerStream);
@@ -258,16 +259,15 @@ protected:
 public:
 	CListCtrl	m_wndStreamInfo;
 	CMFCEditBrowseCtrl	m_wndBrowseCtrl;
-	int			m_nListWidth;	// List控件的宽度
-	int			m_nListTop;		// List宽度的Top坐标
+	int			m_nListWidth;			// List控件的宽度
+	int			m_nListTop;				// List宽度的Top坐标
 	TCHAR		m_szRecordPath[MAX_PATH];
 	int			m_nMonitorCount;		//  当前已经连接显示器的数量
 	CVideoFrame *m_pVideoWndFrame = nullptr;
 	CGlliteryStatic m_wndStatus;
-	WORD m_nHotkeyID;
 	bool SaveSetting();
 	bool LoadSetting();
-
+	static CFile *m_pVldReport;
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnDestroy();
 	afx_msg void OnBnClickedButtonConnect();
@@ -297,10 +297,14 @@ public:
 	afx_msg void OnBnClickedButtonSnapshot();
 	afx_msg void OnCbnSelchangeComboPlayspeed();
 	afx_msg void OnBnClickedButtonPause();
+	afx_msg void OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2);
 	bool m_bPuased = false;
 	volatile bool m_bThreadStream = false;
 	HANDLE  m_hThreadSendStream = nullptr;
 	HANDLE  m_hThreadPlayStream = nullptr;
+	int		m_nRow = 1;
+	int		m_nCol = 1;
+	ATOM m_nHotkeyID = 0;
 	struct DvoStream
 	{
 		DvoStream(byte *pBuffer,int nBufferSize)
@@ -428,4 +432,5 @@ public:
 		return 0;
 	}
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnBnClickedButtonTracecache();
 };
