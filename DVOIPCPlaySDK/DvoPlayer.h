@@ -11,7 +11,7 @@
 /// 修订说明：最初版本 
 /////////////////////////////////////////////////////////////////////////
 #include "stdafx.h"
-#include <vld.h>
+//#include <vld.h>
 #include <new>
 #include <assert.h>
 #include <list>
@@ -277,12 +277,13 @@ private:
 
 	DVO_CODEC	m_nVideoCodec;			///< 视频编码格式 @see DVO_CODEC	
 	static		CAvRegister avRegister;	
-	static shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
+	//static shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
+	shared_ptr<CDSound> m_pDsPlayer;///< DirectSound播放对象指针
 	//shared_ptr<CDSound> m_pDsPlayer;	///< DirectSound播放对象指针
 	CDSoundBuffer* m_pDsBuffer;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
 	shared_ptr<CVideoDecoder>m_pDecodec;
-	static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
+	//static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
 	int			m_nVideoWidth;			///< 视频宽度
 	int			m_nVideoHeight;			///< 视频高度	
@@ -800,28 +801,9 @@ public:
 		{
 			// 启动流播放线程
 			m_bThreadPlayVideoRun = true;			
-			//m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);
 			m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
 			
-			if (bEnaleAudio)
-			{
-				if (m_pDsPlayer)
-				{
-					if (!m_pDsPlayer->IsInitialized())
-						m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-					m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
-					if (m_pDsPlayer && m_pDsBuffer)
-					{
-						m_bThreadPlayAudioRun = true;
-						//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
-						m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, CREATE_SUSPENDED, 0);
-						m_pDsBuffer->StartPlay();
-						m_bEnableAudio = true;
-					}
-					else
-						m_bEnableAudio = false;
-				}
-			}
+			EnableAudio(bEnaleAudio);
 		}
 		return DVO_Succeed;
 	}
@@ -992,12 +974,14 @@ public:
 		{
 			WaitForSingleObject(m_hThreadParser, INFINITE);			
 			CloseHandle(m_hThreadParser);
+			m_hThreadParser = nullptr;
 			DxTraceMsg("%s ThreadParser has exit.\n", __FUNCTION__);
 		}
 		if (m_hThreadPlayVideo)
 		{
 			WaitForSingleObject(m_hThreadPlayVideo, INFINITE);
 			CloseHandle(m_hThreadPlayVideo);
+			m_hThreadPlayVideo = nullptr;
 			DxTraceMsg("%s ThreadPlayVideo has exit.\n", __FUNCTION__);
 		}
 		if (m_hThreadPlayAudio)
@@ -1005,19 +989,11 @@ public:
 			ResumeThread(m_hThreadPlayAudio);
 			WaitForSingleObject(m_hThreadPlayAudio, INFINITE);
 			CloseHandle(m_hThreadPlayAudio);
+			m_hThreadPlayAudio = nullptr;
 			DxTraceMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
 		}
 		
-		if (m_pDsBuffer)
-		{
-			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
-			m_pDsBuffer = nullptr;
-		}
-// 		if (m_pDsPlayer)
-// 		{
-// 			m_pDsPlayer.reset();
-// 			m_pDsPlayer = nullptr;
-// 		}
+		EnableAudio(false);
 		if (m_pFrameOffsetTable)
 			delete []m_pFrameOffsetTable;
 		
@@ -1398,29 +1374,34 @@ public:
 	/// @retval			-1	输入参数无效
 	int  EnableAudio(bool bEnable = true)
 	{
-// 		if (!m_DsPlayer)
-// 			return DVO_Succeed;		
-		if (m_fPlayRate > 4)
-			return DVO_Succeed;
+		if (m_fPlayRate != 1.0f)
+			return DVO_Error_AudioFailed;
 		
 		if (bEnable)
 		{
-// 			if (!m_pDsPlayer)
-// 			{
-				//m_pDsPlayer = make_shared<CDSound>(nullptr);
-				if (!m_pDsPlayer->IsInitialized())
-					m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments);
-//			}
-			if (!m_pDsBuffer)			
-				m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
-			
-			m_pDsBuffer->StartPlay();
-			if (!m_hThreadPlayAudio)
+			if (!m_pDsPlayer)
+				m_pDsPlayer = make_shared<CDSound>(m_hWnd);
+			if (!m_pDsPlayer->IsInitialized())
 			{
-				m_bThreadPlayAudioRun = true;
-				//m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
-				m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, 0, 0);
-			}	
+				if (!m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments))
+				{
+					m_pDsPlayer = nullptr;
+					m_bEnableAudio = false;
+					assert(false);
+					return DVO_Error_AudioFailed;
+				}
+			}
+			m_pDsBuffer = m_pDsPlayer->CreateDsoundBuffer();
+			if (!m_pDsBuffer)			
+			{
+				m_bEnableAudio = false;
+				assert(false);
+				return DVO_Error_AudioFailed;
+			}
+			m_bThreadPlayAudioRun = true;
+			m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+			m_pDsBuffer->StartPlay();
+
 			m_dfLastTimeAudioPlay = 0.0f;
 			m_dfLastTimeAudioSample = 0.0f;
 			m_bEnableAudio = true;
@@ -1443,11 +1424,8 @@ public:
 				m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
 				m_pDsBuffer = nullptr;
 			}
-// 			if (m_pDsPlayer)
-// 			{
-// 				m_pDsPlayer.reset();
-// 				m_pDsPlayer = nullptr;
-// 			}
+			if (m_pDsPlayer)
+				m_pDsPlayer = nullptr;
 		}
 		return DVO_Succeed;
 	}
@@ -2189,13 +2167,6 @@ public:
 			assert(false);
 			return 0;
 		}	
-		HWND hWndDxInit = pThis->m_pWndDxInit->GetSafeHwnd();
-		if (!hWndDxInit)
-		{
-			DxTraceMsg("%s The Window for Direct3d is not ready.\n", __FUNCTION__);
-			assert(false);
-			return 0;
-		}
 		shared_ptr<CVideoDecoder>pDecodec = make_shared<CVideoDecoder>();
 		if (!pDecodec)
 		{
@@ -2507,6 +2478,77 @@ public:
 		bool bAudioDecoderInitialized = false;
 		int nPCMSize = 0;
 		int nDecodeSize = 0;
+
+		// 预读第一帧，以初始化音频解码器
+		while (pThis->m_bThreadPlayAudioRun)
+		{
+			if (!FramePtr)
+			{
+				CAutoLock lock(&pThis->m_csAudioCache);
+				if (pThis->m_listAudioCache.size() > 0)
+				{
+					FramePtr = pThis->m_listAudioCache.front();
+					break;
+				}
+			}
+			Sleep(10);
+		}
+		if (!FramePtr)
+			return 0;
+		if (pAudioDecoder->GetCodecType() == CODEC_UNKNOWN)
+		{
+			const DVOFrameHeaderEx *pHeader = FramePtr->FrameHeader();
+			nDecodeSize = pHeader->nLength * 2;		//G711 压缩率为2倍
+			switch (pHeader->nType)
+			{
+			case FRAME_G711A:			//711 A律编码帧
+			{
+				pAudioDecoder->SetACodecType(CODEC_G711A, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_G711A;
+				DxTraceMsg("%s Audio Codec:G711A.\n", __FUNCTION__);
+				break;
+			}
+			case FRAME_G711U:			//711 U律编码帧
+			{
+				pAudioDecoder->SetACodecType(CODEC_G711U, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_G711U;
+				DxTraceMsg("%s Audio Codec:G711U.\n", __FUNCTION__);
+				break;
+			}
+
+			case FRAME_G726:			//726编码帧
+			{
+				// 因为目前DVO相机的G726编码,虽然采用的是16位采样，但使用32位压缩编码，因此解压得使用SampleBit32
+				pAudioDecoder->SetACodecType(CODEC_G726, SampleBit32);
+				pThis->m_nAudioCodec = CODEC_G726;
+				nDecodeSize = FramePtr->FrameHeader()->nLength * 8;		//G726最大压缩率可达8倍
+				DxTraceMsg("%s Audio Codec:G726.\n", __FUNCTION__);
+				break;
+			}
+			case FRAME_AAC:				//AAC编码帧。
+			{
+				pAudioDecoder->SetACodecType(CODEC_AAC, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_AAC;
+				nDecodeSize = FramePtr->FrameHeader()->nLength * 24;
+				DxTraceMsg("%s Audio Codec:AAC.\n", __FUNCTION__);
+				break;
+			}
+			default:
+			{
+				assert(false);
+				DxTraceMsg("%s Unspported audio codec.\n", __FUNCTION__);
+				return 0;
+				break;
+			}
+			}
+		}
+		if (nPCMSize < nDecodeSize)
+		{
+			if (pPCM)
+				delete[]pPCM;
+			pPCM = new byte[nDecodeSize];
+			nPCMSize = nDecodeSize;
+		}
 #ifdef _DEBUG
 		double dfTPlay = GetExactTime();
 		double TPlayArray[50] = { 0 };
@@ -2525,92 +2567,26 @@ public:
 				::LeaveCriticalSection(&pThis->m_csAudioCache);
 			}
 			
-			if (nTimeSpan >= nAudioFrameInterval)
-			{
-				if (nTimeSpan > 100)			// 连续100ms没有音频数据，则视为音频暂停
-					pThis->m_pDsBuffer->StopPlay();
-				else if(!pThis->m_pDsBuffer->IsPlaying())
-					pThis->m_pDsBuffer->StartPlay();
+			if (nTimeSpan > 100)			// 连续100ms没有音频数据，则视为音频暂停
+				pThis->m_pDsBuffer->StopPlay();
+			else if(!pThis->m_pDsBuffer->IsPlaying())
+				pThis->m_pDsBuffer->StartPlay();
 				
-				bool bPopFrame = false;
-				::EnterCriticalSection(&pThis->m_csAudioCache);
-				if (pThis->m_listAudioCache.size() > 0)
-				{
-					FramePtr = pThis->m_listAudioCache.front();
-					pThis->m_listAudioCache.pop_front();
-					bPopFrame = true;
-				}
-				::LeaveCriticalSection(&pThis->m_csAudioCache);
-				if (!bPopFrame)
-				{
-					Sleep(10);
-					continue;
-				}
-				dfT1 = GetExactTime();
+			bool bPopFrame = false;
+			::EnterCriticalSection(&pThis->m_csAudioCache);
+			if (pThis->m_listAudioCache.size() > 0)
+			{
+				FramePtr = pThis->m_listAudioCache.front();
+				pThis->m_listAudioCache.pop_front();
+				bPopFrame = true;
 			}
-			else
-			{	// 控制播放速度
-				int nSleepTime = nAudioFrameInterval - nTimeSpan;
-				if (nSleepTime > dwSleepPricision)
-					Sleep(nSleepTime);
+			::LeaveCriticalSection(&pThis->m_csAudioCache);
+			if (!bPopFrame)
+			{
+				Sleep(10);
 				continue;
 			}
-			
-			if (pAudioDecoder->GetCodecType() == CODEC_UNKNOWN)
-			{
-				const DVOFrameHeaderEx *pHeader = FramePtr->FrameHeader();
-				nDecodeSize = pHeader->nLength * 2;		//G711 压缩率为2倍
-				switch (pHeader->nType)
-				{
-				case FRAME_G711A:			//711 A律编码帧
-				{
-					pAudioDecoder->SetACodecType(CODEC_G711A, SampleBit16);
-					pThis->m_nAudioCodec = CODEC_G711A;
-					DxTraceMsg("%s Audio Codec:G711A.\n", __FUNCTION__);
-					break;
-				}
-				case FRAME_G711U:			//711 U律编码帧
-				{
-					pAudioDecoder->SetACodecType(CODEC_G711U, SampleBit16);
-					pThis->m_nAudioCodec = CODEC_G711U;
-					DxTraceMsg("%s Audio Codec:G711U.\n", __FUNCTION__);
-					break;
-				}
-
-				case FRAME_G726:			//726编码帧
-				{
-					// 因为目前DVO相机的G726编码,虽然采用的是16位采样，但使用32位压缩编码，因此解压得使用SampleBit32
-					pAudioDecoder->SetACodecType(CODEC_G726, SampleBit32);
-					pThis->m_nAudioCodec = CODEC_G726;
-					nDecodeSize = FramePtr->FrameHeader()->nLength * 8;		//G726最大压缩率可达8倍
-					DxTraceMsg("%s Audio Codec:G726.\n", __FUNCTION__);
-					break;
-				}
-				case FRAME_AAC:				//AAC编码帧。
-				{
-					pAudioDecoder->SetACodecType(CODEC_AAC, SampleBit16);
-					pThis->m_nAudioCodec = CODEC_AAC;
-					nDecodeSize = FramePtr->FrameHeader()->nLength * 24;
-					DxTraceMsg("%s Audio Codec:AAC.\n", __FUNCTION__);
-					break;
-				}
-				default:
-				{
-					assert(false);
-					DxTraceMsg("%s Unspported audio codec.\n", __FUNCTION__);
-					return 0;
-					break;
-				}
-				}
-			}
-			if (nPCMSize < nDecodeSize)
-			{
-				if (pPCM)
-					delete[]pPCM;
-				pPCM = new byte[nDecodeSize];
-				nPCMSize = nDecodeSize;
-			}
-
+				
 			if (pThis->m_pDsBuffer->IsPlaying() &&
 				pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(), FramePtr->FrameHeader()->nLength) != 0)
 			{
@@ -2635,6 +2611,7 @@ public:
 // 				}
 // #endif
 			}
+			dfT1 = GetExactTime();
 		}
 		if (pPCM)
 			delete[]pPCM;

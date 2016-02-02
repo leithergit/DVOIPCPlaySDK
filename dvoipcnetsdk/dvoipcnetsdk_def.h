@@ -1,4 +1,4 @@
-/**
+ï»¿/**
 *  COPYRIGHT NOTICE 
 *  Copyright (c) 2015, Diveo Technology Co.,Ltd (www.diveo.com.cn)
 *  All rights reserved.
@@ -7,8 +7,8 @@
 *  @author      luo_ws(luo_ws@diveo.com.cn)
 *  @date        2015/08/11 13:54
 *
-*  @brief       dvoipcnetsdkÊý¾Ý½á¹¹µÄ¶¨Òå
-*  @note        ÎÞ
+*  @brief       dvoipcnetsdkæ•°æ®ç»“æž„çš„å®šä¹‰
+*  @note        æ— 
 *
 *  @version
 *    - v1.0.1.0    2015/08/11 13:54    luo_ws 
@@ -23,15 +23,15 @@
 #endif
 
 #ifndef PARAM_IN
-#define PARAM_IN		///< ÊäÈë²ÎÊý
+#define PARAM_IN		///< è¾“å…¥å‚æ•°
 #endif
 
 #ifndef PARAM_OUT
-#define PARAM_OUT		///< Êä³ö²ÎÊý
+#define PARAM_OUT		///< è¾“å‡ºå‚æ•°
 #endif
 
 #ifndef PARAM_INOUT
-#define PARAM_INOUT		///< ÊäÈë/Êä³ö²ÎÊý
+#define PARAM_INOUT		///< è¾“å…¥/è¾“å‡ºå‚æ•°
 #endif
 
 
@@ -44,72 +44,74 @@
 #endif
 
 ///////////////////////////DVO NET SDK ERROR CODE///////////////////////////////////////////////
-/** ´íÎóÀàÐÍ´úºÅ¶¨Òå£¬¶ÔÓ¦ËùÓÐDVOIPCNETSDK_API½Ó¿Ú»òDVO_NET_GetLastErrorµÄ·µ»ØÖµ */
+/** é”™è¯¯ç±»åž‹ä»£å·å®šä¹‰ï¼Œå¯¹åº”æ‰€æœ‰DVOIPCNETSDK_APIæŽ¥å£æˆ–DVO_NET_GetLastErrorçš„è¿”å›žå€¼ */
 #define _ERC(x)						            (0x00000000|x)
-#define DVOAPI_ERRNO_NOERROR 				    0			///< Ã»ÓÐ´íÎó
-#define DVOAPI_ERRNO_UNKNOWN				    -1			///< Î´ÖªÒì³£
-#define DVOAPI_ERRNO_INVALIDPARAM			    _ERC(1)     ///< ·Ç·¨²ÎÊý
-#define DVOAPI_ERRNO_SYSTEM_ERROR			    _ERC(2)	    ///< WindowsÏµÍ³³ö´í
-#define DVOAPI_ERRNO_NOTINIT				    _ERC(3)	    ///< Î´³õÊ¼»¯
-#define DVOAPI_ERRNO_INVALIDHANDLE              _ERC(4)	    ///< ·Ç·¨µÄ¾ä±ú
-#define DVOAPI_ERRNO_DEV_VER_NOMATCH		    _ERC(5)		///< Éè±¸Ð­Òé²»Æ¥Åä
-#define DVOAPI_ERRNO_NOTSUPPORT			        _ERC(6)	    ///< ²»Ö§³ÖµÄ²Ù×÷
-#define DVOAPI_ERRNO_MALLOC_MEMORY			    _ERC(7)	    ///< ·ÖÅäÄÚ´æÊ§°Ü
-#define DVOAPI_ERRNO_SYSTEMBUSY			        _ERC(8)   	///< ÏµÍ³ÕýÃ¦
-#define DVOAPI_ERRNO_DATA_TOOLONGH			    _ERC(9)		///< Êý¾Ý³¬³¤
+#define DVOAPI_ERRNO_NOERROR 				    0			///< æ²¡æœ‰é”™è¯¯
+#define DVOAPI_ERRNO_UNKNOWN				    -1			///< æœªçŸ¥å¼‚å¸¸
+#define DVOAPI_ERRNO_INVALIDPARAM			    _ERC(1)     ///< éžæ³•å‚æ•°
+#define DVOAPI_ERRNO_SYSTEM_ERROR			    _ERC(2)	    ///< Windowsç³»ç»Ÿå‡ºé”™
+#define DVOAPI_ERRNO_NOTINIT				    _ERC(3)	    ///< æœªåˆå§‹åŒ–
+#define DVOAPI_ERRNO_INVALIDHANDLE              _ERC(4)	    ///< éžæ³•çš„å¥æŸ„
+#define DVOAPI_ERRNO_DEV_VER_NOMATCH		    _ERC(5)		///< è®¾å¤‡åè®®ä¸åŒ¹é…
+#define DVOAPI_ERRNO_NOTSUPPORT			        _ERC(6)	    ///< ä¸æ”¯æŒçš„æ“ä½œ
+#define DVOAPI_ERRNO_MALLOC_MEMORY			    _ERC(7)	    ///< åˆ†é…å†…å­˜å¤±è´¥
+#define DVOAPI_ERRNO_SYSTEMBUSY			        _ERC(8)   	///< ç³»ç»Ÿæ­£å¿™
+#define DVOAPI_ERRNO_DATA_TOOLONGH			    _ERC(9)		///< æ•°æ®è¶…é•¿
 
-#define DVOAPI_ERRNO_CONNECTTIMEOUT             _ERC(10)    ///< Á¬½Ó³¬Ê±£¬µÇÂ¼Éè±¸³¬Ê±£¬Çë¼ì²éÍøÂç²¢ÖØÊÔ
-#define DVOAPI_ERRNO_NET_SEND_TIMEOUT           _ERC(11)    ///< SOCKET ·¢ËÍ³¬Ê±
-#define DVOAPI_ERRNO_NET_RECV_TIMEOUT           _ERC(12)    ///< SOCKET ½ÓÊÕ³¬Ê±
-#define DVOAPI_ERRNO_NETWORK_ERROR              _ERC(13)    ///< ÍøÂç´íÎó£¬¿ÉÄÜÊÇÒòÎªÍøÂç³¬Ê±
-#define DVOAPI_ERRNO_SOCKET_SEND                _ERC(14)    ///< SOCKET ·¢ËÍ´íÎó
-#define DVOAPI_ERRNO_SOCKET_RECV                _ERC(15)    ///< SOCKET ½ÓÊÕ´íÎó
-#define DVOAPI_ERRNO_TRANPORT_BIND		        _ERC(16)   	///< ¶Ë¿ÚÒÑ¾­°ó¶¨£¬²»ÄÜÊ¹ÓÃ
-#define DVOAPI_ERRNO_RECV_INVALIDDATA	        _ERC(17)   	///< ÊÕµ½´íÎóÊý¾Ý
-#define DVOAPI_ERRNO_NETWORK_DISCONN	        _ERC(18)   	///< ÍøÂç¶ÏÏß
-#define DVOAPI_ERRNO_NETWORK_DATA_TOOLONGH      _ERC(19)   	///< ÍøÂçÊý¾Ý³¬³¤
+#define DVOAPI_ERRNO_CONNECTTIMEOUT             _ERC(10)    ///< è¿žæŽ¥è¶…æ—¶ï¼Œç™»å½•è®¾å¤‡è¶…æ—¶ï¼Œè¯·æ£€æŸ¥ç½‘ç»œå¹¶é‡è¯•
+#define DVOAPI_ERRNO_NET_SEND_TIMEOUT           _ERC(11)    ///< SOCKET å‘é€è¶…æ—¶
+#define DVOAPI_ERRNO_NET_RECV_TIMEOUT           _ERC(12)    ///< SOCKET æŽ¥æ”¶è¶…æ—¶
+#define DVOAPI_ERRNO_NETWORK_ERROR              _ERC(13)    ///< ç½‘ç»œé”™è¯¯ï¼Œå¯èƒ½æ˜¯å› ä¸ºç½‘ç»œè¶…æ—¶
+#define DVOAPI_ERRNO_SOCKET_SEND                _ERC(14)    ///< SOCKET å‘é€é”™è¯¯
+#define DVOAPI_ERRNO_SOCKET_RECV                _ERC(15)    ///< SOCKET æŽ¥æ”¶é”™è¯¯
+#define DVOAPI_ERRNO_TRANPORT_BIND		        _ERC(16)   	///< ç«¯å£å·²ç»ç»‘å®šï¼Œä¸èƒ½ä½¿ç”¨
+#define DVOAPI_ERRNO_RECV_INVALIDDATA	        _ERC(17)   	///< æ”¶åˆ°é”™è¯¯æ•°æ®
+#define DVOAPI_ERRNO_NETWORK_DISCONN	        _ERC(18)   	///< ç½‘ç»œæ–­çº¿
+#define DVOAPI_ERRNO_NETWORK_DATA_TOOLONGH      _ERC(19)   	///< ç½‘ç»œæ•°æ®è¶…é•¿
 
-#define DVOAPI_ERRNO_DEVICE_SET_FAIL            _ERC(20)   	///< ÉèÖÃÊ±Éè±¸·µ»ØÊ§°Ü
+#define DVOAPI_ERRNO_DEVICE_SET_FAIL            _ERC(20)   	///< è®¾ç½®æ—¶è®¾å¤‡è¿”å›žå¤±è´¥
+#define DVOAPI_ERRNO_BUFFUF_NOENOUGH            _ERC(21)   	///< ç¼“å†²åŒºå¤ªå°
+#define DVOAPI_ERRNO_NOLOGIN                    _ERC(22)    ///< æ²¡ç™»å½•
 
-#define DVOAPI_ERRNO_USER_PASSWORD			    _ERC(30)   	///< ÓÃ»§Ãû»òÃÜÂë´íÎó
-#define DVOAPI_ERRNO_LOGIN_TRYTIME              _ERC(31)    ///< ÊäÈëÃÜÂë´íÎó³¬¹ýÏÞÖÆ´ÎÊý
-#define DVOAPI_ERRNO_LOGIN_TIMEOUT              _ERC(32)	///< µÈ´ýµÇÂ¼·µ»Ø³¬Ê±
-#define DVOAPI_ERRNO_LOGIN_RELOGGIN             _ERC(33)	///< ÕÊºÅÒÑµÇÂ¼
-#define DVOAPI_ERRNO_LOGIN_LOCKED               _ERC(34)	///< ÕÊºÅÒÑ±»Ëø¶¨
-#define DVOAPI_ERRNO_LOGIN_BLACKLIST            _ERC(35)	///< ÕÊºÅÒÑ±»ÁÐÎªºÚÃûµ¥
-#define DVOAPI_ERRNO_LOGIN_MAXCONNECT           _ERC(36)    ///< ³¬¹ý×î´óÁ¬½ÓÊý
-#define DVOAPI_ERRNO_LOGIN_UNKNOWN              _ERC(37)    ///< µÇÂ¼Òì³£
-#define DVOAPI_ERRNO_LOGOUT                     _ERC(38)    ///< ÒÑ¾­µÇ³ö
+#define DVOAPI_ERRNO_USER_PASSWORD			    _ERC(30)   	///< ç”¨æˆ·åæˆ–å¯†ç é”™è¯¯
+#define DVOAPI_ERRNO_LOGIN_TRYTIME              _ERC(31)    ///< è¾“å…¥å¯†ç é”™è¯¯è¶…è¿‡é™åˆ¶æ¬¡æ•°
+#define DVOAPI_ERRNO_LOGIN_TIMEOUT              _ERC(32)	///< ç­‰å¾…ç™»å½•è¿”å›žè¶…æ—¶
+#define DVOAPI_ERRNO_LOGIN_RELOGGIN             _ERC(33)	///< å¸å·å·²ç™»å½•
+#define DVOAPI_ERRNO_LOGIN_LOCKED               _ERC(34)	///< å¸å·å·²è¢«é”å®š
+#define DVOAPI_ERRNO_LOGIN_BLACKLIST            _ERC(35)	///< å¸å·å·²è¢«åˆ—ä¸ºé»‘åå•
+#define DVOAPI_ERRNO_LOGIN_MAXCONNECT           _ERC(36)    ///< è¶…è¿‡æœ€å¤§è¿žæŽ¥æ•°
+#define DVOAPI_ERRNO_LOGIN_UNKNOWN              _ERC(37)    ///< ç™»å½•å¼‚å¸¸
+#define DVOAPI_ERRNO_LOGOUT                     _ERC(38)    ///< å·²ç»ç™»å‡º
 
 
-#define DVOAPI_ERRNO_VIDEODISPLAY			    _ERC(40)   	///< ´ò¿ªÊÓÆµÏÔÊ¾´íÎó
-#define DVOAPI_ERRNO_VIDEODECODE			    _ERC(41)   	///< ´ò¿ªÊÓÆµ½âÂë´íÎó
-#define DVOAPI_ERRNO_VIDEOENCODE			    _ERC(42)   	///< ´ò¿ªÊÓÆµ±àÂë´íÎó
-#define DVOAPI_ERRNO_VIDEOSHOW			        _ERC(43)   	///< ´ò¿ªÊÓÆµÏÔÊ¾´íÎó
-#define DVOAPI_ERRNO_VIDEOCODEC			        _ERC(44)   	///< ´ò¿ªÊÓÆµ½âÂëÆ÷Ê§°Ü
-#define DVOAPI_ERRNO_AUDIOCAPTURE			    _ERC(45)   	///< ´ò¿ªÒôÆµ²É¼¯´íÎó
-#define DVOAPI_ERRNO_AUDIOOUTPUT			    _ERC(46)   	///< ´ò¿ªÒôÆµÊä³ö´íÎó
-#define DVOAPI_ERRNO_AUDIODECODE			    _ERC(47)   	///< ´ò¿ªÒôÆµ½âÂë´íÎó
-#define DVOAPI_ERRNO_AUDIOENCODE			    _ERC(48)   	///< ´ò¿ªÒôÆµ±àÂë´íÎó
+#define DVOAPI_ERRNO_VIDEODISPLAY			    _ERC(40)   	///< æ‰“å¼€è§†é¢‘æ˜¾ç¤ºé”™è¯¯
+#define DVOAPI_ERRNO_VIDEODECODE			    _ERC(41)   	///< æ‰“å¼€è§†é¢‘è§£ç é”™è¯¯
+#define DVOAPI_ERRNO_VIDEOENCODE			    _ERC(42)   	///< æ‰“å¼€è§†é¢‘ç¼–ç é”™è¯¯
+#define DVOAPI_ERRNO_VIDEOSHOW			        _ERC(43)   	///< æ‰“å¼€è§†é¢‘æ˜¾ç¤ºé”™è¯¯
+#define DVOAPI_ERRNO_VIDEOCODEC			        _ERC(44)   	///< æ‰“å¼€è§†é¢‘è§£ç å™¨å¤±è´¥
+#define DVOAPI_ERRNO_AUDIOCAPTURE			    _ERC(45)   	///< æ‰“å¼€éŸ³é¢‘é‡‡é›†é”™è¯¯
+#define DVOAPI_ERRNO_AUDIOOUTPUT			    _ERC(46)   	///< æ‰“å¼€éŸ³é¢‘è¾“å‡ºé”™è¯¯
+#define DVOAPI_ERRNO_AUDIODECODE			    _ERC(47)   	///< æ‰“å¼€éŸ³é¢‘è§£ç é”™è¯¯
+#define DVOAPI_ERRNO_AUDIOENCODE			    _ERC(48)   	///< æ‰“å¼€éŸ³é¢‘ç¼–ç é”™è¯¯
 
-#define DVOAPI_ERRNO_TALK_REJECT                _ERC(50)	///< ¾Ü¾ø¶Ô½²
-#define DVOAPI_ERRNO_TALK_OPENED				_ERC(51)	///< ¶Ô½²±»ÆäËû¿Í»§¶Ë´ò¿ª
-#define DVOAPI_ERRNO_TALK_RESOURCE_CONFLICIT    _ERC(52)	///< ¶Ô½²×ÊÔ´³åÍ»
-#define DVOAPI_ERRNO_TALK_UNSUPPORTED_ENCODE    _ERC(53)	///< ²»Ö§³ÖµÄÓïÒô±àÂë¸ñÊ½
-#define DVOAPI_ERRNO_TALK_RIGHTLESS			    _ERC(54)	///< ÎÞÈ¨ÏÞ¶Ô½²
-#define DVOAPI_ERRNO_TALK_FAILED				_ERC(55)	///< ÇëÇó¶Ô½²Ê§°Ü
+#define DVOAPI_ERRNO_TALK_REJECT                _ERC(50)	///< æ‹’ç»å¯¹è®²
+#define DVOAPI_ERRNO_TALK_OPENED				_ERC(51)	///< å¯¹è®²è¢«å…¶ä»–å®¢æˆ·ç«¯æ‰“å¼€
+#define DVOAPI_ERRNO_TALK_RESOURCE_CONFLICIT    _ERC(52)	///< å¯¹è®²èµ„æºå†²çª
+#define DVOAPI_ERRNO_TALK_UNSUPPORTED_ENCODE    _ERC(53)	///< ä¸æ”¯æŒçš„è¯­éŸ³ç¼–ç æ ¼å¼
+#define DVOAPI_ERRNO_TALK_RIGHTLESS			    _ERC(54)	///< æ— æƒé™å¯¹è®²
+#define DVOAPI_ERRNO_TALK_FAILED				_ERC(55)	///< è¯·æ±‚å¯¹è®²å¤±è´¥
 
-#define DVOAPI_ERRNO_OPENFILE				    _ERC(61)   	///< ´ò¿ªÎÄ¼þ´íÎó
-#define DVOAPI_ERRNO_INVALIDFILETYPE		    _ERC(62)   	///< ÎÞÐ§µÄÎÄ¼þÀàÐÍ
-#define DVOAPI_ERRNO_INVALID_JSON			    _ERC(63)	///< ÎÞÐ§µÄJSON¸ñÊ½
-#define DVOAPI_ERRNO_JSON_REQUEST               _ERC(64)    ///< Éú³ÉµÄjason×Ö·û´®´íÎó
-#define DVOAPI_ERRNO_JSON_RESPONSE              _ERC(65)    ///< ÏìÓ¦µÄjason×Ö·û´®´íÎó
-#define DVOAPI_ERRNO_INVALID_UPGRADE 	        _ERC(66)   	///< ·Ç·¨µÄÉý¼¶°ü
-#define DVOAPI_ERRNO_UPGRADE_LOCK    	        _ERC(67)   	///< Éý¼¶ÖÐ
+#define DVOAPI_ERRNO_OPENFILE				    _ERC(61)   	///< æ‰“å¼€æ–‡ä»¶é”™è¯¯
+#define DVOAPI_ERRNO_INVALIDFILETYPE		    _ERC(62)   	///< æ— æ•ˆçš„æ–‡ä»¶ç±»åž‹
+#define DVOAPI_ERRNO_INVALID_JSON			    _ERC(63)	///< æ— æ•ˆçš„JSONæ ¼å¼
+#define DVOAPI_ERRNO_JSON_REQUEST               _ERC(64)    ///< ç”Ÿæˆçš„jasonå­—ç¬¦ä¸²é”™è¯¯
+#define DVOAPI_ERRNO_JSON_RESPONSE              _ERC(65)    ///< å“åº”çš„jasonå­—ç¬¦ä¸²é”™è¯¯
+#define DVOAPI_ERRNO_INVALID_UPGRADE 	        _ERC(66)   	///< éžæ³•çš„å‡çº§åŒ…
+#define DVOAPI_ERRNO_UPGRADE_LOCK    	        _ERC(67)   	///< å‡çº§ä¸­
 
-#define DVOAPI_ERRNO_DISCOVERY_RESTART          _ERC(70)	///< ËÑË÷ÒÑÆô¶¯
-#define DVOAPI_ERRNO_DISCOVERY_NOTSTART         _ERC(71)	///< ËÑË÷Î´³õÊ¼»¯
-#define DVOAPI_ERRNO_DISCOVERY_GET_ADAPTERS     _ERC(72)	///< ËÑË÷»ñÈ¡Íø¿¨´íÎó
+#define DVOAPI_ERRNO_DISCOVERY_RESTART          _ERC(70)	///< æœç´¢å·²å¯åŠ¨
+#define DVOAPI_ERRNO_DISCOVERY_NOTSTART         _ERC(71)	///< æœç´¢æœªåˆå§‹åŒ–
+#define DVOAPI_ERRNO_DISCOVERY_GET_ADAPTERS     _ERC(72)	///< æœç´¢èŽ·å–ç½‘å¡é”™è¯¯
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -118,50 +120,72 @@
 
 
 #ifndef INT64
-#define INT64   __int64
+#define INT64               __int64
 #endif
 
 #ifndef UINT64
-#define UINT64   unsigned __int64
+#define UINT64              unsigned __int64
 #endif
 
 
 #ifndef LLONG
 #ifdef WIN32
-#define LLONG   LONG
+#define LLONG               LONG
 #else //WIN64 
-#define LLONG   INT64
+#define LLONG               INT64
 #endif
 #endif
 
 #ifndef LDWORD
 #ifdef WIN32
-#define LDWORD  DWORD
+#define LDWORD              DWORD
 #else //WIN64 
-#define LDWORD  INT64
+#define LDWORD              INT64
 #endif
 #endif
 
 #else	//linux
 
 
-#define WORD	unsigned short
-#define DWORD	unsigned int
-#define LONG	int
-#define LPDWORD	DWORD*
-#define BOOL	int
-#define TRUE	1
-#define FALSE	0
-#define BYTE	unsigned char
-#define UINT	unsigned int
-#define HDC		void*
-#define HWND	void*
-#define LPVOID	void*
+typedef int                 INT;
+typedef unsigned long       ULONG;
+typedef unsigned long       DWORD;
+
+#define WORD	            unsigned short
+#define LONG	            int
+#define LPDWORD	            DWORD*
+#define BOOL	            int
+#define TRUE	            1
+#define FALSE	            0
+#define BYTE	            unsigned char
+#define UINT	            unsigned int
+#define HDC		            void*
+#define HWND	            void*
+#define LPVOID	            void*
+#ifndef NULL
 #define NULL	0
-#define LLONG	long
-#define LDWORD	long 
-#define INT64   long long
-#define UINT64  unsigned long long
+#endif
+#define LLONG	            long
+#define LDWORD	            long 
+#define	DWORD_PTR			DWORD
+#define	INT_PTR				int
+
+#define	UINT_PTR			UINT
+#define	LONG_PTR			LONG
+#define ULONG_PTR			ULONG
+
+#define INT64               long long
+#define UINT64              unsigned long long
+typedef UINT64              ULONG64;
+
+
+/* Types use for passing & returning polymorphic values */
+typedef UINT_PTR            WPARAM;
+typedef LONG_PTR            LPARAM;
+typedef LONG_PTR            LRESULT;
+typedef void*               HANDLE;
+typedef void*               HMODULE;
+
 
 #ifndef MAX_PATH
 #define MAX_PATH    260
@@ -175,6 +199,17 @@ typedef struct tagRECT
     LONG bottom;
 }RECT;
 
+typedef struct _SYSTEMTIME {
+    WORD wYear;
+    WORD wMonth;
+    WORD wDayOfWeek;
+    WORD wDay;
+    WORD wHour;
+    WORD wMinute;
+    WORD wSecond;
+    WORD wMilliseconds;
+} SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
+
 #endif
 
 
@@ -184,15 +219,15 @@ typedef unsigned int   	   	u32;/**< UNSIGNED 32-bit data type */
 typedef UINT64           	u64;/**< UNSIGNED 64-bit data type */
 
 
-typedef LLONG   USER_HANDLE;
-typedef LLONG   REAL_HANDLE;
-typedef LLONG   REC_HANDLE;
-typedef LLONG   DOWNLOAD_HANDLE;
+typedef LLONG               USER_HANDLE;
+typedef LLONG               REAL_HANDLE;
+typedef LLONG               REC_HANDLE;
+typedef LLONG               DOWNLOAD_HANDLE;
 
 
 
 #ifndef MAKEINT32
-#define MAKEINT32(a, b)      ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
+#define MAKEINT32(a, b)     ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
 #endif
 
 #ifndef LOWORD
@@ -214,127 +249,136 @@ typedef LLONG   DOWNLOAD_HANDLE;
 #endif
 
 
+/////add at 20151123
+#ifndef MAKELONG
+#define MAKELONG(a, b)       ((LONG)(((WORD)(((DWORD_PTR)(a)) & 0xffff)) | ((DWORD)((WORD)(((DWORD_PTR)(b)) & 0xffff))) << 16))
+#endif
+#ifndef MAKELPARAM
+#define MAKELPARAM(l, h)     ((LPARAM)(DWORD)MAKELONG(l, h))
+#endif
 
 
-/// ÏûÏ¢»Øµ÷µÄÏûÏ¢ÀàÐÍ
+
+/// æ¶ˆæ¯å›žè°ƒçš„æ¶ˆæ¯ç±»åž‹
 enum DVO_CALLBACK_MESSAGE_TYPE
 {
-    DVO_MSG_SESSION_DISCONNECT              =  0x01,    // ÓÃ»§½»»¥Á¬½Ó¶Ï¿ª
-    DVO_MSG_SESSION_RECONNECT_OK            =  0x02,    // ÓÃ»§½»»¥Á¬½ÓÖØÐÂÁ¬ÉÏ
-    DVO_MSG_REALPLAY_DISCONNECT             =  0x03,    // ÊÓÆµÁ¬½Ó¶Ï¿ª
-    DVO_MSG_REALPLAY_RECONNECT_OK           =  0x04,    // ÊÓÆµÁ¬½ÓÖØÐÂÁ¬ÉÏ
+    DVO_MSG_SESSION_DISCONNECT              =  0x01,    // ç”¨æˆ·äº¤äº’è¿žæŽ¥æ–­å¼€
+    DVO_MSG_SESSION_RECONNECT_OK            =  0x02,    // ç”¨æˆ·äº¤äº’è¿žæŽ¥é‡æ–°è¿žä¸Š
+    DVO_MSG_REALPLAY_DISCONNECT             =  0x03,    // è§†é¢‘è¿žæŽ¥æ–­å¼€
+    DVO_MSG_REALPLAY_RECONNECT_OK           =  0x04,    // è§†é¢‘è¿žæŽ¥é‡æ–°è¿žä¸Š
 
-    DVO_MSG_ALARM_HEARTBEAT                 =  0x08,    // Ioin[0]²»±¨¾¯ MD[0]²»±¨¾¯ <=>Ioin[0]Í¨Â· MD[0]²»±¨¾¯
-    DVO_MSG_FUNCTION_REPORT                 =  0x09,    // Ïñ»ú¹¦ÄÜÉÏ±¨ÀàÐÍ
-    DVO_MSG_ALARM_TEMPR_CTRL_MOTION         =  0x0A,    // ÎÂ¿Ø±¨¾¯ÀàÐÍ
-    DVO_MSG_ALARM_TEMPR_CTRL_ERROR          =  0x0B,    // ÎÂ¿ØÒì³£ÉÏ±¨
+    DVO_MSG_ALARM_HEARTBEAT                 =  0x08,    // å¿ƒè·³æŠ¥è­¦æ¶ˆæ¯,bufå¯¹åº”æ•°æ®ç»“æž„ä½“app_net_tcp_sys_event_trig_state_t
+    DVO_MSG_FUNCTION_STATE_REPORT           =  0x09,    // è®¾å¤‡åŠŸèƒ½çŠ¶æ€ä¸ŠæŠ¥æ¶ˆæ¯,bufå¯¹åº”æ•°æ®ç»“æž„ä½“app_net_tcp_sys_func_state_report_t
 };
 
 
 #define DVO_FRAME_VIDEO_STREM_LOST      16
 
 
-/// ÅäÖÃÀàÐÍ£¬¶ÔÓ¦DVO_NET_GetDevConfigºÍDVO_NET_SetDevConfig½Ó¿Ú
+/// é…ç½®ç±»åž‹ï¼Œå¯¹åº”DVO_NET_GetDevConfigå’ŒDVO_NET_SetDevConfigæŽ¥å£
 enum EDVO_DEVICE_PARAMETER_TYPE
 {
-    /// ÏµÍ³¼¶ÃüÁî
-    DVO_DEV_CMD_SYS_NETCFG_SET              = MAKEINT32(0x001,0x003),   // ÍøÂçÅäÖÃÉèÖÃ,app_net_tcp_sys_net_info_t
-    DVO_DEV_CMD_SYS_NETCFG_GET              = MAKEINT32(0x001,0x004),   // ÍøÂçÅäÖÃ²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_sys_net_info_t
+    /// ç³»ç»Ÿçº§å‘½ä»¤
+    DVO_DEV_CMD_SYS_NETCFG_SET              = MAKEINT32(0x001,0x003),   // ç½‘ç»œé…ç½®è®¾ç½®,app_net_tcp_sys_net_info_t
+    DVO_DEV_CMD_SYS_NETCFG_GET              = MAKEINT32(0x001,0x004),   // ç½‘ç»œé…ç½®æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_sys_net_info_t
 
-    DVO_DEV_CMD_SYS_COMMCFG_SET             = MAKEINT32(0x001,0x00B),   // ´®¿ÚÅäÖÃ,app_net_tcp_serial_cfg_t;
+    DVO_DEV_CMD_SYS_COMMCFG_SET             = MAKEINT32(0x001,0x00B),   // ä¸²å£é…ç½®,app_net_tcp_serial_cfg_t;
     DVO_DEV_CMD_SYS_COMMCFG_GET             = MAKEINT32(0x001,0x00C),
-    DVO_DEV_CMD_SYS_DEVCAP_GET              = MAKEINT32(0x001,0x00D),   // Éè±¸×ÊÔ´²éÑ¯,app_net_tcp_dev_cap_t;
-    DVO_DEV_CMD_SYS_DEVLOG_GET              = MAKEINT32(0x001,0x00E),   // ÈÕÖ¾²éÑ¯,±£Áô;
-    DVO_DEV_CMD_SYS_DEVATTR_GET             = MAKEINT32(0x001,0x00F),   // Éè±¸ÐÅÏ¢²éÑ¯,app_net_tcp_sys_dev_info_t;
-    DVO_DEV_CMD_SYS_DEVATTR_SET             = MAKEINT32(0x001,0x010),   // Éè±¸Ãû³ÆÉèÖÃ,app_net_tcp_sys_dev_name_t;
-    DVO_DEV_CMD_SYS_DISK_GET                = MAKEINT32(0x001,0x011),   // ´ÅÅÌÐÅÏ¢²éÑ¯,app_net_tcp_sys_disk_t;
+    DVO_DEV_CMD_SYS_DEVCAP_GET              = MAKEINT32(0x001,0x00D),   // è®¾å¤‡èµ„æºæŸ¥è¯¢,app_net_tcp_dev_cap_t;
+    DVO_DEV_CMD_SYS_DEVLOG_GET              = MAKEINT32(0x001,0x00E),   // æ—¥å¿—æŸ¥è¯¢,ä¿ç•™;
+    DVO_DEV_CMD_SYS_DEVATTR_GET             = MAKEINT32(0x001,0x00F),   // è®¾å¤‡ä¿¡æ¯æŸ¥è¯¢,app_net_tcp_sys_dev_info_t;
+    DVO_DEV_CMD_SYS_DEVATTR_SET             = MAKEINT32(0x001,0x010),   // è®¾å¤‡åç§°è®¾ç½®,app_net_tcp_sys_dev_name_t;
+    DVO_DEV_CMD_SYS_DISK_GET                = MAKEINT32(0x001,0x011),   // ç£ç›˜ä¿¡æ¯æŸ¥è¯¢,app_net_tcp_sys_disk_t;
 
-    DVO_DEV_CMD_SYS_SNMAC_SET               = MAKEINT32(0x001,0x015),   // ÐòÁÐºÅMACÅäÖÃ,app_net_tcp_sn_mac_t;
+    DVO_DEV_CMD_SYS_SNMAC_SET               = MAKEINT32(0x001,0x015),   // åºåˆ—å·MACé…ç½®,app_net_tcp_sn_mac_t;
     DVO_DEV_CMD_SYS_SNMAC_GET               = MAKEINT32(0x001,0x016),
-    DVO_DEV_CMD_SYS_MISC_SET                = MAKEINT32(0x001,0x017),   // ÊÓÆµÊä³ö½Ó¿ÚÅäÖÃ,app_net_tcp_sys_net_misc_t;
+    DVO_DEV_CMD_SYS_MISC_SET                = MAKEINT32(0x001,0x017),   // è§†é¢‘è¾“å‡ºæŽ¥å£é…ç½®,app_net_tcp_sys_net_misc_t;
     DVO_DEV_CMD_SYS_MISC_GET                = MAKEINT32(0x001,0x018),
 
-    DVO_DEV_CMD_SYS_NTPCFG_SET              = MAKEINT32(0x001,0x019),	// NTPÅäÖÃ
-    DVO_DEV_CMD_SYS_NTPCFG_GET              = MAKEINT32(0x001,0x01A),	// NTPÅäÖÃ
+    DVO_DEV_CMD_SYS_NTPCFG_SET              = MAKEINT32(0x001,0x019),	// NTPé…ç½®
+    DVO_DEV_CMD_SYS_NTPCFG_GET              = MAKEINT32(0x001,0x01A),	// NTPé…ç½®
 
-    DVO_DEV_CMD_SYS_FEATURES_GET            = MAKEINT32(0x001,0x01B),   // Éè±¸¹¦ÄÜ»ñÈ¡
+    DVO_DEV_CMD_SYS_FEATURES_GET            = MAKEINT32(0x001,0x01B),   // è®¾å¤‡åŠŸèƒ½èŽ·å–
 
-    DVO_DEV_CMD_SYS_IONUMBER_GET            = MAKEINT32(0x001,0x01E),   // IO±¨¾¯¶Ë¿ÚÊýÁ¿»ñÈ¡,app_net_tcp_io_alarm_num_t
-    DVO_DEV_CMD_SYS_IOATTR_GET              = MAKEINT32(0x001,0x01F),   // IO±¨¾¯¶Ë¿Ú»ñÈ¡,app_net_tcp_set_io_alarm_attr_t;
-    DVO_DEV_CMD_SYS_IOATTR_SET              = MAKEINT32(0x001,0x020),   // IO±¨¾¯¶Ë¿ÚÉèÖÃ
+    DVO_DEV_CMD_SYS_IONUMBER_GET            = MAKEINT32(0x001,0x01E),   // IOæŠ¥è­¦ç«¯å£æ•°é‡èŽ·å–,app_net_tcp_io_alarm_num_t
+    DVO_DEV_CMD_SYS_IOATTR_GET              = MAKEINT32(0x001,0x01F),   // IOæŠ¥è­¦ç«¯å£èŽ·å–,app_net_tcp_io_alarm_index_t,app_net_tcp_io_alarm_attr_t;
+    DVO_DEV_CMD_SYS_IOATTR_SET              = MAKEINT32(0x001,0x020),   // IOæŠ¥è­¦ç«¯å£è®¾ç½®,app_net_tcp_set_io_alarm_attr_t,
 
-    DVO_DEV_CMD_SYS_IOUSE_SET               = MAKEINT32(0x001,0x021),   // IO±¨¾¯¶Ë¿ÚÊ¹ÄÜÉèÖÃ,app_net_tcp_set_io_alarm_state_t;
-    DVO_DEV_CMD_SYS_IOUSE_GET               = MAKEINT32(0x001,0x022),   // IO±¨¾¯¶Ë¿ÚÊ¹ÄÜ²éÑ¯
+    DVO_DEV_CMD_SYS_IOUSE_SET               = MAKEINT32(0x001,0x021),   // IOæŠ¥è­¦ç«¯å£ä½¿èƒ½è®¾ç½®,app_net_tcp_set_io_alarm_state_t;
+    DVO_DEV_CMD_SYS_IOUSE_GET               = MAKEINT32(0x001,0x022),   // IOæŠ¥è­¦ç«¯å£ä½¿èƒ½æŸ¥è¯¢,app_net_tcp_set_io_alarm_state_t
+
+    DVO_DEV_CMD_SYS_FUNCMODE_SET             = MAKEINT32(0x001,0x023),   // è®¾å¤‡åŠŸèƒ½åž‹å·è®¾ç½®,app_net_tcp_func_model_t;
+    DVO_DEV_CMD_SYS_FUNCMODE_GET             = MAKEINT32(0x001,0x024),   // è®¾å¤‡åŠŸèƒ½åž‹å·æŸ¥è¯¢,app_net_tcp_func_model_t
 
 
-    /// ÊÓÆµ±àÂëÃüÁî                        
-    DVO_DEV_CMD_STREAM_VIDEO_ENC_SET        = MAKEINT32(0x002,0x001),   // ÊÓÆµ±àÂë²ÎÊýÉèÖÃ,app_net_tcp_enc_info_t;
-    DVO_DEV_CMD_STREAM_VIDEO_ENC_GET        = MAKEINT32(0x002,0x002),   // ÊÓÆµ±àÂë²ÎÊý²éÑ¯
+    /// è§†é¢‘ç¼–ç å‘½ä»¤                        
+    DVO_DEV_CMD_STREAM_VIDEO_ENC_SET        = MAKEINT32(0x002,0x001),   // è§†é¢‘ç¼–ç å‚æ•°è®¾ç½®,app_net_tcp_enc_info_t;
+    DVO_DEV_CMD_STREAM_VIDEO_ENC_GET        = MAKEINT32(0x002,0x002),   // è§†é¢‘ç¼–ç å‚æ•°æŸ¥è¯¢
 
-    DVO_DEV_CMD_STREAM_OSD_BASE_SET         = MAKEINT32(0x002,0x005),   // ÊÓÆµOSDÉèÖÃ,app_net_tcp_osd_cfg_t;
-    DVO_DEV_CMD_STREAM_OSD_BASE_GET         = MAKEINT32(0x002,0x006),   // ÊÓÆµOSD²éÑ¯,app_net_tcp_enc_chn_t,app_net_tcp_osd_cfg_t
-    DVO_DEV_CMD_STREAM_VIDEO_PM_SET         = MAKEINT32(0x002,0x007),   // PM²ÎÊýÉèÖÃ,app_net_tcp_pm_cfg_t;
+    DVO_DEV_CMD_STREAM_OSD_BASE_SET         = MAKEINT32(0x002,0x005),   // è§†é¢‘OSDè®¾ç½®,app_net_tcp_osd_cfg_t;
+    DVO_DEV_CMD_STREAM_OSD_BASE_GET         = MAKEINT32(0x002,0x006),   // è§†é¢‘OSDæŸ¥è¯¢,app_net_tcp_enc_chn_t,app_net_tcp_osd_cfg_t
+    DVO_DEV_CMD_STREAM_VIDEO_PM_SET         = MAKEINT32(0x002,0x007),   // PMå‚æ•°è®¾ç½®,app_net_tcp_pm_cfg_t;
 
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_ZONE_SET  = MAKEINT32(0x002,0x008),   // ×Ô¶¨ÒåOSDÇøÓòÉèÖÃ,app_net_tcp_custom_osd_zone_cfg_t;app_net_tcp_custom_osd_zone_cfg_ack_t
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_ZONE_GET  = MAKEINT32(0x002,0x009),   // ×Ô¶¨ÒåOSDÇøÓò²éÑ¯,app_net_tcp_custom_osd_zone_chn_t;app_net_tcp_custom_osd_zone_para_t;
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_LINE_SET  = MAKEINT32(0x002,0x00A),   // ×Ô¶¨ÒåOSDÐÐ²ÎÊýÉèÖÃ,app_net_tcp_custom_osd_line_cfg_t;
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_LINE_GET  = MAKEINT32(0x002,0x00B),   // ×Ô¶¨ÒåOSDÐÐ²ÎÊý²éÑ¯,app_net_tcp_custom_osd_line_chn_t;app_net_tcp_custom_osd_line_cfg_t;
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_DATA_SET  = MAKEINT32(0x002,0x00C),   // ×Ô¶¨ÒåOSDÐÐÊý¾ÝÉèÖÃ,app_net_tcp_custom_osd_line_data_t;
-    DVO_DEV_CMD_STREAM_OSD_CUSTOM_DATA_GET  = MAKEINT32(0x002,0x00D),   // ×Ô¶¨ÒåOSDÐÐÊý¾Ý²éÑ¯,app_net_tcp_custom_osd_line_chn_t;app_net_tcp_custom_osd_line_data_t;
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_ZONE_SET  = MAKEINT32(0x002,0x008),   // è‡ªå®šä¹‰OSDåŒºåŸŸè®¾ç½®,app_net_tcp_custom_osd_zone_cfg_t;app_net_tcp_custom_osd_zone_cfg_ack_t
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_ZONE_GET  = MAKEINT32(0x002,0x009),   // è‡ªå®šä¹‰OSDåŒºåŸŸæŸ¥è¯¢,app_net_tcp_custom_osd_zone_chn_t;app_net_tcp_custom_osd_zone_para_t;
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_LINE_SET  = MAKEINT32(0x002,0x00A),   // è‡ªå®šä¹‰OSDè¡Œå‚æ•°è®¾ç½®,app_net_tcp_custom_osd_line_cfg_t;
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_LINE_GET  = MAKEINT32(0x002,0x00B),   // è‡ªå®šä¹‰OSDè¡Œå‚æ•°æŸ¥è¯¢,app_net_tcp_custom_osd_line_chn_t;app_net_tcp_custom_osd_line_cfg_t;
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_DATA_SET  = MAKEINT32(0x002,0x00C),   // è‡ªå®šä¹‰OSDè¡Œæ•°æ®è®¾ç½®,app_net_tcp_custom_osd_line_data_t;
+    DVO_DEV_CMD_STREAM_OSD_CUSTOM_DATA_GET  = MAKEINT32(0x002,0x00D),   // è‡ªå®šä¹‰OSDè¡Œæ•°æ®æŸ¥è¯¢,app_net_tcp_custom_osd_line_chn_t;app_net_tcp_custom_osd_line_data_t;
 
-    /// Í¼Ïñ´¦ÀíÃüÁî
-    DVO_DEV_CMD_IMAGE_COLOR_SET             = MAKEINT32(0x003,0x001),   // Í¼ÏñÑÕÉ«²ÎÊýÉèÖÃ,app_net_tcp_img_color_t;
-    DVO_DEV_CMD_IMAGE_COLOR_GET             = MAKEINT32(0x003,0x002),   // Í¼ÏñÑÕÉ«²ÎÊý²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_img_color_t
-    DVO_DEV_CMD_IMAGE_EXPOSURE_SET          = MAKEINT32(0x003,0x003),   // Í¼ÏñÆØ¹â²ÎÊýÉèÖÃ,app_net_tcp_img_exp_t;
-    DVO_DEV_CMD_IMAGE_EXPOSURE_GET          = MAKEINT32(0x003,0x004),   // Í¼ÏñÆØ¹â²ÎÊý²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_img_exp_t
-    DVO_DEV_CMD_IMAGE_WHITE_BALANCE_SET     = MAKEINT32(0x003,0x005),   // Í¼Ïñ°×Æ½ºâ²ÎÊýÉèÖÃ,app_net_tcp_img_wb_t
-    DVO_DEV_CMD_IMAGE_WHITE_BALANCE_GET     = MAKEINT32(0x003,0x006),   // Í¼Ïñ°×Æ½ºâ²ÎÊý»ñÈ¡,app_net_tcp_com_chn_t;app_net_tcp_img_wb_t
-    DVO_DEV_CMD_IMAGE_DAY_MODE_SET          = MAKEINT32(0x003,0x007),   // Í¼Ïñ°×ÌìºÚÒ¹Ä£Ê½ÉèÖÃ,app_net_tcp_img_ircut_t
-    DVO_DEV_CMD_IMAGE_DAY_MODE_GET          = MAKEINT32(0x003,0x008),   // Í¼Ïñ°×ÌìºÚÒ¹Ä£Ê½»ñÈ¡,app_net_tcp_com_chn_t;app_net_tcp_img_ircut_t
-    DVO_DEV_CMD_IMAGE_MIIROR_MODE_SET       = MAKEINT32(0x003,0x009),   // Í¼ÏñÊÓÆµÄ£Ê½ÉèÖÃ,app_net_tcp_img_mode_t
-    DVO_DEV_CMD_IMAGE_MIIROR_MODE_GET       = MAKEINT32(0x003,0x00A),   // Í¼ÏñÊÓÆµÄ£Ê½»ñÈ¡,app_net_tcp_com_chn_t;app_net_tcp_img_mode_t
+    /// å›¾åƒå¤„ç†å‘½ä»¤
+    DVO_DEV_CMD_IMAGE_COLOR_SET             = MAKEINT32(0x003,0x001),   // å›¾åƒé¢œè‰²å‚æ•°è®¾ç½®,app_net_tcp_img_color_t;
+    DVO_DEV_CMD_IMAGE_COLOR_GET             = MAKEINT32(0x003,0x002),   // å›¾åƒé¢œè‰²å‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_img_color_t
+    DVO_DEV_CMD_IMAGE_EXPOSURE_SET          = MAKEINT32(0x003,0x003),   // å›¾åƒæ›å…‰å‚æ•°è®¾ç½®,app_net_tcp_img_exp_t;
+    DVO_DEV_CMD_IMAGE_EXPOSURE_GET          = MAKEINT32(0x003,0x004),   // å›¾åƒæ›å…‰å‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_img_exp_t
+    DVO_DEV_CMD_IMAGE_WHITE_BALANCE_SET     = MAKEINT32(0x003,0x005),   // å›¾åƒç™½å¹³è¡¡å‚æ•°è®¾ç½®,app_net_tcp_img_wb_t
+    DVO_DEV_CMD_IMAGE_WHITE_BALANCE_GET     = MAKEINT32(0x003,0x006),   // å›¾åƒç™½å¹³è¡¡å‚æ•°èŽ·å–,app_net_tcp_com_chn_t;app_net_tcp_img_wb_t
+    DVO_DEV_CMD_IMAGE_DAY_MODE_SET          = MAKEINT32(0x003,0x007),   // å›¾åƒç™½å¤©é»‘å¤œæ¨¡å¼è®¾ç½®,app_net_tcp_img_ircut_t
+    DVO_DEV_CMD_IMAGE_DAY_MODE_GET          = MAKEINT32(0x003,0x008),   // å›¾åƒç™½å¤©é»‘å¤œæ¨¡å¼èŽ·å–,app_net_tcp_com_chn_t;app_net_tcp_img_ircut_t
+    DVO_DEV_CMD_IMAGE_MIIROR_MODE_SET       = MAKEINT32(0x003,0x009),   // å›¾åƒè§†é¢‘æ¨¡å¼è®¾ç½®,app_net_tcp_img_mode_t
+    DVO_DEV_CMD_IMAGE_MIIROR_MODE_GET       = MAKEINT32(0x003,0x00A),   // å›¾åƒè§†é¢‘æ¨¡å¼èŽ·å–,app_net_tcp_com_chn_t;app_net_tcp_img_mode_t
 
     /// PTZ
-    DVO_DEV_CMD_PTZ_PARAM_SET               = MAKEINT32(0x004,0x001),   // PTZÉèÖÃ
-    DVO_DEV_CMD__PTZ_TRANS_DATA             = MAKEINT32(0x004,0x002),   // PTZÍ¸´«
+    DVO_DEV_CMD_PTZ_PARAM_SET               = MAKEINT32(0x004,0x001),   // PTZè®¾ç½®
+    DVO_DEV_CMD__PTZ_TRANS_DATA             = MAKEINT32(0x004,0x002),   // PTZé€ä¼ 
 
-    /// ±¨¾¯Ïà¹ØÃüÁî
-    DVO_DEV_CMD_ALARM_IOOUT_ENABLE_SET      = MAKEINT32(0x005,0x0001),  // IO±¨¾¯Êä³öÊ¹ÄÜÉèÖÃ,app_net_tcp_event_act_ioout_t
-    DVO_DEV_CMD_ALARM_IOOUT_ENABLE_GET      = MAKEINT32(0x005,0x0002),  // IO±¨¾¯Êä³öÊ¹ÄÜ²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_event_act_ioout_t
+    /// æŠ¥è­¦ç›¸å…³å‘½ä»¤
+    DVO_DEV_CMD_ALARM_IOOUT_ENABLE_SET      = MAKEINT32(0x005,0x0001),  // IOæŠ¥è­¦è¾“å‡ºä½¿èƒ½è®¾ç½®,app_net_tcp_event_act_ioout_t
+    DVO_DEV_CMD_ALARM_IOOUT_ENABLE_GET      = MAKEINT32(0x005,0x0002),  // IOæŠ¥è­¦è¾“å‡ºä½¿èƒ½æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_event_act_ioout_t
 
-    DVO_DEV_CMD_ALARM_MD_RECT_SET           = MAKEINT32(0x005,0x0003),  // MDÇøÓòÉèÖÃ,app_net_tcp_event_trig_md_base_rc_t
-    DVO_DEV_CMD_ALARM_MD_RECT_GET           = MAKEINT32(0x005,0x0004),  // MDÇøÓò²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_event_trig_md_base_rc_t
-    DVO_DEV_CMD_ALARM_MD_PARAM_SET          = MAKEINT32(0x005,0x0005),  // MD²ÎÊýÉèÖÃ,app_net_tcp_event_trig_md_t
-    DVO_DEV_CMD_ALARM_MD_PARAM_GET          = MAKEINT32(0x005,0x0006),  // MD²ÎÊý²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_event_trig_md_t
+    DVO_DEV_CMD_ALARM_MD_RECT_SET           = MAKEINT32(0x005,0x0003),  // MDåŒºåŸŸè®¾ç½®,app_net_tcp_event_trig_md_base_rc_t
+    DVO_DEV_CMD_ALARM_MD_RECT_GET           = MAKEINT32(0x005,0x0004),  // MDåŒºåŸŸæŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_event_trig_md_base_rc_t
+    DVO_DEV_CMD_ALARM_MD_PARAM_SET          = MAKEINT32(0x005,0x0005),  // MDå‚æ•°è®¾ç½®,app_net_tcp_event_trig_md_t
+    DVO_DEV_CMD_ALARM_MD_PARAM_GET          = MAKEINT32(0x005,0x0006),  // MDå‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_event_trig_md_t
 
-    DVO_DEV_CMD_ALARM_485_ENABLE_SET        = MAKEINT32(0x005,0x0007),  // 485ÊäÈë±¨¾¯µÄÊä³öÊ¹ÄÜÉèÖÃ,app_net_tcp_event_act_485_t
-    DVO_DEV_CMD_ALARM_485_ENABLE_GET        = MAKEINT32(0x005,0x0008),  // 485ÊäÈë±¨¾¯µÄÊä³öÊ¹ÄÜ²éÑ¯,app_net_tcp_com_chn_485_t;app_net_tcp_event_act_485_t
-    DVO_DEV_CMD_ALARM_485_PARAM_SET			= MAKEINT32(0x005,0x0009),  // 485ÊäÈë±¨¾¯µÄ²ÎÊýÉèÖÃ,app_net_tcp_485_alarm_para_t
-    DVO_DEV_CMD_ALARM_485_PARAM_GET			= MAKEINT32(0x005,0x000A),  // 485ÊäÈë±¨¾¯µÄ²ÎÊý²éÑ¯,app_net_tcp_com_chn_485_t;app_net_tcp_485_alarm_para_t
+    DVO_DEV_CMD_ALARM_485_ENABLE_SET        = MAKEINT32(0x005,0x0007),  // 485è¾“å…¥æŠ¥è­¦çš„è¾“å‡ºä½¿èƒ½è®¾ç½®,app_net_tcp_event_act_485_t
+    DVO_DEV_CMD_ALARM_485_ENABLE_GET        = MAKEINT32(0x005,0x0008),  // 485è¾“å…¥æŠ¥è­¦çš„è¾“å‡ºä½¿èƒ½æŸ¥è¯¢,app_net_tcp_com_chn_485_t;app_net_tcp_event_act_485_t
+    DVO_DEV_CMD_ALARM_485_PARAM_SET			= MAKEINT32(0x005,0x0009),  // 485è¾“å…¥æŠ¥è­¦çš„å‚æ•°è®¾ç½®,app_net_tcp_485_alarm_para_t
+    DVO_DEV_CMD_ALARM_485_PARAM_GET			= MAKEINT32(0x005,0x000A),  // 485è¾“å…¥æŠ¥è­¦çš„å‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_485_t;app_net_tcp_485_alarm_para_t
 
-    /// ÒôÆµÃüÁî
-    DVO_DEV_CMD_STREAM_AUDIO_ENC_IN_SET     = MAKEINT32(0x006,0x005),   // ÊäÈëÒôÆµµÄ±àÂë²ÎÊýÉèÖÃ,app_net_tcp_audio_config_t;
-    DVO_DEV_CMD_STREAM_AUDIO_ENC_IN_GET     = MAKEINT32(0x006,0x006),   // ÊäÈëÒôÆµµÄ±àÂë²ÎÊý²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_audio_config_t
-    DVO_DEV_CMD_STREAM_AUDIO_ENC_OUT_SET    = MAKEINT32(0x006,0x007),   // Êä³öÒôÆµµÄ±àÂë²ÎÊýÉèÖÃ,app_net_tcp_audio_config_t;
-    DVO_DEV_CMD_STREAM_AUDIO_ENC_OUT_GET    = MAKEINT32(0x006,0x008),   // Êä³öÒôÆµµÄ±àÂë²ÎÊý²éÑ¯,app_net_tcp_com_chn_t;app_net_tcp_audio_config_t
+    /// éŸ³é¢‘å‘½ä»¤
+    DVO_DEV_CMD_STREAM_AUDIO_ENC_IN_SET     = MAKEINT32(0x006,0x005),   // è¾“å…¥éŸ³é¢‘çš„ç¼–ç å‚æ•°è®¾ç½®,app_net_tcp_audio_config_t;
+    DVO_DEV_CMD_STREAM_AUDIO_ENC_IN_GET     = MAKEINT32(0x006,0x006),   // è¾“å…¥éŸ³é¢‘çš„ç¼–ç å‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_audio_config_t
+    DVO_DEV_CMD_STREAM_AUDIO_ENC_OUT_SET    = MAKEINT32(0x006,0x007),   // è¾“å‡ºéŸ³é¢‘çš„ç¼–ç å‚æ•°è®¾ç½®,app_net_tcp_audio_config_t;
+    DVO_DEV_CMD_STREAM_AUDIO_ENC_OUT_GET    = MAKEINT32(0x006,0x008),   // è¾“å‡ºéŸ³é¢‘çš„ç¼–ç å‚æ•°æŸ¥è¯¢,app_net_tcp_com_chn_t;app_net_tcp_audio_config_t
 
-    /// ÆäËüÃüÁî
-    DVO_DEV_CMD_MSC_SUB_CHIPSET_MATCH_GET   = MAKEINT32(0x007,0x0001),  // ¼ÓÃÜÐ¾Æ¬Æ¥Åä²éÑ¯
-    DVO_DEV_CMD_MSC_SUB_WIFI_PARAM_SET		= MAKEINT32(0x007,0x0002),  // WIFI²ÎÊýÉèÖÃ
-    DVO_DEV_CMD_MSC_SUB_WIFI_STATE_GET		= MAKEINT32(0x007,0x0003),  // WIFIÁ´½Ó×´Ì¬²éÑ¯
-    DVO_DEV_CMD_MSC_SUB_AUDIO_OUT_SET		= MAKEINT32(0x007,0x0004),  // Æô¶¯ÒôÆµÊä³öÉèÖÃ
+    /// å…¶å®ƒå‘½ä»¤
+    DVO_DEV_CMD_MSC_SUB_CHIPSET_MATCH_GET   = MAKEINT32(0x007,0x0001),  // åŠ å¯†èŠ¯ç‰‡åŒ¹é…æŸ¥è¯¢
+    DVO_DEV_CMD_MSC_SUB_WIFI_PARAM_SET		= MAKEINT32(0x007,0x0002),  // WIFIå‚æ•°è®¾ç½®
+    DVO_DEV_CMD_MSC_SUB_WIFI_STATE_GET		= MAKEINT32(0x007,0x0003),  // WIFIé“¾æŽ¥çŠ¶æ€æŸ¥è¯¢
+    DVO_DEV_CMD_MSC_SUB_AUDIO_OUT_SET		= MAKEINT32(0x007,0x0004),  // å¯åŠ¨éŸ³é¢‘è¾“å‡ºè®¾ç½®
 
-    DVO_DEV_CMD_MSC_SUB_485_DEV_SET		    = MAKEINT32(0x007,0x0005),  // 485Éè±¸µÄ²ÎÊýÉèÖÃ
-    DVO_DEV_CMD_MSC_SUB_485_DEV_GET		    = MAKEINT32(0x007,0x0006),  // 485Éè±¸µÄ²ÎÊý²éÑ¯
-    DVO_DEV_CMD_MSC_SUB_485_OSD_SET		    = MAKEINT32(0x007,0x0007),  // 485ÊäÈëµÄOSD²ÎÊýÉèÖÃ
-    DVO_DEV_CMD_MSC_SUB_485_OSD_GET		    = MAKEINT32(0x007,0x0008),  // 485ÊäÈëµÄOSD²ÎÊý²éÑ¯
-    DVO_DEV_CMD_MSC_SUB_485_DATA_GET		= MAKEINT32(0x007,0x0009),  // »ñÈ¡485ÊäÈëµÄÊý¾Ý
+    DVO_DEV_CMD_MSC_SUB_485_DEV_SET		    = MAKEINT32(0x007,0x0005),  // 485è®¾å¤‡çš„å‚æ•°è®¾ç½®
+    DVO_DEV_CMD_MSC_SUB_485_DEV_GET		    = MAKEINT32(0x007,0x0006),  // 485è®¾å¤‡çš„å‚æ•°æŸ¥è¯¢
+    DVO_DEV_CMD_MSC_SUB_485_OSD_SET		    = MAKEINT32(0x007,0x0007),  // 485è¾“å…¥çš„OSDå‚æ•°è®¾ç½®
+    DVO_DEV_CMD_MSC_SUB_485_OSD_GET		    = MAKEINT32(0x007,0x0008),  // 485è¾“å…¥çš„OSDå‚æ•°æŸ¥è¯¢
+    DVO_DEV_CMD_MSC_SUB_485_DATA_GET		= MAKEINT32(0x007,0x0009),  // èŽ·å–485è¾“å…¥çš„æ•°æ®
 
 
 };
 
 
-/// ÊÓÆµ±àÂëÀàÐÍ
+/// è§†é¢‘ç¼–ç ç±»åž‹
 enum DVO_VIDEOCODEC_TYPE
 {
     DVO_VCODEC_H264 = 0,
@@ -343,7 +387,7 @@ enum DVO_VIDEOCODEC_TYPE
     DVO_VCODEC_MPEG4,
 };
 
-/// ÒôÆµ±àÂëÀàÐÍ
+/// éŸ³é¢‘ç¼–ç ç±»åž‹
 enum DVO_AUDIOCODEC_TYPE
 {
     DVO_ACODEC_AAC	= 0,		        ///< AAC
@@ -351,32 +395,32 @@ enum DVO_AUDIOCODEC_TYPE
     DVO_ACODEC_G711A,			        ///< G711A
     DVO_ACODEC_G722,			        ///< G722
     DVO_ACODEC_G726,			        ///< G726
-    DVO_ACODEC_PCM,		                ///< ÏßÐÔPCM
+    DVO_ACODEC_PCM,		                ///< çº¿æ€§PCM
     DVO_ACODEC_MP3,				        ///< MP3
     DVO_ACODEC_NUMS,
 };
 
-/// Ö¡ÀàÐÍ
+/// å¸§ç±»åž‹
 enum DVO_STREAM_FRAME_TYPE
 {
-    DVO_FRAMETYPE_DATA    = 0,          ///< ÆäËüÊý¾Ý
-    DVO_FRAMETYPE_HEAD	  = 1,          ///< Í·ÐÅÏ¢
-    DVO_FRAMETYPE_AUDIO   = 2,          ///< ÒôÆµÀàÐÍ
-    DVO_FRAMETYPE_VIDEO_I = 3,          ///< ÊÓÆµÀàÐÍ,iÖ¡
-    DVO_FRAMETYPE_VIDEO_P = 4,          ///< ÊÓÆµÀàÐÍ,pÖ¡
-    DVO_FRAMETYPE_VIDEO_B = 5,          ///< ÊÓÆµÀàÐÍ,bÖ¡
+    DVO_FRAMETYPE_DATA    = 0,          ///< å…¶å®ƒæ•°æ®
+    DVO_FRAMETYPE_HEAD	  = 1,          ///< å¤´ä¿¡æ¯
+    DVO_FRAMETYPE_AUDIO   = 2,          ///< éŸ³é¢‘ç±»åž‹
+    DVO_FRAMETYPE_VIDEO_I = 3,          ///< è§†é¢‘ç±»åž‹,iå¸§
+    DVO_FRAMETYPE_VIDEO_P = 4,          ///< è§†é¢‘ç±»åž‹,på¸§
+    DVO_FRAMETYPE_VIDEO_B = 5,          ///< è§†é¢‘ç±»åž‹,bå¸§
 };
 
 typedef enum {
-    APP_NET_TCP_COM_DST_IDR_FRAME = 1,  ///< IDRÖ¡¡£
-    APP_NET_TCP_COM_DST_I_FRAME,        ///< IÖ¡¡£
-    APP_NET_TCP_COM_DST_P_FRAME,        ///< PÖ¡¡£
-    APP_NET_TCP_COM_DST_B_FRAME,        ///< BÖ¡¡£
-    APP_NET_TCP_COM_DST_JPEG_FRAME,     ///< JPEGÖ¡
-    APP_NET_TCP_COM_DST_711_ALAW,       ///< 711 AÂÉ±àÂëÖ¡
-    APP_NET_TCP_COM_DST_711_ULAW,       ///< 711 UÂÉ±àÂëÖ¡
-    APP_NET_TCP_COM_DST_726,            ///< 726±àÂëÖ¡
-    APP_NET_TCP_COM_DST_AAC,            ///< AAC±àÂëÖ¡¡£
+    APP_NET_TCP_COM_DST_IDR_FRAME = 1,  ///< IDRå¸§ã€‚
+    APP_NET_TCP_COM_DST_I_FRAME,        ///< Iå¸§ã€‚
+    APP_NET_TCP_COM_DST_P_FRAME,        ///< På¸§ã€‚
+    APP_NET_TCP_COM_DST_B_FRAME,        ///< Bå¸§ã€‚
+    APP_NET_TCP_COM_DST_JPEG_FRAME,     ///< JPEGå¸§
+    APP_NET_TCP_COM_DST_711_ALAW,       ///< 711 Aå¾‹ç¼–ç å¸§
+    APP_NET_TCP_COM_DST_711_ULAW,       ///< 711 Uå¾‹ç¼–ç å¸§
+    APP_NET_TCP_COM_DST_726,            ///< 726ç¼–ç å¸§
+    APP_NET_TCP_COM_DST_AAC,            ///< AACç¼–ç å¸§ã€‚
     APP_NET_TCP_COM_DST_MAX,
 } APP_NET_TCP_STREAM_TYPE;
 
@@ -390,7 +434,7 @@ typedef enum {
     APP_NET_TCP_COM_VIDEO_MODE_1024_768,
     APP_NET_TCP_COM_VIDEO_MODE_176_144 = 0xFF,
     APP_NET_TCP_COM_VIDEO_MODE_MAX,
-}APP_NET_TCP_COM_VIDEO_MODE; //ÊÓÆµ±àÂë³ß´ç¡£
+}APP_NET_TCP_COM_VIDEO_MODE; //è§†é¢‘ç¼–ç å°ºå¯¸ã€‚
 
 
 typedef enum {
@@ -401,10 +445,10 @@ typedef enum {
     APP_NET_TCP_AUDIO_FS_16000 = 16000,
     APP_NET_TCP_AUDIO_FS_11025 = 11025,
     APP_NET_TCP_AUDIO_FS_8000  = 8000,
-}APP_NET_TCP_AUDIO_AUDIO_FS;//ÒôÆµ²ÉÑùÂÊ¡£
+}APP_NET_TCP_AUDIO_AUDIO_FS;//éŸ³é¢‘é‡‡æ ·çŽ‡ã€‚
 
 
-/// ÊµÊ±ÊÓÆµÁ÷»Øµ÷µÄ´íÎóÀàÐÍ
+/// å®žæ—¶è§†é¢‘æµå›žè°ƒçš„é”™è¯¯ç±»åž‹
 enum DVO_STREAM_ERROR_TYPE
 { 
     DVO_NET_STREAM_NO_ERROR=0,
@@ -415,42 +459,44 @@ enum DVO_STREAM_ERROR_TYPE
 };
 
 
-/// Ö¡ÐÅÏ¢
+/// å¸§ä¿¡æ¯
 struct DVO_AVFrame
 {
-    WORD	nChannelID;                 ///< ÊÓÆµÊäÈëÍ¨µÀºÅ£¬È¡Öµ0~MAX-1.
-    WORD	wStreamID;                  ///< ÂëÁ÷±àºÅ£º0:Ö÷ÂëÁ÷£¬1£º×ÓÂëÁ÷£¬2£ºµÚÈýÂëÁ÷¡£
-    WORD	wFrameType;                 ///< Ö¡ÀàÐÍ£¬DVO_STREAM_FRAME_TYPEµÈ
-    u32     uDvoMediaTag;               ///< dvoÁ÷Êý¾Ý±êÊ¶"DVOM"£¬0x44564F4D£¬²¥·ÅÂ¼ÏñÎÄ¼þÐèÒª
-    u32		uFrameNo;                   ///< Ö¡ÐòºÅ£¬·¶Î§0~0xFFFFFFFF.
-    u64 	u64TimeStamp;               ///< Ê±¼ä´Á,Îª1970ÄêÒÔÀ´µÄÎ¢Ãë,(¸ß32Î»Îª1970ÄêÒÔÀ´µÄÃëÊý£¬µÍ32Î»ÎªÎ¢Ãë)¡£
-    int 	nSize;		                ///< Ö¡³¤¶È
-    BYTE*   pData;		                ///< Ö¡Êý¾Ý,AVÂãÊý¾Ý
+    WORD	nChannelID;                 ///< è§†é¢‘è¾“å…¥é€šé“å·ï¼Œå–å€¼0~MAX-1.
+    WORD	wStreamID;                  ///< ç æµç¼–å·ï¼š0:ä¸»ç æµï¼Œ1ï¼šå­ç æµï¼Œ2ï¼šç¬¬ä¸‰ç æµã€‚
+    WORD	wFrameType;                 ///< å¸§ç±»åž‹ï¼ŒDVO_STREAM_FRAME_TYPEç­‰
+    u32     uDvoMediaTag;               ///< dvoæµæ•°æ®æ ‡è¯†"DVOM"ï¼Œ0x44564F4Dï¼Œæ’­æ”¾å½•åƒæ–‡ä»¶éœ€è¦
+    u32		uFrameNo;                   ///< å¸§åºå·ï¼ŒèŒƒå›´0~0xFFFFFFFF.
+    u64 	u64TimeStamp;               ///< æ—¶é—´æˆ³,ä¸º1970å¹´ä»¥æ¥çš„å¾®ç§’,(é«˜32ä½ä¸º1970å¹´ä»¥æ¥çš„ç§’æ•°ï¼Œä½Ž32ä½ä¸ºå¾®ç§’)ã€‚
+    int 	nSize;		                ///< å¸§é•¿åº¦
+    BYTE*   pData;		                ///< å¸§æ•°æ®,AVè£¸æ•°æ®
 };
 
-/// Á÷Í·,¹Ì¶¨Îª40¸ö×Ö½Ú
+/// æµå¤´,å›ºå®šä¸º40ä¸ªå­—èŠ‚
 struct DVO_MEDIAINFO_HEAD
 {
     u32     uDvoMediaTag;	            ///< "DVOM": 0x44564F4D DVO Media Information,
     u32     uDvoVersion;                
-    u32     vdec_code;                  ///< ÊÓÆµ±àÂëÀàÐÍ£¬DVO_VIDEOCODEC_TYPE
-    u32     adec_code;                  ///< ÒôÆµ±àÂëÀàÐÍ£¬DVO_AUDIOCODEC_TYPE
-    u32     uVideoWidth;	            ///< ÊÓÆµ¿í¶È
-    u32     uVideoHeight;	            ///< ÊÓÆµ¸ß¶È
-    u32     nFrameRate;		            ///< ÊÓÆµÖ¡ÂÊ
-    u32     uAudioSampleRate;           ///< ÒôÆµ²ÉÑùÂÊ,APP_NET_TCP_AUDIO_AUDIO_FS
-    u32     reserved[2];                ///< ±£Áô
+    u32     vdec_code;                  ///< è§†é¢‘ç¼–ç ç±»åž‹ï¼ŒDVO_VIDEOCODEC_TYPE
+    u32     adec_code;                  ///< éŸ³é¢‘ç¼–ç ç±»åž‹ï¼ŒDVO_AUDIOCODEC_TYPE
+    u32     uVideoWidth;	            ///< è§†é¢‘å®½åº¦
+    u32     uVideoHeight;	            ///< è§†é¢‘é«˜åº¦
+    u32     nFrameRate;		            ///< è§†é¢‘å¸§çŽ‡
+    u32     uAudioSampleRate;           ///< éŸ³é¢‘é‡‡æ ·çŽ‡,APP_NET_TCP_AUDIO_AUDIO_FS
+    u32     reserved[2];                ///< ä¿ç•™
 };
 
 
-// fnDVOCallback_TransFile_T½Ó¿Ú´«ÊäÎÄ¼þÀàÐÍ
+// fnDVOCallback_TransFile_TæŽ¥å£ä¼ è¾“æ–‡ä»¶ç±»åž‹
 enum DVO_CALLBACK_TRANSFILE_STATE_TYPE
 {
-    DVO_DEV_UPGRADEFILETRANS_START    = 0x0000,    // ¿ªÊ¼Éý¼¶ÎÄ¼þÉÏ´«
-    DVO_DEV_UPGRADEFILETRANS_SENDING  = 0x0001,    // ÕýÔÚ·¢ËÍÉý¼¶ÎÄ¼þ,´ËÊ±»Øµ÷·µ»ØÒÑ·¢ËÍµÄÎÄ¼þ´óÐ¡£¬ÒÔ´Ë¿É¼ÆËãÎÄ¼þ·¢ËÍ½ø¶È  
-    DVO_DEV_UPGRADEFILETRANS_FINISH   = 0x0002,    // Íê³É·¢ËÍÉý¼¶ÎÄ¼þ
-    DVO_DEV_UPGRADEFILETRANS_STOP     = 0x0003,    // Í£Ö¹·¢ËÍÉý¼¶ÎÄ¼þ
-    DVO_DEV_UPGRADEFILETRANS_ERROR    = 0x0004,    // ·¢ËÍÉý¼¶ÎÄ¼þ³ö´í
+    DVO_DEV_UPGRADEFILETRANS_START    = 0x0000,    // å¼€å§‹å‡çº§æ–‡ä»¶ä¸Šä¼ 
+    DVO_DEV_UPGRADEFILETRANS_SENDING  = 0x0001,    // æ­£åœ¨å‘é€å‡çº§æ–‡ä»¶,æ­¤æ—¶å›žè°ƒè¿”å›žå·²å‘é€çš„æ–‡ä»¶å¤§å°ï¼Œä»¥æ­¤å¯è®¡ç®—æ–‡ä»¶å‘é€è¿›åº¦  
+    DVO_DEV_UPGRADEFILETRANS_FINISH   = 0x0002,    // å®Œæˆå‘é€å‡çº§æ–‡ä»¶
+    DVO_DEV_UPGRADEFILETRANS_STOP     = 0x0003,    // åœæ­¢å‘é€å‡çº§æ–‡ä»¶
+    DVO_DEV_UPGRADEFILETRANS_ERROR    = 0x0004,    // å‘é€å‡çº§æ–‡ä»¶å‡ºé”™
+    //DVO_DEV_UPGRADEFILETRANS_SUCCESS  = 0x0005,    // å‡çº§æˆåŠŸ
+    //DVO_DEV_UPGRADEFILETRANS_FAIL     = 0x0006,    // å‡çº§å¤±è´¥
 };
 
 

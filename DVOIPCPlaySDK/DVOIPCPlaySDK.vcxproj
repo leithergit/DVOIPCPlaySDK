@@ -63,6 +63,9 @@
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /y $(TargetPath) E:\DVO\DvoNetViewOcx\DvoIpcNet2Ocx\bin\debug</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -130,7 +133,6 @@
       </PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="DVOIPCPlaySDK.cpp" />
-    <ClCompile Include="DvoPayer.cpp" />
     <ClCompile Include="DxSurface\DxSurface.cpp" />
     <ClCompile Include="DxSurface\DxTrace.cpp" />
     <ClCompile Include="Runlog.cpp" />

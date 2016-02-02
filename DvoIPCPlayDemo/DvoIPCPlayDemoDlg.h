@@ -129,7 +129,7 @@ public:
 	USER_HANDLE hUser;
 	REAL_HANDLE hStream;
 	int nPlayerCount;
-	DVO_PLAYHANDLE	hPlayer[16];
+	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
 	HWND		hWndView;
 	int			nItem;
@@ -231,6 +231,11 @@ public:
 	}
 };
 
+struct ListItem
+{
+	TCHAR szItemName[32];
+	TCHAR szItemText[256];
+};
 
 // CDvoIPCPlayDemoDlg 对话框
 class CDvoIPCPlayDemoDlg : public CDialogEx
@@ -265,9 +270,11 @@ public:
 	int			m_nMonitorCount;		//  当前已经连接显示器的数量
 	CVideoFrame *m_pVideoWndFrame = nullptr;
 	CGlliteryStatic m_wndStatus;
+	double	m_dfLastUpdate;
 	bool SaveSetting();
 	bool LoadSetting();
 	static CFile *m_pVldReport;
+	ListItem m_szListText[16];
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnDestroy();
 	afx_msg void OnBnClickedButtonConnect();
@@ -433,4 +440,5 @@ public:
 	}
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedButtonTracecache();
+	afx_msg void OnLvnGetdispinfoListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult);
 };

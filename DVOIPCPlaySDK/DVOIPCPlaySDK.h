@@ -100,6 +100,7 @@ enum PlayRate
 #define		DVO_Error_InvalidTimeOffset		(-20)	///< 无效的时间偏移或时间超出文件长度范围
 #define		DVO_Error_DecodeFailed			(-21)	///< 解码失败
 #define		DVO_Error_InvalidWindow			(-21)	///< 无效的窗口句柄
+#define		DVO_Error_AudioFailed			(-22)	///< 音频播放初始化失败
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 /// @brief 播放器即时信息

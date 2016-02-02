@@ -82,7 +82,7 @@ public:
 		if (m_pDSBuffer == NULL)
 			return FALSE;
 		DWORD dwStatus = 0;
-		m_pDSBuffer->GetStatus(&dwStatus);
+		HRESULT hr = m_pDSBuffer->GetStatus(&dwStatus);
 		bIsPlaying |= ((dwStatus & DSBSTATUS_PLAYING) != 0);
 		return bIsPlaying;
 	}
@@ -125,11 +125,7 @@ public:
 		return TRUE;
 	}
 
-	inline DWORD WaitForPosNotify()
-	{
-		return (WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 1000 / m_nNotifyCount) - WAIT_OBJECT_0);
-	}
-
+	
 #define DSBPLAY_ONCE 0x00000000
 	// 尝试进入播放流程，可以通用GetBuffer()取得缓冲区，往缓冲区中添加音频数据
 	// 返回0时，进入播放流程失败，可能其它线程已经进入播放流程
@@ -273,6 +269,13 @@ public:
 		}
 		return true;
 	}
+	
+	inline bool WaitForPosNotify()
+	{
+		return (WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 1000 / m_nNotifyCount) == WAIT_TIMEOUT);
+	}
+
+
 	bool WritePCM(IN byte *pPCM, IN int nPCMLength)
 	{
 		LPVOID  pBuffer1;
@@ -423,16 +426,9 @@ public:
 	}
 	~CDSound()
 	{
-		//释放缓冲区
-		SAFE_RELEASE(m_pDSBPrimary);
-		//释放directsound
-		// 为何会在释放m_pDirectSound对象时锁住,暂且不释放,日后有时间再查这个问题
-		// xioggao.lee @2015.10.28
-		SAFE_RELEASE(m_pDirectSound);
-
+		UnInitialize();
 		if (m_hWnd)
 			::PostMessage(m_hWnd, WM_DESTROY, 0, 0);
-		
 		DeleteCriticalSection(&m_csDsound);
 		DeleteCriticalSection(&m_csListBuffer);
 	}
@@ -525,12 +521,20 @@ public:
 		}
 		return true;
 	}
+	void UnInitialize()
+	{
+		shared_ptr<CRITICAL_SECTION> autoLeaveSection(&m_csDsound, ::LeaveCriticalSection);
+		EnterCriticalSection(&m_csListBuffer);
+		m_listDsBuffer.clear();
+		LeaveCriticalSection(&m_csListBuffer);
+		//释放缓冲区
+		SAFE_RELEASE(m_pDSBPrimary);
+		//释放directsound		
+		SAFE_RELEASE(m_pDirectSound);		
+	}
 	CDSoundBuffer *CreateDsoundBuffer()
 	{
-		int a = 1234;
-		int &b = a;
 		CDSoundBufferPtr pDsBuffer = make_shared<CDSoundBuffer>(m_nNotifyCount,m_dwNotifySize);
-
 		if (pDsBuffer->Create(m_pDSBPrimary))
 		{
 			::EnterCriticalSection(&m_csListBuffer);

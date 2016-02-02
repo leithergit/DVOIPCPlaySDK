@@ -175,6 +175,7 @@ enum GraphicQulityParameter
 #include <psapi.h>
 #pragma comment(lib,"psapi.lib")
 
+#ifdef _DEBUG
 class CTraceFunction
 {
 	explicit CTraceFunction(){};
@@ -214,6 +215,7 @@ private:
 	CHAR	m_szFile[MAX_PATH];
 	CHAR	m_szFunction[256];
 };
+#endif
 
 
 // 把FFMPEG像素转换为D3DFomrat像素
@@ -890,8 +892,11 @@ public:
 
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
-		if(FAILED(hr = m_pDirect3D9->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&d3ddm)))
+		if (FAILED(hr = m_pDirect3D9->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
+		{
+			DxTraceMsg("%s GetAdapterDisplayMode Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
 		ZeroMemory(&m_d3dpp, sizeof(D3DPRESENT_PARAMETERS));
 		m_d3dpp.BackBufferFormat		= d3ddm.Format;
@@ -950,25 +955,31 @@ public:
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
 
-		if (FAILED(hr = m_pDirect3D9->CreateDevice(D3DADAPTER_DEFAULT, 
-										  D3DDEVTYPE_HAL, 
-										  m_d3dpp.hDeviceWindow,
-										  vp | 
-										  D3DCREATE_MULTITHREADED | 
-										  D3DCREATE_FPU_PRESERVE, 
-										  &m_d3dpp, 
-										 /* NULL,*/
-										  &m_pDirect3DDevice)))
+		if (FAILED(hr = m_pDirect3D9->CreateDevice(D3DADAPTER_DEFAULT,
+			D3DDEVTYPE_HAL,
+			m_d3dpp.hDeviceWindow,
+			vp |
+			D3DCREATE_MULTITHREADED |
+			D3DCREATE_FPU_PRESERVE,
+			&m_d3dpp,
+			/* NULL,*/
+			&m_pDirect3DDevice)))
+		{
+			DxTraceMsg("%s CreateDevice Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
 		
-		if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth, 
-																		nVideoHeight, 
-																		nD3DFormat, 
-																		D3DPOOL_DEFAULT, 
-																		&m_pDirect3DSurfaceRender, 
-																		NULL)))		
+		if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth,
+			nVideoHeight,
+			nD3DFormat,
+			D3DPOOL_DEFAULT,
+			&m_pDirect3DSurfaceRender,
+			NULL)))
+		{
+			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 		D3DSURFACE_DESC SrcSurfaceDesc;			
 		m_pDirect3DSurfaceRender->GetDesc(&SrcSurfaceDesc);
 		// 保存参数
@@ -1823,8 +1834,28 @@ public:
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
 		assert(nVideoWidth != 0 || nVideoHeight != 0);
+
+		RECT rt;
+		bool bZoomWnd = false;			// 是否需要扩大窗口,DirectX不能在窗口像素面积为0的窗口上工作
+		GetWindowRect(hWnd, &rt);
+		if ((rt.right - rt.left) == 0)
+		{
+			rt.right = rt.left + nVideoWidth;
+			bZoomWnd = true;
+		}
+		if ((rt.bottom - rt.top) == 0)
+		{
+			rt.bottom = rt.top + nVideoHeight;
+			bZoomWnd = true;
+		}
+
+		if (bZoomWnd)
+			::MoveWindow(hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top,false);
+
 		bool bSucceed = false;
+#ifdef _DEBUG
 		double dfTStart = GetExactTime();		
+#endif
 		D3DCAPS9 caps;
 		m_pDirect3D9Ex->GetDeviceCaps(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,&caps);
 		int vp = 0;
@@ -1835,8 +1866,11 @@ public:
 		
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
-		if(FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&d3ddm)))
+		if (FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
+		{
+			DxTraceMsg("%s GetAdapterDisplayMode Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 		
 		ZeroMemory(&m_d3dpp, sizeof(D3DPRESENT_PARAMETERS));
 		m_d3dpp.BackBufferFormat		= d3ddm.Format;
@@ -1895,30 +1929,33 @@ public:
 			m_dwStyle	 &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
-		dfTStart = GetExactTime();
-		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT, 
-														D3DDEVTYPE_HAL, 
-														m_d3dpp.hDeviceWindow,
-														vp | 
-														//D3DCREATE_MULTITHREADED | 
-														D3DCREATE_FPU_PRESERVE, 
-														&m_d3dpp, 
-														NULL,
-														&m_pDirect3DDeviceEx)))
+		
+		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT,
+			D3DDEVTYPE_HAL,
+			m_d3dpp.hDeviceWindow,
+			vp |
+			//D3DCREATE_MULTITHREADED | 
+			D3DCREATE_FPU_PRESERVE,
+			&m_d3dpp,
+			NULL,
+			&m_pDirect3DDeviceEx)))
+		{
+			
+			DxTraceMsg("%s CreateDeviceEx Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
-		DxTraceMsg("%s Timespan[%d] = %.3f.\n", __FUNCTION__, __LINE__, TimeSpanEx(dfTStart));
-		dfTStart = GetExactTime();
-
-		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth, 
-			nVideoHeight, 
-			nD3DFormat, 
-			D3DPOOL_DEFAULT, 
-			&m_pDirect3DSurfaceRender, 
-			NULL)))	
+		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth,
+			nVideoHeight,
+			nD3DFormat,
+			D3DPOOL_DEFAULT,
+			&m_pDirect3DSurfaceRender,
+			NULL)))
+		{
+			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
-		DxTraceMsg("%s Timespan[%d] = %.3f.\n", __FUNCTION__, __LINE__, TimeSpanEx(dfTStart));
-		dfTStart = GetExactTime();
+		}
+
 		D3DSURFACE_DESC SrcSurfaceDesc;			
 		m_pDirect3DSurfaceRender->GetDesc(&SrcSurfaceDesc);
 		// 保存参数

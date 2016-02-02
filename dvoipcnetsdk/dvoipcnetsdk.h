@@ -1,4 +1,4 @@
-/**
+﻿/**
 *  COPYRIGHT NOTICE 
 *  Copyright (c) 2015, Diveo Technology Co.,Ltd (www.diveo.com.cn)
 *  All rights reserved.
@@ -7,8 +7,8 @@
 *  @author      luo_ws(luo_ws@diveo.com.cn)
 *  @date        2015/08/11 15:18
 *
-*  @brief       dvoipcnetsdkͷ�ļ�
-*  @note        ��
+*  @brief       dvoipcnetsdk头文件
+*  @note        无
 *
 *  @version
 *    - v1.0.1.0    2015/08/11 15:18    luo_ws 
@@ -57,50 +57,51 @@ extern "C" {
 
 
 
-///////////////////�ӿ�begin///////////////////////////////////////////////////////
- 
+///////////////////接口begin///////////////////////////////////////////////////////
+
+
 /**
 *  @date        2015/08/12 13:26
-*  @brief       ����SDK ��ʼ��������һ�汾����һ�£����ǵ��� DVO2_NET_Init
-*  @param[in]   localport,�°汾�У�����Ч
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������      
-*  @remarks     SDKģ���һ��ʹ��ʱ���ã�ͬһ����ֻ��Ҫ����һ��       
+*  @brief       网络SDK 初始化，和上一版本保持一致，就是调用 DVO2_NET_Init
+*  @param[in]   localport,新版本中，该无效
+*  @return      成功返回0，否则为失败的错误代码      
+*  @remarks     SDK模块第一次使用时调用，同一进程只需要调用一次       
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Init();
 
 /**
 *  @date        2015/08/12
-*  @brief       �ͷ�SDK������ص���Դ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������       
-*  @remarks     ����SDKģ��ʱ���ã���DVO2_NET_Init�ĵ��ö�Ӧ����������޷�ж��DLL�� 
+*  @brief       释放SDK所有相关的资源
+*  @return      成功返回0，否则为失败的错误代码       
+*  @remarks     结束SDK模块时调用，与DVO2_NET_Init的调用对应，否则可能无法卸载DLL。 
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Release();
 
 /**
 *  @date        2015/08/12
-*  @brief       ��ȡ����SDK�İ汾
-*  @param[out]  pMainVersion,���汾��
-*  @param[out]  pSubVersion,�Ӱ汾��
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������      
+*  @brief       获取网络SDK的版本
+*  @param[out]  pMainVersion,主版本号
+*  @param[out]  pSubVersion,子版本号
+*  @return      成功返回0，否则为失败的错误代码      
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetSDKVersion(PARAM_OUT int *pMainVersion, PARAM_OUT int *pSubVersion);
 
 /**
 *  @date        2015/08/12
-*  @brief       ��ȡ�������
-*  @param[in]   lUserID,DVO2_NET_Login����ֵ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������      
-*  @remarks     ����ȡ���û�������صĴ����ʱ����Ҫ����lUserID���������Ϊ0ʱ��ȡSDK��ȫ�ִ���     
+*  @brief       获取错误代码
+*  @param[in]   lUserID,DVO2_NET_Login返回值
+*  @return      成功返回0，否则为失败的错误代码      
+*  @remarks     当获取与用户交互相关的错误号时，需要带上lUserID，否则参数为0时获取SDK的全局错误     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetLastError(PARAM_IN USER_HANDLE lUserID = 0);
 
 /**
 *  @date        2015/08/27
-*  @brief       ��ͣ��־
-*  @param[in]   bEnable,TRUEʱ������־�ļ������FALSEʱ�ر���־�ļ����
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������      
-*  @remarks     ������־���ʱ�����ȡ���ڽ����ļ��ĵ�ǰ·���е���־�����ļ�dvoipcnetsdk.cfg��
-                �Ҳ�������־�����ļ�ʱ����Ĭ����־���á������ļ��ɶ�̬�������ã����������־�ȼ����Ƿ�����ļ���  
+*  @brief       启停日志
+*  @param[in]   bEnable,TRUE时启用日志文件输出，FALSE时关闭日志文件输出
+*  @return      成功返回0，否则为失败的错误代码      
+*  @remarks     启用日志输出时，会读取所在进程文件的当前路径中的日志配置文件dvoipcnetsdk.cfg，
+                找不到该日志配置文件时，按默认日志配置。配置文件可动态更新设置，设置输出日志等级或是否输出文件。  
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetSDKLogToFile(PARAM_IN BOOL bEnable);
 
@@ -109,16 +110,16 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetSDKLogToFile(PARAM_IN BOOL bEnable);
 
 /**
 *  @date        2015/08/12
-*  @brief       ��¼�豸    : 0x01 0x01
-*  @param[in]   pDevIP      : �豸IP 
-*  @param[in]   wDevPort    : �豸�˿ڣ�Ĭ��6001 
-*  @param[in]   pUserName   : �û�����admin 
-*  @param[in]   pPassword   : �û�����, 
-*  @param[out]  pDevBaseInfo: �豸������Ϣ.��¼�ɹ���������
-*  @param[out]  pErrNo      : ���ص�¼������,���������سɹ�ʱ,�ò�����ֵ������.
-*  @param[in]   nWaitTimeSec: ��¼��ʱ��ʱ��,��λΪ���� 
-*  @return      USER_HANDLE,ʧ�ܷ���DVO_INVALID_HANDLE -1���ɹ������豸ID     
-*  @remarks     �豸Ĭ�϶˿�Ϊ6001����Ҫ��ipcͨ��ʱ�ĵ�¼�����¼�ɹ�֮����豸�Ĳ���������ͨ����ֵ(�豸���)��Ӧ����Ӧ���豸��
+*  @brief       登录设备    : 0x01 0x01
+*  @param[in]   pDevIP      : 设备IP 
+*  @param[in]   wDevPort    : 设备端口，默认6001 
+*  @param[in]   pUserName   : 用户名，admin 
+*  @param[in]   pPassword   : 用户密码, 
+*  @param[out]  pDevBaseInfo: 设备基本信息.登录成功才有意义
+*  @param[out]  pErrNo      : 返回登录错误码,当函数返回成功时,该参数的值无意义.
+*  @param[in]   nWaitTimeSec: 登录超时的时间,单位为毫秒 
+*  @return      USER_HANDLE,失败返回DVO_INVALID_HANDLE -1，成功返回设备ID     
+*  @remarks     设备默认端口为6001，需要和ipc通信时的登录命令，登录成功之后对设备的操作都可以通过此值(设备句柄)对应到相应的设备，
 */
 DVOIPCNETSDK_API USER_HANDLE CALLMETHOD DVO2_NET_Login(PARAM_IN const char* pDevIP,
                                                       PARAM_IN WORD wDevPort,
@@ -131,67 +132,67 @@ DVOIPCNETSDK_API USER_HANDLE CALLMETHOD DVO2_NET_Login(PARAM_IN const char* pDev
 
 /*
 *  @date         2015/11/24                 :
-*  @brief        ��¼��Ϣ��ѯ               :
+*  @brief        登录信息查询               :
 *  @param[in]    lUserID                    :   
-*  @param[out]   info                        :��¼��Ϣ
-*  @return       true,�ɹ���false,ʧ��
+*  @param[out]   info                        :登录信息
+*  @return       true,成功，false,失败
 */
 DVOIPCNETSDK_API BOOL CALLMETHOD DVO2_NET_RES_INFO(PARAM_IN USER_HANDLE lUserID,
                                                    PARAM_OUT  app_net_tcp_sys_logo_info_t *info);
 
 /**
 *  @date        2015/08/12
-*  @brief       �ǳ��豸    : 0x01 0x02
-*  @param[in]   lUserID : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������    
-*  @remarks     ��DVO2_NET_Login��Ӧ��������IPCͨ��ʱ���á���loginһ��Ҫ��logout�����������Դй©.     
+*  @brief       登出设备    : 0x01 0x02
+*  @param[in]   lUserID : DVO2_NET_Login成功的返回值
+*  @return      成功返回0，否则为失败的错误代码    
+*  @remarks     与DVO2_NET_Login对应，结束与IPC通信时调用。有login一定要有logout，否则会有资源泄漏.     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Logout(PARAM_IN USER_HANDLE lUserID);
 
 /**
 *  @date        2015/08/12
-*  @brief       �������糬ʱ����
-*  @param[in]   lUserID             : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nSendTimeoutMsecs   : ���ͳ�ʱ����λΪ����,Ĭ��Ϊ5��
-*  @param[in]   nRecvTimeoutMsecs   : ���ճ�ʱ����λΪ����,Ĭ��Ϊ5��
-*  @param[in]   nConnTimeoutMsecs   : ���ӳ�ʱ����λΪ����,Ĭ��Ϊ5��
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
-*  @remarks     �����ÿ���ỰlUserID��أ������Ự֮��ĳ�ʱ�����໥����    
+*  @brief       设置网络超时参数
+*  @param[in]   lUserID             : DVO2_NET_Login成功的返回值
+*  @param[in]   nSendTimeoutMsecs   : 发送超时，单位为毫秒,默认为5秒
+*  @param[in]   nRecvTimeoutMsecs   : 接收超时，单位为毫秒,默认为5秒
+*  @param[in]   nConnTimeoutMsecs   : 连接超时，单位为毫秒,默认为5秒
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     与具体每个会话lUserID相关，各个会话之间的超时参数相互独立    
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetTimeout(PARAM_IN USER_HANDLE lUserID,
-                                                   PARAM_IN int nSendTimeoutMsecs = 5000,    ///< ���ͳ�ʱ������
-                                                   PARAM_IN int nRecvTimeoutMsecs = 5000,    ///< ���ճ�ʱ������
-                                                   PARAM_IN int nConnTimeoutMsecs = 5000     ///< ���ӳ�ʱ������
+                                                   PARAM_IN int nSendTimeoutMsecs = 5000,    ///< 发送超时，毫秒
+                                                   PARAM_IN int nRecvTimeoutMsecs = 5000,    ///< 接收超时，毫秒
+                                                   PARAM_IN int nConnTimeoutMsecs = 5000     ///< 连接超时，毫秒
                                                    );
 
 
 /**
 *  @date        2015/08/27
-*  @brief       ���ö����Զ�����
-*  @param[in]   lUserID                 : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   bAutoReConnect          : �Ƿ�����Զ�������Ĭ��ΪTRUE�Զ�������FALSEΪ�Ͽ�������
-*  @param[in]   nReConnectIntervalMsecs : �����������λΪ����,Ĭ��Ϊ5�룬bAutoReConnectΪtrueʱ��Ч��
-*  @param[in]   nReConnectType          : �������ͣ�Ĭ��Ϊ0��0--�ûỰ���е�����,1--�Ự������,2--��Ƶ���ӡ�
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
-*  @remarks     �����ÿ���ỰlUserID��أ��ϲ㲻����ʱ�˽ӿ�ʱ���ڲ�Ĭ��Ϊ�����Զ�����   
+*  @brief       设置断线自动重连
+*  @param[in]   lUserID                 : DVO2_NET_Login成功的返回值
+*  @param[in]   bAutoReConnect          : 是否断线自动重连，默认为TRUE自动重连，FALSE为断开不重连
+*  @param[in]   nReConnectIntervalMsecs : 重连间隔，单位为毫秒,默认为5秒，bAutoReConnect为true时有效。
+*  @param[in]   nReConnectType          : 连接类型，默认为0，0--该会话所有的连接,1--会话主连接,2--视频连接。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     与具体每个会话lUserID相关，上层不调用时此接口时，内部默认为断线自动重连   
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetReconnect(PARAM_IN USER_HANDLE lUserID,
-                                                     PARAM_IN BOOL bAutoReConnect          = TRUE,     ///< �����Զ�����
-                                                     PARAM_IN int  nReConnectIntervalMsecs = 5000,     ///< �������������
-                                                     PARAM_IN int  nReConnectType          = 0         ///< ��������
+                                                     PARAM_IN BOOL bAutoReConnect          = TRUE,     ///< 断线自动重连
+                                                     PARAM_IN int  nReConnectIntervalMsecs = 5000,     ///< 重连间隔，毫秒
+                                                     PARAM_IN int  nReConnectType          = 0         ///< 连接类型
                                                      );
 
 /**
 *  @date        2015/08/21
-*  @brief       ��Ϣ�ص�����,fnDVOCallback_AlarmData_T
-*  @param[in]   lUserID       : �ỰID��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nMessageType  : enum DVO_CALLBACK_MESSAGE_TYPE ���
-*  @param[in]   nValue        : �򵥵���Ϣֵ,��Ͽ�����������Ƶ��ID��
-*  @param[in]   pBuf          : ��Ϣ���ݻ�IO��������
-*  @param[in]   nDataSize     : ���ݵĳ���
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ�DVO2_NET_SetMessageCallbackʱ�����ʶ
-*  @return      �޷���ֵ 
-*  @remarks     �����ڻص������н��к�ʱ�Ĵ�����     
+*  @brief       消息回调函数,fnDVOCallback_AlarmData_T
+*  @param[in]   lUserID       : 会话ID，DVO2_NET_Login成功的返回值
+*  @param[in]   nMessageType  : enum DVO_CALLBACK_MESSAGE_TYPE 填充
+*  @param[in]   nValue        : 简单的消息值,如断开或重连的视频流ID等
+*  @param[in]   pBuf          : 消息数据或IO报警数据
+*  @param[in]   nDataSize     : 数据的长度
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_SetMessageCallback时传入标识
+*  @return      无返回值 
+*  @remarks     避免在回调函数中进行耗时的处理。     
 */
 typedef void (CALLBACK* fnDVOCallback_Message_T)(PARAM_IN USER_HANDLE lUserID,
                                                  PARAM_IN int           nMessageType,
@@ -203,13 +204,13 @@ typedef void (CALLBACK* fnDVOCallback_Message_T)(PARAM_IN USER_HANDLE lUserID,
 
 /**
 *  @date        2015/08/21
-*  @brief       ������Ϣ�ص�����
-*  @param[in]   lUserID       : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   funcMessage   : ��Ϣ�ص�����,���ڻص���Ƶ���ݵ��ϲ�Ӧ��,���嶨��ο�fnDVOCallback_Message_T
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ㴫���ʶ���ڻص������з��ظ��ϲ�
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
-*  @remarks     ��Ҫ���ڻỰ�쳣��Ϣ��֪ͨ�������ӶϿ������½������ӵ�֪ͨ��
-                ��DVO2_NET_RegisterAlarm����������IPC�ϴ��������ݺ�Ҳͨ���˻ص��������ظ��ϲ㡣     
+*  @brief       设置消息回调函数
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   funcMessage   : 消息回调函数,用于回调视频数据到上层应用,具体定义参考fnDVOCallback_Message_T
+*  @param[in]   pUser         : 用户数据,为上层传入标识，在回调函数中返回给上层
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于会话异常消息的通知，如连接断开，重新建立连接等通知。
+                当DVO2_NET_RegisterAlarm开启报警后，IPC上传报警数据后也通过此回调函数返回给上层。     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetMessageCallback(PARAM_IN USER_HANDLE lUserID,
                                                            PARAM_IN fnDVOCallback_Message_T funcMessage,
@@ -218,14 +219,14 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetMessageCallback(PARAM_IN USER_HANDLE
 
 /**
 *  @date        2015/08/21
-*  @brief       ���ñ���
-*  @param[in]   lUserID     : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   bRegister   : �������� 0--�رգ�1--������
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
-*  @remarks     �ýӿ��������ö�� ,ÿһ�ο���һ·��Ƶ���� ��֧��ipc���ڶ��ͨ��ʱ���õ������     
+*  @brief       设置报警
+*  @param[in]   lUserID     : DVO_NET_Login成功的返回值
+*  @param[in]   bRegister   : 开启报警 0--关闭，1--开启。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     该接口允许调用多次 ,每一次开启一路视频连接 ，支持ipc存在多个通道时调用的情况。     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_RegisterAlarm(PARAM_IN USER_HANDLE lUserID,
-                                                      PARAM_IN BOOL        bRegister   //��������bRegister 0 �رգ�1����,
+                                                      PARAM_IN BOOL        bRegister   //开启报警bRegister 0 关闭，1开启,
                                                       ); 
 
 
@@ -234,15 +235,15 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_RegisterAlarm(PARAM_IN USER_HANDLE lUse
 
 /**
 *  @date        2015/08/12
-*  @brief       ͨ��ʵʱ�����ݻص�����,fnDVOCallback_RealAVData_T
-*  @param[in]   lUserID       : �ỰID��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   lStreamHandle : �����,DVO2_NET_StartRealPlay�ɹ���ķ���ֵ
-*  @param[in]   nErrorType    : 0��ʾ���쳣��1��ʾ���ߣ�2��ʾ���ݳ�����3��ʾ����ʧ�ܡ�4��ʾdirectdraw��ʼ��ʧ��...enum DVO_STREAM_ERROR_TYPE ���
-*  @param[in]   pBuf          : ������(����֡ͷ,app_net_tcp_enc_stream_head_t + stream_data)
-*  @param[in]   nDataSize     : �����ݵĳ���(����֡ͷ����,sizeof(app_net_tcp_enc_stream_head_t) + frame_len)
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ�DVO2_NET_StartRealPlayʱ�����ʶ
-*  @return      �޷���ֵ 
-*  @remarks     �����ڻص������н��к�ʱ�Ĵ�����     
+*  @brief       通道实时流数据回调函数,fnDVOCallback_RealAVData_T
+*  @param[in]   lUserID       : 会话ID，DVO2_NET_Login成功的返回值
+*  @param[in]   lStreamHandle : 流句柄,DVO2_NET_StartRealPlay成功后的返回值
+*  @param[in]   nErrorType    : 0表示无异常，1表示断线，2表示数据出错，3表示启动失败。4表示directdraw初始化失败...enum DVO_STREAM_ERROR_TYPE 填充
+*  @param[in]   pBuf          : 流数据(包含帧头,app_net_tcp_enc_stream_head_t + stream_data)
+*  @param[in]   nDataSize     : 流数据的长度(包含帧头长度,sizeof(app_net_tcp_enc_stream_head_t) + frame_len)
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_StartRealPlay时传入标识
+*  @return      无返回值 
+*  @remarks     避免在回调函数中进行耗时的处理。     
 */
 typedef void (CALLBACK* fnDVOCallback_RealAVData_T)(PARAM_IN USER_HANDLE  lUserID,
                                                      PARAM_IN REAL_HANDLE lStreamHandle,
@@ -254,18 +255,18 @@ typedef void (CALLBACK* fnDVOCallback_RealAVData_T)(PARAM_IN USER_HANDLE  lUserI
 
 /**
 *  @date        2015/08/12
-*  @brief       ��ʼ��Ƶ
-*  @param[in]   lUserID     : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nChannelID  : �豸ͨ���ţ���0��ʼ
-*  @param[in]   nStreamID   : ����ID����0��ʼ��0Ϊ��������1Ϊ��������2Ϊ��������
-*  @param[in]   nProtocol   : ͨ��Э�����ͣ�0--TCP ;1--UDP(UDP�ݲ�֧��)
-*  @param[in]   nEncodeType : �������ͣ�0--H264��1--JPEG��2--265�� Ŀǰipcֻ֧��2���Ժ������չ
-*  @param[in]   hWnd        : Ϊ������ʾԤ���Ĵ��ھ��,�ð汾��NULL,ֻ��ȡ����
-*  @param[in]   funcRealData: �ص�����,���ڻص���Ƶ���ݵ��ϲ�Ӧ��,���嶨��ο�fnDVOCallback_RealAVData_T
-*  @param[in]   pUser       : �û�����,Ϊ�ϲ㴫���ʶ������Ƶ�ص������з��ظ��ϲ�
-*  @param[out]  pErrNo      : ���ش�����,���������سɹ�ʱ,�ò�����ֵ������.
-*  @return      REAL_HANDLE,ʧ�ܷ���DVO_INVALID_HANDLE -1���ɹ�������Ƶ�ỰID 
-*  @remarks     �ýӿ��������ö�� ,ÿһ�ο���һ·��Ƶ���� ��֧��ipc���ڶ��ͨ��ʱ���õ������     
+*  @brief       开始视频
+*  @param[in]   lUserID     : DVO2_NET_Login成功的返回值
+*  @param[in]   nChannelID  : 设备通道号，从0开始
+*  @param[in]   nStreamID   : 码流ID，从0开始，0为主码流，1为子码流，2为三码流等
+*  @param[in]   nProtocol   : 通信协议类型，0--TCP ;1--UDP(UDP暂不支持)
+*  @param[in]   nEncodeType : 编码类型，0--H264，1--JPEG，2--265， 目前ipc只支持2种以后可以扩展
+*  @param[in]   hWnd        : 为传入显示预览的窗口句柄,该版本传NULL,只获取码流
+*  @param[in]   funcRealData: 回调函数,用于回调视频数据到上层应用,具体定义参考fnDVOCallback_RealAVData_T
+*  @param[in]   pUser       : 用户数据,为上层传入标识，在视频回调函数中返回给上层
+*  @param[out]  pErrNo      : 返回错误码,当函数返回成功时,该参数的值无意义.
+*  @return      REAL_HANDLE,失败返回DVO_INVALID_HANDLE -1，成功返回视频会话ID 
+*  @remarks     该接口允许调用多次 ,每一次开启一路视频连接 ，支持ipc存在多个通道时调用的情况。     
 */
 DVOIPCNETSDK_API REAL_HANDLE CALLMETHOD	DVO2_NET_StartRealPlay(PARAM_IN USER_HANDLE lUserID,
                                                               PARAM_IN int nChannelID,
@@ -280,20 +281,20 @@ DVOIPCNETSDK_API REAL_HANDLE CALLMETHOD	DVO2_NET_StartRealPlay(PARAM_IN USER_HAN
 
 /**
 *  @date        2015/08/12
-*  @brief       �ر���Ƶ
-*  @param[in]   lStreamHandle,DVO2_NET_StartRealPlay�ɹ��ķ���ֵ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������    
-*  @remarks     ��DVO2_NET_StartRealPlay��Ӧ.     
+*  @brief       关闭视频
+*  @param[in]   lStreamHandle,DVO2_NET_StartRealPlay成功的返回值
+*  @return      成功返回0，否则为失败的错误代码    
+*  @remarks     与DVO2_NET_StartRealPlay对应.     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_StopRealPlay(PARAM_IN REAL_HANDLE lStreamHandle);
 
 
 /**
 *  @date        2015/09/06
-*  @brief       ��ȡÿ�������ͳ�ƣ��ֽڣ�
-*  @param[in]   lStreamHandle,DVO2_NET_StartRealPlay�ɹ��ķ���ֵ 
-*  @param[out]  pFluxBytes,��������ÿ�������,��λΪ�ֽ�Byte 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������    
+*  @brief       获取每秒的流量统计（字节）
+*  @param[in]   lStreamHandle,DVO2_NET_StartRealPlay成功的返回值 
+*  @param[out]  pFluxBytes,返回码流每秒的流量,单位为字节Byte 
+*  @return      成功返回0，否则为失败的错误代码    
 *  @remarks          
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetStatiscFlux(PARAM_IN REAL_HANDLE lStreamHandle, PARAM_OUT UINT64* pFluxBytes);
@@ -301,39 +302,39 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetStatiscFlux(PARAM_IN REAL_HANDLE lSt
 
 /**
 *  @date        2015/09/06
-*  @brief       �����豸��Ƶ���Ĵ���
-*  @param[in]   lUserID     : �豸��½��� ��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nChannelID  : �豸ͨ���ţ���0��ʼ
-*  @param[in]   bEnable     : ���ش����豸��Ƶ�� FALSE--ֹͣ��TRUE--������
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
-*  @remarks     ����ΪTRUE���Ż�����Ƶ������ʵʱ�����ݵ�fnDVOCallback_RealAVData_T�ص��г���    
+*  @brief       开关设备音频流的传输
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   nChannelID  : 设备通道号，从0开始
+*  @param[in]   bEnable     : 开关传输设备音频流 FALSE--停止，TRUE--开启。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     设置为TRUE，才会有音频数据在实时流数据的fnDVOCallback_RealAVData_T回调中出来    
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_RequestAudioStream(PARAM_IN USER_HANDLE lUserID,
                                                            PARAM_IN int         nChannelID,
-                                                           PARAM_IN BOOL        bEnable   // 0 ֹͣ��1����,
+                                                           PARAM_IN BOOL        bEnable   // 0 停止，1开启,
                                                            ); 
 
 /**
 *  @date        2015/09/06
-*  @brief       �����豸��Ƶ���Ĵ���״̬
-*  @param[in]   lUserID     : �豸��½��� ��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nChannelID  : �豸ͨ���ţ���0��ʼ
-*  @param[out]  pEnable     : ���ش����豸��Ƶ��״̬ 0--ֹͣ��1--������
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
+*  @brief       开关设备音频流的传输状态
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   nChannelID  : 设备通道号，从0开始
+*  @param[out]  pEnable     : 开关传输设备音频流状态 0--停止，1--开启。
+*  @return      成功返回0，否则为失败的错误代码
 *  @remarks        
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetAudioStreamState(PARAM_IN USER_HANDLE lUserID,
                                                             PARAM_IN int         nChannelID,
-                                                            PARAM_IN int*        pEnable   //bEnable 0 ֹͣ��1����,
+                                                            PARAM_IN int*        pEnable   //bEnable 0 停止，1开启,
                                                             ); 
 
 //////////////////////////////////////////////////////////////////////////
 
 /**
-*  @brief       ��ȡ�豸��ǰ��ϵͳʱ��
-*  @param[in]   lUserID     : �豸��½��� ��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[out]  pDevTime    : ϵͳʱ�䡣
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
+*  @brief       获取设备当前的系统时间
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[out]  pDevTime    : 系统时间。
+*  @return      成功返回0，否则为失败的错误代码
 *  @remarks        
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevSystime(PARAM_IN USER_HANDLE lUserID,
@@ -341,10 +342,10 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevSystime(PARAM_IN USER_HANDLE lUse
                                                       ); 
 
 /**
-*  @brief       �����豸��ǰ��ϵͳʱ��
-*  @param[in]   lUserID     : �豸��½��� ��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[out]  pDevTime    : ϵͳʱ��
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
+*  @brief       设置设备当前的系统时间
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[out]  pDevTime    : 系统时间
+*  @return      成功返回0，否则为失败的错误代码
 *  @remarks        
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevSystime(PARAM_IN USER_HANDLE lUserID,
@@ -353,18 +354,18 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevSystime(PARAM_IN USER_HANDLE lUse
 
 /**
 *  @date        2015/08/18
-*  @brief       DVO2_NET_GetDevConfig,��ȡ�豸��������Ϣ
-*  @param[in]   lUserID         : �豸��½��� 
-*  @param[in]   dwCommand       : �豸��������.�μ���������,EDVO_DEVICE_PARAMETER_TYPE 
-*  @param[in]   lpInBuffer      : ��������Ļ���ָ�� 
-*  @param[in]   nInBufferSize   : ��������Ļ��峤��(���ֽ�Ϊ��λ) 
-*  @param[out]  lpOutBuffer     : �������ݻ���ָ�� 
-*  @param[in]   nOutBufferSize  : �������ݻ��峤��(���ֽ�Ϊ��λ) 
-*  @param[out]  lpBytesReturned : ʵ���յ����ݵĳ��� 
-*  @param[in]   nWaitTimeMsecs  : �ȴ���ʱʱ�� 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
+*  @brief       DVO2_NET_GetDevConfig,读取设备的配置信息
+*  @param[in]   lUserID         : 设备登陆句柄 
+*  @param[in]   dwCommand       : 设备配置命令.参见配置命令,EDVO_DEVICE_PARAMETER_TYPE 
+*  @param[in]   lpInBuffer      : 输出参数的缓冲指针 
+*  @param[in]   nInBufferSize   : 输出参数的缓冲长度(以字节为单位) 
+*  @param[out]  lpOutBuffer     : 接受数据缓冲指针 
+*  @param[in]   nOutBufferSize  : 接收数据缓冲长度(以字节为单位) 
+*  @param[out]  lpBytesReturned : 实际收到数据的长度 
+*  @param[in]   nWaitTimeMsecs  : 等待超时时间 
+*  @return      成功返回0，否则为失败的错误代码
 *  @pre         
-*  @remarks     ��ͬdwCommand(wCmdMain | (wCmdSub<<16) )��lpOutBuffer��Ӧ�Ľṹ�彫�᲻ͬ�������EDVO_DEVICE_PARAMETER_TYPE     
+*  @remarks     不同dwCommand(wCmdMain | (wCmdSub<<16) )，lpOutBuffer对应的结构体将会不同，具体见EDVO_DEVICE_PARAMETER_TYPE     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevConfig(PARAM_IN  USER_HANDLE lUserID,
                                                      PARAM_IN  DWORD   dwCommand,
@@ -377,15 +378,15 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevConfig(PARAM_IN  USER_HANDLE lUse
 
 /**
 *  @date        2015/08/18
-*  @brief       �����豸��������Ϣ 
-*  @param[in]   lUserID         : �豸��½��� 
-*  @param[in]   dwCommand       : �豸��������.�μ���������,EDVO_DEVICE_PARAMETER_TYPE 
-*  @param[in]   lpInBuffer      : ���ݻ���ָ�� 
-*  @param[in]   nInBufferSize   : ���ݻ��峤��(���ֽ�Ϊ��λ) 
-*  @param[in]   nWaitTimeMsecs  : �ȴ�ʱ�� 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������
+*  @brief       设置设备的配置信息 
+*  @param[in]   lUserID         : 设备登陆句柄 
+*  @param[in]   dwCommand       : 设备配置命令.参见配置命令,EDVO_DEVICE_PARAMETER_TYPE 
+*  @param[in]   lpInBuffer      : 数据缓冲指针 
+*  @param[in]   nInBufferSize   : 数据缓冲长度(以字节为单位) 
+*  @param[in]   nWaitTimeMsecs  : 等待时间 
+*  @return      成功返回0，否则为失败的错误代码
 *  @pre         
-*  @remarks     ��ͬdwCommand(wCmdMain | (wCmdSub<<16) )��lpOutBuffer��Ӧ�Ľṹ�彫�᲻ͬ�������EDVO_DEVICE_PARAMETER_TYPE 
+*  @remarks     不同dwCommand(wCmdMain | (wCmdSub<<16) )，lpOutBuffer对应的结构体将会不同，具体见EDVO_DEVICE_PARAMETER_TYPE 
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevConfig(PARAM_IN  USER_HANDLE lUserID,  
                                                      PARAM_IN  DWORD   dwCommand, 
@@ -394,46 +395,63 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevConfig(PARAM_IN  USER_HANDLE lUse
                                                      PARAM_IN  int     nWaitTimeMsecs=1000);
 
 
+/*
+*  @date         2016/01/08
+*  @brief        相机功能型号设置           : 0x01 0x23
+*  @param[in]    lUserID                    :
+*  @param[in]    pModeInfo                  : 相机功能
+*  @return       成功返回0，否则为失败的错误代码
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetFuncMode(USER_HANDLE lUserID, app_net_tcp_func_model_t* pModeInfo);
+
+/*
+*  @date         2016/01/08
+*  @brief        相机功能型号查询           : 0x01 0x24
+*  @param[in]    lUserID                    :
+*  @param[inout] pModeInfo                  :相机功能
+*  @return       成功返回0，否则为失败的错误代码
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetFuncMode(USER_HANDLE lUserID, app_net_tcp_func_model_t* pModeInfo);
 
 //////////////////////////////////////////////////////////////////////////
 
 
 /**
-*  @brief       DVO2_NET_Restore,�ָ���������
-*  @param[in]   lUserID �豸��½��� 
-*  @param[in]   nTypeOperator ,�ָ����������ͣ�0Ϊ������ip�ָ���1Ϊ����ip�ָ�Ĭ�ϳ���ֵ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������        
+*  @brief       DVO2_NET_Restore,恢复出厂设置
+*  @param[in]   lUserID 设备登陆句柄 
+*  @param[in]   nTypeOperator ,恢复操作的类型：0为不包含ip恢复，1为包含ip恢复默认出厂值
+*  @return      成功返回0，否则为失败的错误代码        
 *  @remarks     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Restore(PARAM_IN USER_HANDLE lUserID, PARAM_IN int nTypeOperator);
 
 /**
-*  @brief       DVO2_NET_Reboot,�������
-*  @param[in]   lUserID �豸��½��� 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������        
+*  @brief       DVO2_NET_Reboot,相机重启
+*  @param[in]   lUserID 设备登陆句柄 
+*  @return      成功返回0，否则为失败的错误代码        
 *  @remarks          
-**/
+*/
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Reboot(PARAM_IN USER_HANDLE lUserID);
 
 /**
-*  @brief       DVO2_NET_ShutDown,�ر����
-*  @param[in]   lUserID �豸��½��� 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������        
+*  @brief       DVO2_NET_ShutDown,关闭相机
+*  @param[in]   lUserID 设备登陆句柄 
+*  @return      成功返回0，否则为失败的错误代码        
 *  @remarks          
-**/
+*/
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_ShutDown(PARAM_IN USER_HANDLE lUserID);
 
 
 
-///////////////////////�����Խ�,��δʵ��///////////////////////////////////////////////////
+///////////////////////语音对讲,暂未实现///////////////////////////////////////////////////
 
 /** fnDVOCallback_AudioData_T
- * ��Ƶ�Խ�������ݻص�����
-	lTalkHandle   : �Խ����
-	pBuf          : ��Ƶ����
-	nDataSize     : ���ݳ���
-	pts           : ʱ���(����)
-	userdata      : �û�����
+ * 音频对讲获得数据回调函数
+	lTalkHandle   : 对讲句柄
+	pBuf          : 音频数据
+	nDataSize     : 数据长度
+	pts           : 时间戳(毫秒)
+	userdata      : 用户数据
 */
 typedef void (*fnDVOCallback_AudioData_T)(PARAM_IN USER_HANDLE  lUserID,
                                           PARAM_IN REAL_HANDLE  lTalkHandle,
@@ -444,15 +462,15 @@ typedef void (*fnDVOCallback_AudioData_T)(PARAM_IN USER_HANDLE  lUserID,
                                           );
 
 /** 
- *  @brief       ���������Խ���DVO2_NET_TalkStart
- *  @param[in]   lUserID        : DVO2_NET_Login�ɹ��ķ���ֵ
- *  @param[in]   pAudioInfo		: ��Ƶ����
- *  @param[in]   nTimeroutMs	: ��ʱʱ��(����)
- *  @param[in]   bTwoWayData	: ˫��Խ���־
- *  @param[in]   funcAudioData  : ���նԽ����ݻص�����,���ڻص��Խ����ݵ��ϲ�Ӧ��,���嶨��ο�fnDVOCallback_AudioData_T
- *  @param[in]   pUser          : �û�����,Ϊ�ϲ㴫���ʶ������Ƶ�ص������з��ظ��ϲ�
- *  @param[out]  pErrNo         : ���ش�����,���������سɹ�ʱ,�ò�����ֵ������.
- *  @return      REAL_HANDLE,ʧ�ܷ���DVO_INVALID_HANDLE -1���ɹ����������Խ��ỰID 
+ *  @brief       启动语音对讲，DVO2_NET_TalkStart
+ *  @param[in]   lUserID        : DVO2_NET_Login成功的返回值
+ *  @param[in]   pAudioInfo		: 音频参数
+ *  @param[in]   nTimeroutMs	: 超时时间(毫秒)
+ *  @param[in]   bTwoWayData	: 双向对讲标志
+ *  @param[in]   funcAudioData  : 接收对讲数据回调函数,用于回调对讲数据到上层应用,具体定义参考fnDVOCallback_AudioData_T
+ *  @param[in]   pUser          : 用户数据,为上层传入标识，在视频回调函数中返回给上层
+ *  @param[out]  pErrNo         : 返回错误码,当函数返回成功时,该参数的值无意义.
+ *  @return      REAL_HANDLE,失败返回DVO_INVALID_HANDLE -1，成功返回语音对讲会话ID 
  *  @remarks     
 */
 DVOIPCNETSDK_API REAL_HANDLE CALLMETHOD DVO2_NET_TalkStart(PARAM_IN USER_HANDLE lUserID,
@@ -465,12 +483,12 @@ DVOIPCNETSDK_API REAL_HANDLE CALLMETHOD DVO2_NET_TalkStart(PARAM_IN USER_HANDLE 
                                                           );
 
 /** 
- *  @brief       ���ͶԽ�����,DVO2_NET_TalkSendData
- *  @param[in]   lTalkHandle		: �Խ����, DVO2_NET_TalkStart�����ֵ
- *  @param[in]   pBuf   			: ��Ƶ����
- *  @param[in]   nDataSize			: ���ݴ�С
- *  @param[in]   pts				: ʱ���
- *  @return      �ɹ�����0�� ����Ϊ�������
+ *  @brief       发送对讲数据,DVO2_NET_TalkSendData
+ *  @param[in]   lTalkHandle		: 对讲句柄, DVO2_NET_TalkStart的输出值
+ *  @param[in]   pBuf   			: 音频数据
+ *  @param[in]   nDataSize			: 数据大小
+ *  @param[in]   pts				: 时间戳
+ *  @return      成功返回0， 其他为错误代码
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_TalkSendData(PARAM_IN REAL_HANDLE lTalkHandle,
                                                      PARAM_IN BYTE* pBuf,
@@ -479,26 +497,26 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_TalkSendData(PARAM_IN REAL_HANDLE lTalk
                                                      );
 
 /* DVO2_NET_TalkStop
- * ֹͣ�Խ�
-	lTalkHandle		: �Խ����, DVO2_NET_TalkStart �����ֵ
- * �ɹ�����0�� ����Ϊ�������
+ * 停止对讲
+	lTalkHandle		: 对讲句柄, DVO2_NET_TalkStart 的输出值
+ * 成功返回0， 其他为错误代码
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_TalkStop(PARAM_IN USER_HANDLE lTalkHandle);
 
 //////////////////////////////////////////////////////////////////////////
 
-//=================�ṩ�豸����============================//
-// ��δʵ�֣���ع�����ʹ��DVO��������
+//=================提供设备搜索============================//
+// 暂未实现，相关功能请使用DVO搜索工具
 
-/** 
-*  @brief       �����豸�ص�,fnDVOCallback_SearchDevice_T
-*  @param[in]   nType         : 0Ϊ������Ϣ,0x0002Ϊ�����豸����Ϣ,
-*  @param[in]   nState        : nType=0ʱ��Ч��Ϊ����ID
-*  @param[in]   pBuf          : ����,multicast_dev_info_t_v2
-*  @param[in]   nDataSize     : ���ݳ���
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ�DVO2_NET_StartSearchDeviceʱ�����ʶ
-*  @return      �޷���ֵ 
-*  @remarks     �ڻص������У���Ҫ���к�ʱ������������ܻ�������������������     
+/**
+*  @brief       搜索设备回调,fnDVOCallback_SearchDevice_T
+*  @param[in]   nType         : 0为错误信息,0x0002为搜索设备的信息,
+*  @param[in]   nState        : nType=0时有效，为错误ID
+*  @param[in]   pBuf          : 数据,multicast_dev_info_t_v2
+*  @param[in]   nDataSize     : 数据长度
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_StartSearchDevice时传入标识
+*  @return      无返回值 
+*  @remarks     在回调函数中，不要进行耗时处理，否则可能会造成搜索结果不完整。     
 */
 typedef void (CALLBACK *fnDVOCallback_SearchDevice_T)(PARAM_IN int         nType,
                                                       PARAM_IN int         nState,
@@ -508,54 +526,54 @@ typedef void (CALLBACK *fnDVOCallback_SearchDevice_T)(PARAM_IN int         nType
                                                       );
 
 /** 
- *  @brief       ��ʼ�����豸,DVO2_NET_StartSearchDevice
- *  @param[in]   funcSearchDevice : �ص�����,���ڻص����������״̬���ϲ�Ӧ��,���嶨��ο�fnDVOCallback_SearchDevice_T
- *  @param[in]   pUser            : �û�����,Ϊ�ϲ㴫���ʶ���ڻص������з��ظ��ϲ�
- *  @return      �ɹ�����0������Ϊʧ�ܵĴ������ 
- *  @remarks     �����豸����Ϊ�첽,ͨ���ص�������������״̬��ֻ��DVO2_NET_StopSearchDevice֮�󣬲����ٴε��ô˽ӿ�.   
+ *  @brief       开始搜索设备,DVO2_NET_StartSearchDevice
+ *  @param[in]   funcSearchDevice : 回调函数,用于回调搜索结果和状态到上层应用,具体定义参考fnDVOCallback_SearchDevice_T
+ *  @param[in]   pUser            : 用户数据,为上层传入标识，在回调函数中返回给上层
+ *  @return      成功返回0，否则为失败的错误代码 
+ *  @remarks     搜索设备处理为异步,通过回调函数反馈处理状态。只有DVO2_NET_StopSearchDevice之后，才能再次调用此接口.   
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_StartSearchDevice(PARAM_IN fnDVOCallback_SearchDevice_T funcSearchDevice,
                                                           PARAM_IN void *pUser
                                                           );
 
 /** 
- *  @brief       ֹͣ�����豸
- *  @return      �ɹ�����0������Ϊʧ�ܵĴ������ 
- *  @remarks     DVO2_NET_StartSearchDevice֮�󣬲��ܵ��ô˽ӿ�  
+ *  @brief       停止搜索设备
+ *  @return      成功返回0，否则为失败的错误代码 
+ *  @remarks     DVO2_NET_StartSearchDevice之后，才能调用此接口  
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_StopSearchDevice();
 
 /** 
- *  @brief       �ٴ������豸
- *  @return      �ɹ�����0������Ϊʧ�ܵĴ������ 
- *  @remarks     ��������������ģ��,DVO2_NET_StartSearchDevice�����ܵ��ô˽ӿڣ�������Ч.  
+ *  @brief       再次搜索设备
+ *  @return      成功返回0，否则为失败的错误代码 
+ *  @remarks     必须先启动搜索模块,DVO2_NET_StartSearchDevice，才能调用此接口，否则无效.  
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_AgainSearchDevice();
 
 /** 
- *  @brief       �޸��豸����
- *  @param[in]   pDevInfo       : �豸��Ϣ
- *  @param[in]   nModifyType    : �޸ĵ��������ͣ�0Ϊ�޸��豸IP��ַ,1Ϊ�޸��豸MAC��ַ
- *  @return      �ɹ�����0������Ϊʧ�ܵĴ������ 
- *  @remarks     ��������������ģ��,DVO2_NET_StartSearchDevice.  
+ *  @brief       修改设备配置
+ *  @param[in]   pDevInfo       : 设备信息
+ *  @param[in]   nModifyType    : 修改的配置类型，0为修改设备IP地址,1为修改设备MAC地址
+ *  @return      成功返回0，否则为失败的错误代码 
+ *  @remarks     必须先启动搜索模块,DVO2_NET_StartSearchDevice.  
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_ModifySearchDevice(const multicast_dev_info_t_v2* pDevInfo, int nModifyType);
 
 //////////////////////////////////////////////////////////////////////////
 
-//=================�ṩϵͳ����============================//
-// ��δʵ�֣���ع�����ʹ��DVO��������
+//=================提供系统升级============================//
+// 暂未实现，相关功能请使用DVO搜索工具
 
 /**
-*  @brief       �ļ�����ص�,fnDVOCallback_AlarmData_T
-*  @param[in]   lUserID       : �ỰID��DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   nTransType    : enum DVO_CALLBACK_TRANSFILE_STATE_TYPE ���
-*  @param[in]   nState        : nTransType=DVO_DEV_UPGRADEFILETRANS_ERRORʱ��Ч��Ϊ����ID
-*  @param[in]   nSendSize     : �ѷ��ͳ���
-*  @param[in]   nTotalSize    : �ļ��ܳ���
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ�DVO2_NET_StartUpgradeʱ�����ʶ
-*  @return      �޷���ֵ 
-*  @remarks     �����ڻص������н��к�ʱ�Ĵ�����     
+*  @brief       文件传输回调,fnDVOCallback_AlarmData_T
+*  @param[in]   lUserID       : 会话ID，DVO2_NET_Login成功的返回值
+*  @param[in]   nTransType    : enum DVO_CALLBACK_TRANSFILE_STATE_TYPE 填充
+*  @param[in]   nState        : nTransType=DVO_DEV_UPGRADEFILETRANS_ERROR时有效，为错误ID
+*  @param[in]   nSendSize     : 已发送长度
+*  @param[in]   nTotalSize    : 文件总长度
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_StartUpgrade时传入标识
+*  @return      无返回值 
+*  @remarks     避免在回调函数中进行耗时的处理。     
 */
 typedef void (CALLBACK *fnDVOCallback_TransFile_T)(PARAM_IN USER_HANDLE lUserID, 
                                                    PARAM_IN int         nTransType, //DVO_CALLBACK_TRANSFILE_STATE_TYPE
@@ -565,14 +583,14 @@ typedef void (CALLBACK *fnDVOCallback_TransFile_T)(PARAM_IN USER_HANDLE lUserID,
                                                    PARAM_IN void*       pUser);
 
 /**
-*  @brief       ��ʼ����
-*  @param[in]   lUserID       : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @param[in]   szFileName    : �����ļ�
-*  @param[in]   funcTransFile : �ص�����,���ڻص�����״̬���ϲ�Ӧ��,���嶨��ο�fnDVOCallback_TransFile_T
-*  @param[in]   pUser         : �û�����,Ϊ�ϲ㴫���ʶ���ڻص������з��ظ��ϲ�
-*  @param[in]   wDevPort      : �豸�˿�,����Ĭ����6002 
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������ 
-*  @remarks     ��������Ϊ�첽,ͨ���ص�������������״̬     
+*  @brief       开始升级
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   szFileName    : 升级文件
+*  @param[in]   funcTransFile : 回调函数,用于回调传输状态到上层应用,具体定义参考fnDVOCallback_TransFile_T
+*  @param[in]   pUser         : 用户数据,为上层传入标识，在回调函数中返回给上层
+*  @param[in]   wDevPort      : 设备端口,升级默认用6002 
+*  @return      成功返回0，否则为失败的错误代码 
+*  @remarks     升级处理为异步,通过回调函数反馈处理状态     
 */
 DVOIPCNETSDK_API int CALLMETHOD	DVO2_NET_StartUpgrade(PARAM_IN USER_HANDLE               lUserID, 
                                                      PARAM_IN const char*               szFileName, 
@@ -582,14 +600,14 @@ DVOIPCNETSDK_API int CALLMETHOD	DVO2_NET_StartUpgrade(PARAM_IN USER_HANDLE      
                                                      );
 
 /**
-*  @brief       ֹͣ����
-*  @param[in]   lUserID : DVO2_NET_Login�ɹ��ķ���ֵ
-*  @return      �ɹ�����0������Ϊʧ�ܵĴ������    
-*  @remarks     ��DVO2_NET_StartUpgrade��Ӧ,����ֹ�����ļ��Ĵ��䣬��������ļ������Ѿ���ɣ��˽ӿڵ�����Ч     
+*  @brief       停止升级
+*  @param[in]   lUserID : DVO2_NET_Login成功的返回值
+*  @return      成功返回0，否则为失败的错误代码    
+*  @remarks     与DVO2_NET_StartUpgrade对应,会中止升级文件的传输，如果升级文件传输已经完成，此接口调用无效     
 */
 DVOIPCNETSDK_API int CALLMETHOD	DVO2_NET_StopUpgrade(PARAM_IN USER_HANDLE lUserID);
  
-///////////////////�ӿ�end///////////////////////////////////////////////////////
+///////////////////接口end///////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
