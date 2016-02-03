@@ -64,7 +64,8 @@
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y $(TargetPath) E:\DVO\DvoNetViewOcx\DvoIpcNet2Ocx\bin\debug</Command>
+      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx
+copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -89,6 +90,10 @@
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx
+copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
