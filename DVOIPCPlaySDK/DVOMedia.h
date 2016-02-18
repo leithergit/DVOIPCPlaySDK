@@ -35,8 +35,8 @@ enum DVO_CODEC
 {
 	CODEC_UNKNOWN = -1,
 	CODEC_H264		 = 0x00,
-	CODEC_H265		 = 0x01,
-	CODEC_MJPEG		 = 0x02,
+	CODEC_MJPEG		 = 0x01,
+	CODEC_H265		 = 0x02,	
 	CODEC_G711A		 = FRAME_G711A,
 	CODEC_G711U		 = FRAME_G711U,
 	CODEC_G726		 = FRAME_G726,
@@ -100,7 +100,7 @@ struct DVOFrameHeaderEx:public DVOFrameHeader
 		nFrameTag		 = DVO_TAG;
 		nFrameUTCTime	 = (long)time(NULL);
 	}
-	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数
+	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数,从0开始计数,即第一帧nFrameID为0
 	unsigned int	nReserver[3];	///< 保留字段,建议置0
 };
 #pragma pack(pop)

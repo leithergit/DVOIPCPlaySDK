@@ -455,6 +455,7 @@ private:
 			case 0:
 			case FRAME_B:
 			case FRAME_I:
+			case FRAME_IDR:
 			case FRAME_P:
 			{
 				nVideoFrames++;
@@ -634,7 +635,6 @@ public:
 			//m_DsPlayer = _New CDSoundPlayer();
 			//m_DsPlayer.Initialize(m_hWnd, Audio_Play_Segments);
 		}
-
 	}
 	
 	~CDvoPlayer()
@@ -871,6 +871,7 @@ public:
 			case FRAME_P:
 			case FRAME_B:
 			case FRAME_I:
+			case FRAME_IDR:
 			{
 // 				if (!m_hThreadPlayVideo)
 // 					return DVO_Error_VideoThreadNotRun;
@@ -1473,7 +1474,7 @@ public:
 	{
 		if (m_pDxSurface)
 		{
-			m_pDxSurface->SetExternDraw(pExternDrawProc, (long)pUserPtr);
+			m_pDxSurface->SetExternDraw(pExternDrawProc, pUserPtr);
 			return 0;
 		}
 		else
@@ -2251,7 +2252,8 @@ public:
 			if (pThis->m_bEnableHaccel)
 				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
 			else
-				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				//InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
 			InitInfo.bWindowed = TRUE;
 			InitInfo.hPresentWnd = pThis->m_hWnd;
 

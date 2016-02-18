@@ -111,7 +111,7 @@ class CDxSurface;
 class CriticalSectionWrap;
 typedef map<HWND,CDxSurface*> WndSurfaceMap;
 typedef shared_ptr<CriticalSectionWrap>CriticalSectionPtr;
-typedef void (CALLBACK *ExternDrawProc)(HANDLE handle,HDC hDc,RECT rt,LONG nUser);
+typedef void (CALLBACK *ExternDrawProc)(HWND hWnd, HDC hDc, RECT rt, void *pUserPtr);
 class CriticalSectionWrap
 {
 public:
@@ -483,7 +483,7 @@ protected:
 	HANDLE					m_hEventCopySurface;// 解码数据复制事件
 	// 外部绘制接口，提供外部接口，允许调用方自行绘制图像
 	ExternDrawProc			m_pExternDraw;
-	long					m_nUserPtr;			// 外部调用者自定义指针
+	void*					m_pUserPtr;			// 外部调用者自定义指针
 	
 	bool					m_bFullWnd;			// 是否填满窗口,为True时，则填充整个窗口客户区，否则只按视频比例显示	
 	HWND					m_hFullScreenWindow;// 伪全屏窗口
@@ -592,10 +592,10 @@ public:
 		return m_bSurfaceFullSize;
 	}
 
-	void SetExternDraw(void *pExternDrawProc,long nUserPtr)
+	void SetExternDraw(void *pExternDrawProc,void *pUserPtr)
 	{
 		m_pExternDraw = (ExternDrawProc)pExternDrawProc;
-		m_nUserPtr = nUserPtr;
+		m_pUserPtr = pUserPtr;
 	}
 
 	// 调用外部绘制函数
@@ -637,14 +637,18 @@ public:
 					memcpy(&MotionRect,pRect,sizeof(RECT));
 				else
 				{
-					
 					MotionRect.left		= 0;
 					MotionRect.right		= Desc.Width;
 					MotionRect.top			= 0;
 					MotionRect.bottom		= Desc.Height;
 				}
-				m_pExternDraw(hMotionWnd,hDc,MotionRect,m_nUserPtr);
+				m_pExternDraw(hMotionWnd,hDc,MotionRect,m_pUserPtr);
 				m_pDirect3DSurfaceRender->ReleaseDC(hDc);
+			}
+			else
+			{
+				DxTraceMsg("%s Get DC(Device Context) from DxSurface failed.\r\n", __FUNCTION__);
+				assert(false);
 			}
 		}
 	}
@@ -969,13 +973,28 @@ public:
 			goto _Failed;
 		}
 
-		
-		if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth,
-			nVideoHeight,
-			nD3DFormat,
-			D3DPOOL_DEFAULT,
-			&m_pDirect3DSurfaceRender,
-			NULL)))
+		D3DPOOL nPoolArray[] = { D3DPOOL_DEFAULT, D3DPOOL_MANAGED ,	D3DPOOL_SYSTEMMEM ,	D3DPOOL_SCRATCH };
+		bSucceed = false;
+		int nPool = 0;
+		while (nPool <= 3)
+		{
+			if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth,
+				nVideoHeight,
+				nD3DFormat,
+				nPoolArray[nPool],
+				&m_pDirect3DSurfaceRender,
+				NULL)))
+			{
+				nPool++;
+				continue;
+			}
+			else
+			{
+				bSucceed = true;
+				break;
+			}
+		}
+		if (!bSucceed)
 		{
 			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;

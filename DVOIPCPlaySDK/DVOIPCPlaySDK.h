@@ -12,6 +12,22 @@
 #pragma once
 #include "DVOMedia.h"
 
+/*
+MS VC++ 12.0 _MSC_VER = 1800 (Visual C++ 2013)
+MS VC++ 11.0 _MSC_VER = 1700 (Visual C++ 2012)
+MS VC++ 10.0 _MSC_VER = 1600(Visual C++ 2010)
+MS VC++ 9.0 _MSC_VER = 1500
+MS VC++ 8.0 _MSC_VER = 1400
+MS VC++ 7.1 _MSC_VER = 1310
+MS VC++ 7.0 _MSC_VER = 1300
+MS VC++ 6.0 _MSC_VER = 1200
+MS VC++ 5.0 _MSC_VER = 1100
+*/
+
+#if _MSC_VER <= 1500
+#define nullptr	NULL
+#endif
+
 /// @brief	API导出宏
 #ifdef DVOIPCPLAYSDK_EXPORTS
 #define DVOIPCPLAYSDK_API __declspec(dllexport)
@@ -159,7 +175,9 @@ typedef void (__stdcall *CaptureFrame)(DVO_PLAYHANDLE hPlayHandle,
 									  const unsigned char *Framedata, 
 									  const int nDataSize, 
 									  void *pUserPtr);
-typedef void (__stdcall *ExternDraw)(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
+
+typedef void(__stdcall *ExternDraw)(HWND hWnd, HDC hDc, RECT rt, void *pUserPtr);
+
 typedef void (__stdcall *ExternDrawEx)(DVO_PLAYHANDLE hPlayHandle, RECT rt, void *pUserPtr);
 
 ///	@brief			用于播放DVO私有格式的录像文件
