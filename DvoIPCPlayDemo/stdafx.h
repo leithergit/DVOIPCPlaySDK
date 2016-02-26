@@ -42,6 +42,8 @@
 #pragma comment(lib, "../Release/DVOIPCPlaySDK.lib")
 #endif
 
+#include "../MulMonitor/MultiMonitorAPI.h"
+#pragma comment(lib,"../MulMonitor/MultiMonitorAPI.lib")
 #include "Utility.h"
 #include "TimeUtility.h"
 #include "Markup.h"

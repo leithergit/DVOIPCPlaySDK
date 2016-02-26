@@ -104,9 +104,11 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h" />
     <ClInclude Include="AutoLock.h" />
     <ClInclude Include="DvoIPCPlayDemo.h" />
     <ClInclude Include="DvoIPCPlayDemoDlg.h" />
+    <ClInclude Include="FullScreen.h" />
     <ClInclude Include="GlliteryStatic.h" />
     <ClInclude Include="Markup.h" />
     <ClInclude Include="Resource.h" />
@@ -136,6 +138,8 @@
     <None Include="res\DvoIPCPlayDemo.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="res\arrow-left-double.ico" />
+    <Image Include="res\arrow-right-double.ico" />
     <Image Include="res\DvoIPCPlayDemo.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -6,6 +6,7 @@ EXPORTS
 	dvoplay_Close
 	dvoplay_InputStream
 	dvoplay_Start
+	dvoplay_Reset
 	dvoplay_Stop
 	dvoplay_Pause
 	dvoplay_EnableHaccel

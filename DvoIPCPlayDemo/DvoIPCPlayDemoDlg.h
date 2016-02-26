@@ -8,7 +8,7 @@
 #include "AutoLock.h"
 #include <memory>
 #include "GlliteryStatic.h"
-
+#include "fullscreen.h"
 using namespace std;
 using namespace std::tr1;
 
@@ -237,6 +237,62 @@ struct ListItem
 	TCHAR szItemText[256];
 };
 
+struct FullScreenWnd
+{
+	WINDOWPLACEMENT windowedPWP;
+	DWORD dwExStyle;
+	DWORD dwStyle;
+	HMENU hMenu;
+	HWND  hWnd;
+	FullScreenWnd()
+	{
+		ZeroMemory(this, sizeof(FullScreenWnd));
+	}
+
+	void SetWnd(HWND hWnd)
+	{
+		this->hWnd = hWnd;
+		GetWindowPlacement(hWnd, &windowedPWP);
+	}
+	void SwitchFullScreen()
+	{
+		dwExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+		dwStyle = GetWindowLong(hWnd, GWL_STYLE);
+		dwStyle &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
+		hMenu = GetMenu(hWnd);
+		// Hide the window to avoid animation of blank windows
+		ShowWindow(hWnd, SW_HIDE);
+		// Set FS window style
+		SetWindowLong(hWnd, GWL_STYLE, WS_POPUP | WS_SYSMENU | WS_CLIPCHILDREN);
+		SetMenu(hWnd, NULL);
+		ShowWindow(hWnd, SW_SHOWMAXIMIZED);
+	}
+	void Restore()
+	{
+		if (dwStyle != 0)
+			SetWindowLong(hWnd, GWL_STYLE, dwStyle);
+
+		if (dwExStyle != 0)
+			SetWindowLong(hWnd, GWL_EXSTYLE, dwExStyle);
+
+		if (hMenu != NULL)
+			SetMenu(hWnd, hMenu);
+
+		if (windowedPWP.length == sizeof(WINDOWPLACEMENT))
+		{
+			if (windowedPWP.showCmd == SW_SHOWMAXIMIZED)
+			{
+				ShowWindow(hWnd, SW_HIDE);
+				windowedPWP.showCmd = SW_HIDE;
+				SetWindowPlacement(hWnd, &windowedPWP);
+				ShowWindow(hWnd, SW_SHOWMAXIMIZED);
+				windowedPWP.showCmd = SW_SHOWMAXIMIZED;
+			}
+			else
+				SetWindowPlacement(hWnd, &windowedPWP);
+		}
+	}
+};
 // CDvoIPCPlayDemoDlg 对话框
 class CDvoIPCPlayDemoDlg : public CDialogEx
 {
@@ -305,6 +361,39 @@ public:
 	afx_msg void OnCbnSelchangeComboPlayspeed();
 	afx_msg void OnBnClickedButtonPause();
 	afx_msg void OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2);
+	HWND m_hFullScreen = nullptr;
+	UINT m_nOriMonitorIndex = 0;
+	FullScreenWnd m_FullScreen;
+
+	afx_msg LRESULT OnTroggleFullScreen(WPARAM W, LPARAM L)
+	{
+		if (!m_pPlayContext || !m_pPlayContext->hPlayer[0])
+			return 0l;
+		if (!m_hFullScreen)
+		{// 切到全屏
+			m_hFullScreen = (HWND)W;
+			HWND hDesktop = ::GetDesktopWindow();	
+			m_nOriMonitorIndex = GetMonitorIndexFromWnd(m_hWnd);
+			m_FullScreen.SetWnd(m_hFullScreen);
+			::SetParent(m_hFullScreen, ::GetDesktopWindow());
+			POINT pt;
+			pt.x = 0;
+			pt.y = 0;
+			MoveWnd2Monitor(m_hFullScreen, m_nOriMonitorIndex, pt);				
+			m_FullScreen.SwitchFullScreen();
+			dvoplay_Reset(m_pPlayContext->hPlayer[0], m_hFullScreen);
+			ShowWindow(SW_HIDE);
+		}
+		else
+		{// 切回窗口
+			m_FullScreen.Restore();			
+			::SetParent(m_hFullScreen, m_pVideoWndFrame->GetSafeHwnd());
+			dvoplay_Reset(m_pPlayContext->hPlayer[0], m_hFullScreen);
+			m_hFullScreen = nullptr;
+			ShowWindow(SW_SHOW);
+		}
+		return 0;
+	}
 	bool m_bPuased = false;
 	volatile bool m_bThreadStream = false;
 	HANDLE  m_hThreadSendStream = nullptr;
@@ -441,4 +530,6 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedButtonTracecache();
 	afx_msg void OnLvnGetdispinfoListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnBnClickedButtonStopbackword();
+	afx_msg void OnBnClickedButtonStopforword();
 };

@@ -100,6 +100,9 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	ON_WM_HOTKEY()
 	ON_BN_CLICKED(IDC_BUTTON_TRACECACHE, &CDvoIPCPlayDemoDlg::OnBnClickedButtonTracecache)
 	ON_NOTIFY(LVN_GETDISPINFO, IDC_LIST_STREAMINFO, &CDvoIPCPlayDemoDlg::OnLvnGetdispinfoListStreaminfo)
+	ON_MESSAGE(WM_TROGGLEFULLSCREEN,OnTroggleFullScreen)
+	ON_BN_CLICKED(IDC_BUTTON_STOPBACKWORD, &CDvoIPCPlayDemoDlg::OnBnClickedButtonStopbackword)
+	ON_BN_CLICKED(IDC_BUTTON_STOPFORWORD, &CDvoIPCPlayDemoDlg::OnBnClickedButtonStopforword)
 END_MESSAGE_MAP()
 
 
@@ -691,7 +694,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonRecord()
 		else
 		{
 			m_pPlayContext->StopRecord();
-			if (!m_pPlayContext->hPlayer && m_pPlayContext->hStream != -1)
+			if (!m_pPlayContext->hPlayer[0] && m_pPlayContext->hStream != -1)
 			{// 未播放码流,并且码流有效,则要断开码流
 				DVO2_NET_StopRealPlay(m_pPlayContext->hStream);
 				m_pPlayContext->hStream = -1;
@@ -740,33 +743,13 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				m_pPlayContext = make_shared<PlayerContext>(-1);
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(nFreePanel);
 				m_pVideoWndFrame->SetPanelParam(nFreePanel, m_pPlayContext.get());
-
-				PlayRate RateArray[] =
-					{
-						Rate_One32th,
-						Rate_One24th,
-						Rate_One20th,
-						Rate_One16th,
-						Rate_One10th,
-						Rate_One08th,
-						Rate_Quarter,
-						Rate_Half,
-						Rate_01X,
-						Rate_02X,
-						Rate_04X,
-						Rate_08X,
-						Rate_10X,
-						Rate_16X,
-						Rate_20X,
-						Rate_24X,
-						Rate_32X
-					};
+								
 				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
 				if (bIsStreamPlay != BST_CHECKED)
 				{
 					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
-					if (!m_pPlayContext->hPlayer)
+					if (!m_pPlayContext->hPlayer[0])
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
 						m_wndStatus.SetWindowText(szText);
@@ -804,7 +787,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					// 创建文件解析句柄
 					// 一般在流媒体服务端创建,用于向客户端提供媒体流数据
 					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(nullptr, (CHAR *)(LPCTSTR)strFilePath);					
-					if (!m_pPlayContext->hPlayer)
+					if (!m_pPlayContext->hPlayer[0])
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
 						m_wndStatus.SetWindowText(szText);
@@ -859,8 +842,63 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					m_wndStatus.SetWindowText(_T("无效的播放速度,现以原始速度播放."));
 					m_wndStatus.SetAlarmGllitery();
 					nCurSpeedIndex = 8;
-				}	
-				dvoplay_SetRate(m_pPlayContext->hPlayer[0], RateArray[nCurSpeedIndex]);
+				}
+				float fPlayRate = 1.0f;				
+				switch (nCurSpeedIndex)
+				{
+				default:
+				case 8:
+					break;
+				case 0:
+					fPlayRate = 1.0 / 32;
+					break;
+				case 1:
+					fPlayRate = 1.0 / 24;
+					break;
+				case 2:
+					fPlayRate = 1.0 / 20;
+					break;
+				case 3:
+					fPlayRate = 1.0 / 16;
+					break;
+				case 4:
+					fPlayRate = 1.0 / 10;
+					break;
+				case 5:
+					fPlayRate = 1.0 / 8;
+					break;
+				case 6:
+					fPlayRate = 1.0 / 4;
+					break;
+				case 7:
+					fPlayRate = 1.0 / 2;
+					break;
+				case 9:
+					fPlayRate = 2.0f;
+					break;
+				case 10:
+					fPlayRate = 4.0f;
+					break;
+				case 11:
+					fPlayRate = 8.0f;
+					break;
+				case 12:
+					fPlayRate = 10.0f;
+					break;
+				case 13:
+					fPlayRate = 16.0f;
+					break;
+				case 14:
+					fPlayRate = 20.0f;
+					break;
+				case 15:
+					fPlayRate = 24.0f;
+					break;
+				case 16:
+					fPlayRate = 32.0f;
+					break;
+				}
+				dvoplay_SetRate(m_pPlayContext->hPlayer[0], fPlayRate);
 				m_pPlayContext->pThis = this;
 				SetDlgItemText(IDC_BUTTON_PLAYFILE, _T("停止播放"));
 				bEnableWnd = false;
@@ -876,7 +914,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 			}
 		}
 	}
-	else if (m_pPlayContext->hPlayer)
+	else if (m_pPlayContext->hPlayer[0])
 	{
 		if (bIsStreamPlay == BST_CHECKED)
 		{
@@ -1232,10 +1270,10 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnableaudio()
 
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 {
-	if (m_pPlayContext && m_pPlayContext->hPlayer)
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
 		bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
-		if (dvoplay_FitWindow(m_pPlayContext->hPlayer, bFitWindow) != DVO_Succeed)
+		if (dvoplay_FitWindow(m_pPlayContext->hPlayer[0], bFitWindow) != DVO_Succeed)
 		{
 			m_wndStatus.SetWindowText(_T("调整视频显示方式失败."));
 			m_wndStatus.SetAlarmGllitery();
@@ -1249,7 +1287,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 
 void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
-	if (!m_pPlayContext || !m_pPlayContext->hPlayer)
+	if (!m_pPlayContext || !m_pPlayContext->hPlayer[0])
 	{
 		CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 		return;
@@ -1284,7 +1322,7 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 		int nTotalFrames = 0;
 		PlayerInfo pi;	
 		UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
-		if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer, &pi) == DVO_Succeed)
+		if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
 		{
 			int nSeekFrame = pi.nTotalFrames*nPos / 100;
 			bool bUpdate = true;
@@ -1296,7 +1334,7 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 				bUpdate = false;		// 流播放无法通过这种方式刷新画面
 			}
 			
-			dvoplay_SeekFrame(m_pPlayContext->hPlayer, nSeekFrame, bUpdate);
+			dvoplay_SeekFrame(m_pPlayContext->hPlayer[0], nSeekFrame, bUpdate);
 		}
 	}
 		break;
@@ -1310,7 +1348,7 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonSnapshot()
 {
-	if (m_pPlayContext && m_pPlayContext->hPlayer)
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
 		CWaitCursor Wait;
 		TCHAR szPath[1024];
@@ -1344,7 +1382,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonSnapshot()
 			systime.wHour, systime.wMinute, systime.wSecond, systime.wMilliseconds,
 			szFileExt[nPicType]);
 		_tcscat_s(szPath, 1024, szFileName);
-		if (dvoplay_SnapShot(m_pPlayContext->hPlayer, szPath, (SNAPSHOT_FORMAT)nPicType) == DVO_Succeed)
+		if (dvoplay_SnapShot(m_pPlayContext->hPlayer[0], szPath, (SNAPSHOT_FORMAT)nPicType) == DVO_Succeed)
 		{
 			TCHAR szText[1024];
 			_stprintf_s(szText, 1024, _T("已经生成截图:%s."), szPath);
@@ -1367,28 +1405,9 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonSnapshot()
 
 void CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed()
 {
-	if (m_pPlayContext && m_pPlayContext->hPlayer)
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
-		PlayRate RateArray[] = 
-		{
-			Rate_One32th,
-			Rate_One24th,
-			Rate_One20th,
-			Rate_One16th,
-			Rate_One10th,
-			Rate_One08th,
-			Rate_Quarter,
-			Rate_Half,
-			Rate_01X ,
-			Rate_02X ,
-			Rate_04X ,
-			Rate_08X ,
-			Rate_10X ,
-			Rate_16X ,
-			Rate_20X ,
-			Rate_24X ,
-			Rate_32X 
-		};
+		
 		int nCurSecl = SendDlgItemMessage(IDC_COMBO_PLAYSPEED, CB_GETCURSEL);
 		if (nCurSecl <= 0 && nCurSecl > 16)
 		{
@@ -1396,7 +1415,63 @@ void CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed()
 			m_wndStatus.SetAlarmGllitery();
 			return;
 		}
-		dvoplay_SetRate(m_pPlayContext->hPlayer, RateArray[nCurSecl]);
+		float fPlayRate = 1.0f;		
+		switch (nCurSecl)
+		{
+		default:
+		case 8:
+			break;
+		case 0:
+			fPlayRate = 1.0 / 32;
+			break;
+		case 1:
+			fPlayRate = 1.0 / 24;
+			break;
+		case 2:
+			fPlayRate = 1.0 / 20;
+			break;
+		case 3:
+			fPlayRate = 1.0 / 16;
+			break;
+		case 4:
+			fPlayRate = 1.0 / 10;
+			break;
+		case 5:
+			fPlayRate = 1.0 / 8;
+			break;
+		case 6:
+			fPlayRate = 1.0 / 4;
+			break;
+		case 7:
+			fPlayRate = 1.0 / 2;
+			break;		
+		case 9:
+			fPlayRate = 2.0f;
+			break;
+		case 10:
+			fPlayRate = 4.0f;
+			break;
+		case 11:
+			fPlayRate = 8.0f;
+			break;
+		case 12:
+			fPlayRate = 10.0f;
+			break;
+		case 13:
+			fPlayRate = 16.0f;
+			break;
+		case 14:
+			fPlayRate = 20.0f;
+			break;
+		case 15:
+			fPlayRate = 24.0f;
+			break;
+		case 16:
+			fPlayRate = 32.0f;
+			break;
+		}
+		
+		dvoplay_SetRate(m_pPlayContext->hPlayer[0], fPlayRate);
 	}
 	else
 	{
@@ -1409,7 +1484,7 @@ void CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed()
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 {
 	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
-	if (m_pPlayContext && m_pPlayContext->hPlayer)
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
 		
 		if (bIsStreamPlay)
@@ -1417,7 +1492,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 			dvoplay_Pause(m_pPlayContext->hPlayerStream);
 		}
 		else
-			dvoplay_Pause(m_pPlayContext->hPlayer);
+			dvoplay_Pause(m_pPlayContext->hPlayer[0]);
 		m_bPuased = !m_bPuased;
 		if (m_bPuased)
 			SetDlgItemText(IDC_BUTTON_PAUSE, _T("继续播放"));
@@ -1473,4 +1548,70 @@ void CDvoIPCPlayDemoDlg::OnLvnGetdispinfoListStreaminfo(NMHDR *pNMHDR, LRESULT *
 		}
 	}
 	*pResult = 0;
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedButtonStopbackword()
+{
+	// 步进5秒
+	int nTotalFrames = 0;
+	PlayerInfo pi;
+	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
+	if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
+	{
+		if (pi.tCurFrameTime < 5000)
+			return;
+		int nSeekTime = pi.tCurFrameTime - 5000;		
+
+		TraceMsgA("%s\nnTotalFrames = %d\ttTotalTime = %I64d\tnCurFrameID = %d\ttCurFrameTime = %I64d\ttTimeEplased = %I64d.\n",
+			__FUNCTION__,
+			pi.nTotalFrames,
+			pi.tTotalTime,
+			pi.nCurFrameID,
+			pi.tCurFrameTime,
+			pi.tTimeEplased);
+		bool bUpdate = true;
+		if (bIsStreamPlay)
+		{
+			dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
+			CAutoLock lock(&m_csListStream);
+			m_listStream.clear();
+			bUpdate = false;		// 流播放无法通过这种方式刷新画面
+		}
+
+		dvoplay_SeekTime(m_pPlayContext->hPlayer[0], nSeekTime, bUpdate);
+	}
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedButtonStopforword()
+{
+	// 步进5秒
+	int nTotalFrames = 0;
+	PlayerInfo pi;
+	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
+	if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
+	{
+		int nSeekTime = pi.tCurFrameTime + 5000;
+		if (nSeekTime > pi.tTotalTime)
+			return;
+		
+		TraceMsgA("%s\nnTotalFrames = %d\ttTotalTime = %I64d\tnCurFrameID = %d\ttCurFrameTime = %I64d\ttTimeEplased = %I64d.\n",
+			__FUNCTION__,
+			pi.nTotalFrames,
+			pi.tTotalTime,
+			pi.nCurFrameID,
+			pi.tCurFrameTime,
+			pi.tTimeEplased);
+		bool bUpdate = true;
+		if (bIsStreamPlay)
+		{
+			dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
+			CAutoLock lock(&m_csListStream);
+			m_listStream.clear();
+			bUpdate = false;		// 流播放无法通过这种方式刷新画面
+		}
+
+		dvoplay_SeekTime(m_pPlayContext->hPlayer[0], nSeekTime, bUpdate);
+	}
 }

@@ -72,26 +72,26 @@ typedef enum SNAPSHOT_FORMAT
 
 /// @enum PlayRate
 /// @brief 播放倍率
-enum PlayRate
-{
-	Rate_One32th = -32,
-	Rate_One24th = -24,
-	Rate_One20th = -20,
-	Rate_One16th = -16,
-	Rate_One10th = -10,
-	Rate_One08th = -8,
-	Rate_Quarter = -4,
-	Rate_Half	 = -2,
-	Rate_01X	 = 1,
-	Rate_02X	 = 2,
-	Rate_04X	 = 4,
-	Rate_08X	 = 8,
-	Rate_10X	 = 10,
-	Rate_16X	 = 16,
-	Rate_20X	 = 20,
-	Rate_24X	 = 24,
-	Rate_32X	 = 32
-};
+// enum PlayRate
+// {
+// 	Rate_One32th = -32,
+// 	Rate_One24th = -24,
+// 	Rate_One20th = -20,
+// 	Rate_One16th = -16,
+// 	Rate_One10th = -10,
+// 	Rate_One08th = -8,
+// 	Rate_Quarter = -4,
+// 	Rate_Half	 = -2,
+// 	Rate_01X	 = 1,
+// 	Rate_02X	 = 2,
+// 	Rate_04X	 = 4,
+// 	Rate_08X	 = 8,
+// 	Rate_10X	 = 10,
+// 	Rate_16X	 = 16,
+// 	Rate_20X	 = 20,
+// 	Rate_24X	 = 24,
+// 	Rate_32X	 = 32
+// };
 
 #define		DVO_Succeed						(0)		///< 操作成功
 #define		DVO_Error_InvalidParameters		(-1)	///< 无效的参数
@@ -116,7 +116,8 @@ enum PlayRate
 #define		DVO_Error_InvalidTimeOffset		(-20)	///< 无效的时间偏移或时间超出文件长度范围
 #define		DVO_Error_DecodeFailed			(-21)	///< 解码失败
 #define		DVO_Error_InvalidWindow			(-21)	///< 无效的窗口句柄
-#define		DVO_Error_AudioFailed			(-22)	///< 音频播放初始化失败
+#define		DVO_Error_AudioFailed			(-22)	///< 音频播放初始化失败(播放设备未就绪)
+#define		DVO_Error_DxError				(-23)	///< DirectX 错误
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 /// @brief 播放器即时信息
@@ -247,6 +248,13 @@ DVOIPCPLAYSDK_API int dvoplay_InputIPCStream(IN DVO_PLAYHANDLE hPlayHandle, IN b
 ///					dvoplay_GetHaccelStatus判断是否已经开启硬解码
 DVOIPCPLAYSDK_API int dvoplay_Start(IN DVO_PLAYHANDLE hPlayHandle,  IN bool bEnableAudio = false, bool bFitWindow = true,bool bEnableHaccel = false);
 
+/// @brief 复位播放器,在窗口大小变化较大或要切换播放窗口时，建议复位播放器，否则画面质量可能会严重下降
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		hWnd			显示视频的窗口
+/// @param [in]		nWidth			窗口宽度,该参数暂未使用,可设为0
+/// @param [in]		nHeight			窗口高度,该参数暂未使用,可设为0
+DVOIPCPLAYSDK_API int  dvoplay_Reset(IN DVO_PLAYHANDLE hPlayHandle, HWND hWnd = nullptr, int nWidth = 0, int nHeight = 0);
+
 /// @brief			使视频适应窗口
 /// @param [in]		bFitWindow		视频是否适应窗口
 /// #- true			视频填满窗口,这样会把图像拉伸,可能会造成图像变形
@@ -335,13 +343,6 @@ DVOIPCPLAYSDK_API int  dvoplay_SetVolume(IN DVO_PLAYHANDLE hPlayHandle, IN int n
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 DVOIPCPLAYSDK_API int  dvoplay_GetVolume(IN DVO_PLAYHANDLE hPlayHandle, OUT int &nVolume);
-
-/// @brief			取得当前播放的速度的倍率
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nPlayRate		当前的播放的倍率,@see PlayRate
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetRate(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayRate &nPlayRate);
 
 /// @brief			设置当前播放的速度的倍率
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

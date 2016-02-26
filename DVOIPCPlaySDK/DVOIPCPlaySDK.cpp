@@ -20,6 +20,7 @@
 #include "DvoPlayer.h"
 
 CAvRegister CDvoPlayer::avRegister;
+//shared_ptr<CDSoundEnum> CDvoPlayer::m_DsoundEnum = make_shared<CDSoundEnum>();	///< 音频设置枚举器
 //shared_ptr<CDSound> CDvoPlayer::m_pDsPlayer = make_shared<CDSound>(nullptr);
 //shared_ptr<CSimpleWnd> CDvoPlayer::m_pWndDxInit = make_shared<CSimpleWnd>();	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 
@@ -192,6 +193,24 @@ DVOIPCPLAYSDK_API int dvoplay_Start(IN DVO_PLAYHANDLE hPlayHandle,
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
 	return pPlayer->StartPlay(bEnableAudio, bEnableHaccel,bFitWindow);
+}
+
+/// @brief 复位播放器,在窗口大小变化较大或要切换播放窗口时，建议复位播放器，否则画面质量可能会严重下降
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		hWnd			显示视频的窗口
+/// @param [in]		nWidth			窗口宽度,该参数暂未使用,可设为0
+/// @param [in]		nHeight			窗口高度,该参数暂未使用,可设为0
+DVOIPCPLAYSDK_API int  dvoplay_Reset(IN DVO_PLAYHANDLE hPlayHandle, HWND hWnd, int nWidth , int nHeight)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	if (pPlayer->Reset(hWnd, nWidth, nHeight))
+		return DVO_Succeed;
+	else
+		return DVO_Error_DxError;
 }
 
 /// @brief			使视频适应窗口
