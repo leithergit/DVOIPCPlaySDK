@@ -281,7 +281,7 @@ struct StreamFrame
 	static bool IsIFrame(StreamFramePtr FramePtr)
 	{
 		//if (FramePtr->FrameHeader()->nType == FRAME_I)
-		//TraceMsgA("%s Get an  Frame [%d].\n", __FUNCTION__, FramePtr->FrameHeader()->nType);
+		// TraceMsgA("%s Get an  Frame [%d].\n", __FUNCTION__, FramePtr->FrameHeader()->nType);
 		return (FramePtr->FrameHeader()->nType == 0
 				||FramePtr->FrameHeader()->nType == FRAME_IDR 
 				|| FramePtr->FrameHeader()->nType == FRAME_I);
@@ -365,7 +365,10 @@ private:
 	time_t		m_tCurFrameTimeStamp;
 	time_t		m_tLastFrameTime;
 	USHORT		m_nPlayFPS;				///< 播放时帧率
-	USHORT		m_nPlayFrameInterval;	///< 播放时帧间隔
+	USHORT		m_nPlayFrameInterval;	///< 播放时帧间隔	
+// 	int			*m_pSkipFramesArray;	///< 快速播放时要用到的跳帧表
+// 	CRITICAL_SECTION	m_csSkipFramesArray;
+	int			m_nSkipFrames;			///< 跳帧表中的元素数量
 	double		m_dfLastTimeVideoPlay;	///< 前一次视频播放的时间
 	double		m_dfTimesStart;			///< 开始播放的时间
 	bool		m_bEnableHaccel;		///< 是否启用硬解码
@@ -418,7 +421,7 @@ private:	// 文件播放相关变量
 	int			m_nMaxFrameSize;		///< 最大I帧的大小，以字节为单位,默认值256K
 	int			m_nFileFPS;				///< 文件中,视频帧的原始帧率
 	USHORT		m_nFileFrameInterval;	///< 文件中,视频帧的原始帧间隔
-	int			m_nPlayInterval;		///< 帧播放间隔,单位毫秒
+	float		m_fPlayInterval;		///< 帧播放间隔,单位毫秒
 private:
 	CaptureFrame	m_pfnCaptureFrame;
 	void*			m_pUserCaptureFrame;
@@ -439,7 +442,6 @@ private:
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csParser);
 		InitializeCriticalSection(&m_csDxSurface);
-		
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
@@ -691,7 +693,7 @@ public:
 		m_nMaxFrameSize	 = 1024 * 256;
 		m_nFileFPS		 = 25;				// FPS的默认值为25
 		m_fPlayRate		 = 1;
-		m_nPlayInterval	 = 40;
+		m_fPlayInterval	 = 40.0f;
 		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
 		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
 #ifdef _DEBUG
@@ -1299,9 +1301,21 @@ public:
 		{
 			return DVO_Error_NotFilePlayer;
 		}
-		m_nPlayInterval = (int)(1000 / (m_nFileFPS*fPlayRate));
-		m_nPlayFPS = 1000 / m_nPlayInterval;
+		if (fPlayRate > (float)m_nFileFPS)
+			return DVO_Error_InvalidParameters;
+		// 取得当前显示器的刷新率，显示器的刷新率决定了，显示图像的最高帧数
+		// 通过统计每显示一帧图像(含解码和显示)耗费的时间
+		
+		DEVMODE   dm;
+		dm.dmSize = sizeof(DEVMODE);
+		::EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
+		m_fPlayInterval = (int)(1000 / (m_nFileFPS*fPlayRate));
+		float nMinPlayInterval = ((float)1000) / dm.dmDisplayFrequency;
+		if (m_fPlayInterval < nMinPlayInterval)
+			m_fPlayInterval = nMinPlayInterval;
+		m_nPlayFPS = 1000 / m_fPlayInterval;
 		m_fPlayRate = fPlayRate;
+
 		return DVO_Succeed;
 	}
 
@@ -1971,14 +1985,15 @@ public:
 		DxTraceMsg("%s TimeSpan = %.3f.\n", __FUNCTION__, TimeSpanEx(dfTimeStart));
 #endif
 		// 查找最一个I帧
-		int nLastIFrameID = m_nTotalFrames - 1;
-		for (; nLastIFrameID > 0; nLastIFrameID--)
-		{
-			if (m_pFrameOffsetTable[nLastIFrameID].bIFrame)
-				break;
-		}
+		__int64 nLastIFrameID = m_nTotalFrames - 1;
+// 		for (; nLastIFrameID > 0; nLastIFrameID--)
+// 		{
+// 			if (m_pFrameOffsetTable[nLastIFrameID].bIFrame)
+// 				break;
+// 		}
 		// 根据录像总时间和总有完整帧数计算FPS
-		m_nFileFPS = nLastIFrameID / ((m_pFrameOffsetTable[nLastIFrameID - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / (1000 * 1000));
+		m_nFileFPS = nLastIFrameID *(1000 * 1000)/ (m_pFrameOffsetTable[nLastIFrameID].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) ;
+		
 		m_nFileFrameInterval = 1000 / m_nFileFPS;
 		// 把文件指针重新移回到文件头部
 		nOffset = sizeof(DVO_MEDIAINFO);
@@ -2425,6 +2440,9 @@ public:
 				assert(false);
 				return 0;
 			}
+			RECT rtWindow;
+			GetWindowRect(pThis->m_hWnd, &rtWindow);
+			DxTraceMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
 		}
 
 		pThis->m_pDecodec = pDecodec;
@@ -2436,7 +2454,7 @@ public:
 		if (pThis->m_hThreadPlayAudio)
 			ResumeThread(pThis->m_hThreadPlayAudio);
 
-		double dfT1 = GetExactTime() - pThis->m_nPlayInterval;
+		double dfT1 = GetExactTime() - pThis->m_fPlayInterval;
 		double dfTimeSpan = 0.0f;
 		AVPacket *pAvPacket = (AVPacket *)av_malloc(sizeof(AVPacket));
 		shared_ptr<AVPacket>AvPacketPtr(pAvPacket, av_free);		
@@ -2446,12 +2464,11 @@ public:
 		StreamFramePtr FramePtr;
 		int nGot_picture = 0;
 		DWORD nResult = 0;
-		int nTimeSpan = 0;
+		int fTimeSpan = 0;
 		DWORD dwSleepPricision = GetSleepPricision();		// 取Sleep函数的时间精度
 		int nFrameInterval = pThis->m_nFileFrameInterval;
 		//StreamFramePtr FramePtr;
 		pThis->m_dfTimesStart = GetExactTime();
-		int nFramesProcessed = 0;	// 已处理的帧数
 
 		// 取得当前显示器的刷新率，显示器的刷新率决定了，显示图像的最高帧数
 		// 通过统计每显示一帧图像(含解码和显示)耗费的时间
@@ -2462,7 +2479,7 @@ public:
 
 		double dfT2 = GetExactTime();
 		av_init_packet(pAvPacket);
-#ifdef _DEBUG
+#ifdef _DEBUG 
 		EnterCriticalSection(&pThis->m_csVideoCache);
 		DxTraceMsg("%s Size of Video cache = %d .\n", __FUNCTION__, pThis->m_listVideoCache.size());
 		LeaveCriticalSection(&pThis->m_csVideoCache);
@@ -2472,6 +2489,9 @@ public:
 		int nPlayCount = 1;
 		int nFrames = 0;
 #endif
+		int nIFrameTime = 0;
+		int nFramesAfterIFrame = 0;		// 相对I帧的编号,I帧后的第一帧为1，第二帧为2依此类推
+		int nSkipFrames = 0;
 		
 		while (pThis->m_bThreadPlayVideoRun)
 		{
@@ -2482,50 +2502,47 @@ public:
 			}
 			if (!pThis->m_bIpcStream)
 			{// 文件或流媒体播放，可调节播放速度
-				nTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
-				if (nTimeSpan >= (pThis->m_nPlayInterval))
+				fTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
+				if (fTimeSpan >= (pThis->m_fPlayInterval))
 				{
 					bool bPopFrame = false;
-					if (pThis->m_nPlayInterval < nRefreshInvertal)	//播放间隔小于显示器刷新间隔，即播速度快于显示器刷新速度,则需要跳帧
+					//if (pThis->m_nPlayInterval < nRefreshInvertal)	//播放间隔小于显示器刷新间隔，即播速度快于显示器刷新速度,则需要跳帧
 					{// 查找时间上最匹配的帧,并删除不匹配的非I帧
 						int nSkipFrames = 0;
 						CAutoLock lock(&pThis->m_csVideoCache);
 						for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 						{
-							time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime)/1000;
-							if (tFrameSpan >= nRefreshInvertal*pThis->m_fPlayRate
+							time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
+							if (tFrameSpan >= pThis->m_fPlayInterval*pThis->m_fPlayRate
 								|| StreamFrame::IsIFrame(*it))
 							{
 								bPopFrame = true;
-								nFramesProcessed++;
 								break;
 							}
 							else
 							{
 								it = pThis->m_listVideoCache.erase(it);
-								nSkipFrames++; 
+								nSkipFrames++;
 							}
 						}
-						DxTraceMsg("%s Skip Frames = %d bPopFrame = %s.\n", __FUNCTION__, nSkipFrames,bPopFrame?"true":"false");
-						nFramesProcessed += nSkipFrames;
+// 						if (nSkipFrames)
+// 							DxTraceMsg("%s Skip Frames = %d bPopFrame = %s.\n", __FUNCTION__, nSkipFrames, bPopFrame ? "true" : "false");
 						if (bPopFrame)
 						{
 							FramePtr = pThis->m_listVideoCache.front();
 							pThis->m_listVideoCache.pop_front();
-							nFramesProcessed++;
 						}
 					}
-					else
-					{
-						CAutoLock lock(&pThis->m_csVideoCache);
-						if (pThis->m_listVideoCache.size() > 0)
-						{
-							FramePtr = pThis->m_listVideoCache.front();
-							pThis->m_listVideoCache.pop_front();
-							bPopFrame = true;
-						}
-					}
-					
+// 					else
+// 					{
+// 						CAutoLock lock(&pThis->m_csVideoCache);
+// 						if (pThis->m_listVideoCache.size() > 0)
+// 						{
+// 							FramePtr = pThis->m_listVideoCache.front();
+// 							pThis->m_listVideoCache.pop_front();
+// 							bPopFrame = true;
+// 						}
+// 					}
 					if (!bPopFrame)
 					{
 						Sleep(10);
@@ -2540,7 +2557,7 @@ public:
 				}
 				else
 				{
-					int nSleepTime = pThis->m_nPlayInterval - nTimeSpan;
+					int nSleepTime = pThis->m_fPlayInterval - fTimeSpan;
 					if (nSleepTime >= dwSleepPricision)
 						Sleep(nSleepTime);
 					continue;
@@ -2633,7 +2650,7 @@ public:
 	static DWORD WINAPI ThreadPlayAudio(void *p)
 	{
 		CDvoPlayer *pThis = (CDvoPlayer *)p;
-		int nAudioFrameInterval = pThis->m_nPlayInterval / 2;
+		int nAudioFrameInterval = pThis->m_fPlayInterval / 2;
 		double dfT1 = GetExactTime() - nAudioFrameInterval;
 		double dfTimeSpan = 0.0f;		
 		DWORD nResult = 0;
