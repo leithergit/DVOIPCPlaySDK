@@ -4,6 +4,7 @@ EXPORTS
 	dvoplay_OpenFileW
 	dvoplay_OpenStream
 	dvoplay_Close
+	EnableLog
 	dvoplay_InputStream
 	dvoplay_Start
 	dvoplay_Reset
@@ -18,6 +19,7 @@ EXPORTS
 	dvoplay_SetVolume
 	dvoplay_GetVolume
 	dvoplay_SetRate
+	dvoplay_SeekNextFrame
 	dvoplay_SeekFrame
 	dvoplay_SeekTime
 	;dvoplay_SeekNextFrame

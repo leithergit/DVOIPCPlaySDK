@@ -20,7 +20,7 @@
 #include "DvoPlayer.h"
 
 CAvRegister CDvoPlayer::avRegister;
-//shared_ptr<CDSoundEnum> CDvoPlayer::m_DsoundEnum = make_shared<CDSoundEnum>();	///< 音频设置枚举器
+shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
 //shared_ptr<CDSound> CDvoPlayer::m_pDsPlayer = make_shared<CDSound>(nullptr);
 //shared_ptr<CSimpleWnd> CDvoPlayer::m_pWndDxInit = make_shared<CSimpleWnd>();	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 
@@ -42,10 +42,13 @@ struct DVOIPC_StreamHeader
 ///	@brief			用于播放DVO私有格式的录像文件
 ///	@param [in]		szFileName		要播放的文件名
 ///	@param [in]		hWnd			显示图像的窗口
+/// @param [in]		pPlayCallBack	播放时的回调函数指针
+/// @param [in]		pUserPtr		供pPlayCallBack返回的用户自定义指针
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考
 ///	GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr)
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr,char *szLogFile)
 {
 	if (!szFileName)
 	{
@@ -57,7 +60,7 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFile
 		SetLastError(ERROR_FILE_NOT_FOUND);
 		return nullptr;
 	}
-	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd, szFileName);
+	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd, szFileName,szLogFile);
 	if (pPlayer)
 	{
 		pPlayer->SetPlayCallBack(pPlayCallBack,pUserPtr);
@@ -70,35 +73,39 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFile
 ///	@brief			用于播放DVO私有格式的录像文件
 ///	@param [in]		szFileName		要播放的文件名
 ///	@param [in]		hWnd			显示图像的窗口
+/// @param [in]		pPlayCallBack	播放时的回调函数指针
+/// @param [in]		pUserPtr		供pPlayCallBack返回的用户自定义指针
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考
 ///	GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr)
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr, char *szLogFile)
 {
 	if (!hWnd || !IsWindow(hWnd) || !szFileName || !PathFileExistsW(szFileName))
 		return nullptr;
 	char szFilenameA[MAX_PATH] = { 0 };
 	WideCharToMultiByte(CP_ACP, 0, szFileName, -1, szFilenameA, MAX_PATH, NULL, NULL);
-	return dvoplay_OpenFileA(hWnd, szFilenameA, pPlayCallBack,pUserPtr);
+	return dvoplay_OpenFileA(hWnd, szFilenameA, pPlayCallBack,pUserPtr,szLogFile);
 }
 
 ///	@brief			初始化流播放句柄,仅用于流播放
 /// @param [in]		hUserHandle		网络连接句柄
 ///	@param [in]		hWnd			显示图像的窗口
 /// @param [in]		nMaxFramesCache	流播放时允许最大视频帧数缓存数量
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, CHAR *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache)
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache, char *szLogFile)
 {
 	if (!hWnd || !IsWindow(hWnd) /*|| !szStreamHeader || !nHeaderSize*/)
 		return nullptr;
-	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd);
+	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd,nullptr,szLogFile);
 	if (!pPlayer)
 		return nullptr;
 	if (szStreamHeader && nHeaderSize)
 	{
 		pPlayer->SetMaxFrameCache(nMaxFramesCache);
-		int nDvoError = pPlayer->SetStreamHeader(szStreamHeader, nHeaderSize);
+		int nDvoError = pPlayer->SetStreamHeader((CHAR *)szStreamHeader, nHeaderSize);
 		if (nDvoError == DVO_Succeed)
 			return pPlayer;
 		else
@@ -129,6 +136,22 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 		return DVO_Error_InvalidParameters;
 	//pPlayer->SetRefresh(bRefresh);
 	delete pPlayer;
+	return 0;
+}
+
+/// @brief			开启运行日志
+/// @param			szLogFile		日志文件名
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+/// @remark			该函数为开关型函数,默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
+DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->EnableRunlog(szLogFile);
 	return 0;
 }
 
@@ -415,6 +438,26 @@ DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN float f
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
 	return pPlayer->SetRate(fPlayRate);
+}
+
+/// @brief			播放下一帧
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+/// @retval			-24	播放器未暂停
+/// @remark			该函数仅适用于单帧播放
+DVOIPCPLAYSDK_API int  dvoplay_SeekNextFrame(IN DVO_PLAYHANDLE hPlayHandle)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	if (pPlayer->IsFilePlayer())
+	{
+		return pPlayer->SeekNextFrame();
+	}
+	else
+		return DVO_Error_NotFilePlayer;
 }
 
 /// @brief			跳跃到指视频帧进行播放

@@ -118,6 +118,7 @@ typedef enum SNAPSHOT_FORMAT
 #define		DVO_Error_InvalidWindow			(-21)	///< 无效的窗口句柄
 #define		DVO_Error_AudioFailed			(-22)	///< 音频播放初始化失败(播放设备未就绪)
 #define		DVO_Error_DxError				(-23)	///< DirectX 错误
+#define		DVO_Error_PlayerIsNotPaused		(-24)	///< 播放器尚未暂停
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 /// @brief 播放器即时信息
@@ -184,27 +185,34 @@ typedef void (__stdcall *ExternDrawEx)(DVO_PLAYHANDLE hPlayHandle, RECT rt, void
 ///	@brief			用于播放DVO私有格式的录像文件
 ///	@param [in]		szFileName		要播放的文件名
 ///	@param [in]		hWnd			显示图像的窗口
+/// @param [in]		pPlayCallBack	播放时的回调函数指针
+/// @param [in]		pUserPtr		供pPlayCallBack返回的用户自定义指针
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考
 ///	GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFileName, FilePlayProc pPlayCallBack = nullptr,void *pUserPtr = nullptr);
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFileName, FilePlayProc pPlayCallBack = nullptr,void *pUserPtr = nullptr,char *szLogFile = nullptr);
 
 ///	@brief			用于播放DVO私有格式的录像文件
 ///	@param [in]		szFileName		要播放的文件名
 ///	@param [in]		hWnd			显示图像的窗口
+/// @param [in]		pPlayCallBack	播放时的回调函数指针
+/// @param [in]		pUserPtr		供pPlayCallBack返回的用户自定义指针
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考
 ///	GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFileName, FilePlayProc pPlayCallBack = nullptr, void *pUserPtr = nullptr);
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFileName, FilePlayProc pPlayCallBack = nullptr, void *pUserPtr = nullptr,char* szLogFile = nullptr);
 
 ///	@brief			初始化流播放句柄,仅用于流播放
 ///	@param [in]		hWnd			显示图像的窗口
 /// @param [in]		szStreamHeader	DVO私有格式的录像文件头,播放相机实时码流时，应设置为null
 /// @param [in]		nHeaderSize		DVO录像文件头的长度播放相机实时码流时，应设置为0
 /// @param [in]		nMaxFramesCache	流播放时允许最大视频帧数缓存数量
+/// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, CHAR *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache = 128);
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache = 128, char *szLogFile = nullptr);
 
 /// @brief			关闭播放句柄
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
@@ -212,6 +220,13 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, CHAR *szStream
 /// @retval			-1	输入参数无效
 /// @remark			关闭播放句柄会导致播放进度完全终止，相关内存全部被释放,要再度播放必须重新打开文件或流数据
 DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*,bool bRefresh = true*/);
+
+/// @brief			开启运行日志
+/// @param			szLogFile		日志文件名
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+/// @remark			该函数为开关型函数,默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
+DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
 
 /// @brief			输入流DVO私有帧格式码流
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
@@ -351,6 +366,12 @@ DVOIPCPLAYSDK_API int  dvoplay_GetVolume(IN DVO_PLAYHANDLE hPlayHandle, OUT int 
 /// @retval			-1	输入参数无效
 DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN float fPlayRate);
 
+/// @brief			播放下一帧
+/// @retval			0	操作成功
+/// @retval			-24	播放器未暂停
+/// @remark			该函数仅适用于单帧播放
+DVOIPCPLAYSDK_API int  dvoplay_SeekNextFrame(IN DVO_PLAYHANDLE hPlayHandle);
+
 /// @brief			跳跃到指视频帧进行播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bUpdate			是否更新画面,bUpdate为true则予以更新画面,画面则不更新
@@ -359,7 +380,7 @@ DVOIPCPLAYSDK_API int  dvoplay_SetRate(IN DVO_PLAYHANDLE hPlayHandle, IN float f
 /// @retval			-1	输入参数无效
 /// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 ///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
-///					3.只有在播放暂时,bUpdate参数才有效
+///					3.只有在播放暂时,bUpdate参数才有效				
 DVOIPCPLAYSDK_API int  dvoplay_SeekFrame(IN DVO_PLAYHANDLE hPlayHandle, IN int nFrameID,bool bUpdate = false);
 
 /// @brief			跳跃到指定时间偏移进行播放
@@ -371,6 +392,7 @@ DVOIPCPLAYSDK_API int  dvoplay_SeekFrame(IN DVO_PLAYHANDLE hPlayHandle, IN int n
 /// @remark			1.若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 ///					2.若所指定帧为非关键帧，帧自动移动到就近的关键帧进行播放
 ///					3.只有在播放暂时,bUpdate参数才有效
+///					4.用于单帧播放时只能向前移动
 DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN time_t nTimeOffset,bool bUpdate = false);
 
 /// @brief 从文件中读取一帧，读取的起点默认值为0,SeekFrame或SeekTime可设定其起点位置

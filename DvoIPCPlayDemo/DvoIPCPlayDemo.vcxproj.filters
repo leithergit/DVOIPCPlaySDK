@@ -57,6 +57,12 @@
     <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ipcMsgHead.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SocketClient.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DvoIPCPlayDemo.cpp">
@@ -81,6 +87,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GlliteryStatic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SocketClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

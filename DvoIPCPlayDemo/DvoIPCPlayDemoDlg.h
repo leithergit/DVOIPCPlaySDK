@@ -9,6 +9,7 @@
 #include <memory>
 #include "GlliteryStatic.h"
 #include "fullscreen.h"
+#include "SocketClient.h"
 using namespace std;
 using namespace std::tr1;
 
@@ -128,6 +129,10 @@ public:
 	StreamInfo*	pStreamInfo;
 	USER_HANDLE hUser;
 	REAL_HANDLE hStream;
+	CSocketClient *pClient;
+	volatile bool bThreadRecvIPCStream = false;
+	HANDLE hThreadRecvStream = nullptr;
+	fnDVOCallback_RealAVData_T pStreamCallBack = nullptr;;
 	int nPlayerCount;
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
@@ -146,6 +151,8 @@ public:
 	UINT64		nRecFileLength;
 	TCHAR		szIpAddress[32];
 	TCHAR		szRecFilePath[MAX_PATH];
+	UINT		nTimeStamp[100];
+	int			nTimeCount;
 
 	CRITICAL_SECTION csRecFile;
 public:
@@ -155,7 +162,8 @@ public:
 	{
 		ZeroMemory(this, sizeof(PlayerContext));
 		pStreamInfo = new StreamInfo();
-		hUserIn = hUserIn;
+		nTimeCount = 0;
+		hUser = hUserIn;
 		hStream = hStreamIn;
 		nPlayerCount = nCount;
 		hPlayer[0] = hPlayerIn;
@@ -179,6 +187,11 @@ public:
 			dvoplay_Close(hPlayerStream);
 			hPlayerStream = nullptr;
 		}
+		if (pClient)
+		{
+			delete pClient;
+			pClient = nullptr;
+		}
 		if (hUser != -1)
 		{
 			DVO2_NET_Logout(hUser);
@@ -188,6 +201,75 @@ public:
 			delete pStreamInfo;
 		
 		DeleteCriticalSection(&csRecFile);
+	}
+	void StartRecv(fnDVOCallback_RealAVData_T pCallBack)
+	{
+		bThreadRecvIPCStream = true;
+		pStreamCallBack = pCallBack;
+		hThreadRecvStream = CreateThread(nullptr, 0, ThreadRecvIPCStream, this, 0, nullptr);
+	}
+	void StopRecv()
+	{
+		if (hThreadRecvStream)
+		{
+			bThreadRecvIPCStream = false;
+			WaitForSingleObject(hThreadRecvStream, INFINITE);
+			CloseHandle(hThreadRecvStream);
+			hThreadRecvStream = nullptr;
+		}
+	}
+	
+
+	static	DWORD WINAPI ThreadRecvIPCStream(void *p)
+	{
+		PlayerContext *pThis = (PlayerContext *)p;
+		if (!pThis->pClient)
+			return 0;
+		CSocketClient *pClient = pThis->pClient;
+		MSG_HEAD MsgHeader;
+		DWORD nBytesRecved = 0;
+		int nBufferSize = 64 * 1024;
+		int nDataLength = 0;
+		byte *pBuffer = new byte[nBufferSize];
+
+		while (pThis->bThreadRecvIPCStream)
+		{
+			ZeroMemory(&MsgHeader, sizeof(MSG_HEAD));
+			nBytesRecved = 0;
+			if (pClient->Recv((char *)&MsgHeader, sizeof(MSG_HEAD), nBytesRecved) == 0 &&
+				nBytesRecved == sizeof(MSG_HEAD))
+			{
+				int nPackLen = ntohl(MsgHeader.Pktlen) - sizeof(MSG_HEAD);
+				if (nBufferSize < nPackLen)
+				{
+					delete[]pBuffer;
+					while (nBufferSize < nPackLen)
+						nBufferSize *= 2;
+					pBuffer = new byte[nBufferSize];
+				}
+				nDataLength = 0;
+				while (nDataLength < nPackLen)
+				{
+					if (!pClient->Recv((char *)&pBuffer[nDataLength], nPackLen - nDataLength, nBytesRecved) == 0)
+						break;
+					nDataLength += nBytesRecved;
+				}
+				app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
+				pStreamHeader->chn = ntohl(pStreamHeader->chn);
+				pStreamHeader->stream = ntohl(pStreamHeader->stream);
+				pStreamHeader->frame_type = ntohl(pStreamHeader->frame_type);
+				pStreamHeader->frame_num = ntohl(pStreamHeader->frame_num);
+				pStreamHeader->sec = ntohl(pStreamHeader->sec);
+				pStreamHeader->usec = ntohl(pStreamHeader->usec);
+
+				pThis->pStreamCallBack(-1, -1, 0, (char *)pBuffer, nPackLen, pThis);
+				ZeroMemory(pBuffer, nBufferSize);
+			}
+			Sleep(10);
+		}
+		if (pBuffer)
+			delete[]pBuffer;
+		return 0;
 	}
 	void StartRecord()
 	{
@@ -364,6 +446,7 @@ public:
 	HWND m_hFullScreen = nullptr;
 	UINT m_nOriMonitorIndex = 0;
 	FullScreenWnd m_FullScreen;
+	void *m_hIOCP = nullptr;
 
 	afx_msg LRESULT OnTroggleFullScreen(WPARAM W, LPARAM L)
 	{
@@ -467,7 +550,7 @@ public:
 			// 读取下一帧
 			if (nStreamListSize < 8)
 			{
-				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer, &pFrameBuffer, nFrameSize) != DVO_Succeed)
+				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer[0], &pFrameBuffer, nFrameSize) != DVO_Succeed)
 				{
 					TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
 					Sleep(10);
@@ -527,9 +610,13 @@ public:
 		}
 		return 0;
 	}
+	
+	
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedButtonTracecache();
 	afx_msg void OnLvnGetdispinfoListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedButtonStopbackword();
 	afx_msg void OnBnClickedButtonStopforword();
+	afx_msg void OnBnClickedButtonSeeknextframe();
+	afx_msg void OnBnClickedCheckEnablelog();
 };

@@ -6,6 +6,7 @@
 #include "DvoIPCPlayDemo.h"
 #include "DvoIPCPlayDemoDlg.h"
 #include "afxdialogex.h"
+#include "ipcMsgHead.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -103,6 +104,8 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	ON_MESSAGE(WM_TROGGLEFULLSCREEN,OnTroggleFullScreen)
 	ON_BN_CLICKED(IDC_BUTTON_STOPBACKWORD, &CDvoIPCPlayDemoDlg::OnBnClickedButtonStopbackword)
 	ON_BN_CLICKED(IDC_BUTTON_STOPFORWORD, &CDvoIPCPlayDemoDlg::OnBnClickedButtonStopforword)
+	ON_BN_CLICKED(IDC_BUTTON_SEEKNEXTFRAME, &CDvoIPCPlayDemoDlg::OnBnClickedButtonSeeknextframe)
+	ON_BN_CLICKED(IDC_CHECK_ENABLELOG, &CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablelog)
 END_MESSAGE_MAP()
 
 
@@ -454,18 +457,21 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		AfxMessageBox(_T("请输入一个有效的相机IP"), MB_OK | MB_ICONSTOP);
 		return;
 	}
-	app_net_tcp_sys_logo_info_t LoginInfo;
+	
+//	CSocketClient *pClient = new CSocketClient();
+//  if (pClient->Connect(szIPAddress, 6001) == 0)
 	CWaitCursor Wait;
+	app_net_tcp_sys_logo_info_t LoginInfo;
 	USER_HANDLE hUser = DVO2_NET_Login(szIPAddress, 6001, szAccount, szPassowd, &LoginInfo, &nError, 5000);
-
 	if (hUser != -1)
 	{
 		if (ComboBox_FindString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), 0, szIPAddress) == CB_ERR)
 			ComboBox_AddString(::GetDlgItem(m_hWnd, IDC_IPADDRESS), szIPAddress);
 
-		m_pPlayContext = make_shared<PlayerContext>(hUser,-1,nullptr,_Row*_Col);		
+		m_pPlayContext = make_shared<PlayerContext>(hUser, -1, nullptr, _Row*_Col);
+//		m_pPlayContext->pClient = pClient;
 		m_pPlayContext->pThis = this;
-		m_pPlayContext->hUser = hUser;
+		//m_pPlayContext->hUser = ;
 		_tcscpy_s(m_pPlayContext->szIpAddress, 32, szIPAddress);
 		SaveSetting();
 
@@ -473,7 +479,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		EnableDlgItem(IDC_BUTTON_CONNECT, false);
 		EnableDlgItem(IDC_EDIT_ACCOUNT, false);
 		EnableDlgItem(IDC_EDIT_PASSWORD, false);
-		EnableDlgItem(IDC_BUTTON_PLAYSTREAM, true);	
+		EnableDlgItem(IDC_BUTTON_PLAYSTREAM, true);
 		EnableDlgItem(IDC_BUTTON_RECORD, true);
 		EnableDlgItem(IDC_IPADDRESS, false);
 		EnableDlgItem(IDC_BUTTON_PLAYFILE, false);
@@ -481,6 +487,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		EnableDlgItem(IDC_COMBO_PLAYSPEED, false);
 		EnableDlgItem(IDC_SLIDER_PLAYER, false);
 	}
+// 	else
+// 		delete pClient;
 }
 
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonDisconnect()
@@ -513,8 +521,52 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 		bool bEnableWnd = false;
 		CWaitCursor Wait;
 		if (m_pPlayContext->hStream == -1)
+		//if (m_pPlayContext->pClient)
 		{
 			int nStream = SendDlgItemMessage(IDC_COMBO_STREAM, CB_GETCURSEL);
+// 			MSG_HEAD MsgHead;
+// 			ZeroMemory(&MsgHead, sizeof(MSG_HEAD));
+// 			MsgHead.Magic1[0] = 0xF5;
+// 			MsgHead.Magic1[1] = 0x5A;
+// 			MsgHead.Magic1[2] = 0xA5;
+// 			MsgHead.Magic1[3] = 0x5F;
+// 			MsgHead.Version	  = htons(0x11);			
+// 			MsgHead.DataType = htons(0x01);
+// 			MsgHead.CmdType = htons(0x02);
+// 			MsgHead.CmdSubType = htons(0x03);
+// 			MsgHead.Pktlen = htonl(sizeof(MsgHead) + sizeof(app_net_tcp_enc_ctl_t));
+// 			app_net_tcp_enc_ctl_t Req;
+// 			ZeroMemory(&Req, sizeof(Req));
+// 			Req.chn = 0;
+// 			Req.stream = htonl(nStream);
+// 			Req.enable = htonl(1);		// Enable
+// 			Req.nettype = 0;		//	TCP
+// 			Req.port = 0;
+// 			int nCommandLen = sizeof(MSG_HEAD) + sizeof(Req);
+// 			char *pReqCommand = new char[sizeof(MSG_HEAD) + sizeof(Req) + 1];
+// 			memcpy(pReqCommand, &MsgHead, sizeof(MSG_HEAD));
+// 			memcpy(&pReqCommand[sizeof(MSG_HEAD)], &Req, sizeof(Req));
+// 			DWORD nBytesSent = 0;
+// 			bool bSucceed = false;
+// 			
+// 			if (m_pPlayContext->pClient->Send((char *)pReqCommand, nCommandLen, nBytesSent) == 0)
+// 			{
+// 				ZeroMemory(&MsgHead, sizeof(MSG_HEAD));
+// 				DWORD nBytesRecv = 0;
+// 				if (m_pPlayContext->pClient->Recv((char *)&MsgHead, sizeof(MSG_HEAD), nBytesRecv) == 0 && 
+// 					nBytesRecv == sizeof(MSG_HEAD))
+// 				{
+// 					app_net_tcp_enc_ctl_ack_t Res;
+// 					if (m_pPlayContext->pClient->Recv((char *)&Res, sizeof(Res), nBytesRecv) == 0 && 
+// 						nBytesRecv == sizeof(Res))
+// 					{
+// 						if (Res.stream == nStream && Res.state == 0)
+// 						{
+// 							bSucceed = true;
+// 						}
+// 					}
+// 				}
+// 			}
 			int nError = 0;
 			REAL_HANDLE hStreamHandle = DVO2_NET_StartRealPlay(m_pPlayContext->hUser,
 				0,
@@ -526,11 +578,15 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 				(void *)m_pPlayContext.get(),
 				&nError);
 			if (hStreamHandle == -1)
+//			if (!bSucceed)
 			{
 				m_wndStatus.SetWindowText(_T("连接码流失败"));
 				m_wndStatus.SetAlarmGllitery();
 				return;
 			}
+			// 启动接收线程
+			//m_pPlayContext->StartRecv(StreamCallBack);
+			//m_pPlayContext->hStream = -1;
 			m_pPlayContext->hStream = hStreamHandle;
 			m_pPlayContext->pThis = this;
 			EnableDlgItem(IDC_COMBO_STREAM, false);
@@ -562,8 +618,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
 			{
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
-				
-				m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0);
+				bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);				
+				m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0,128, bEnableRunlog?"dvoipcplaysdk":nullptr);
 				m_pVideoWndFrame->SetPanelParam(i, m_pPlayContext.get());
 				if (!m_pPlayContext->hPlayer[i])
 				{
@@ -746,9 +802,10 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 								
 				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
+				bool bEnableLog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);
 				if (bIsStreamPlay != BST_CHECKED)
 				{
-					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get());
+					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get(),bEnableLog?"dvoipcplaysdk":nullptr);
 					if (!m_pPlayContext->hPlayer[0])
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
@@ -814,7 +871,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					// 创建文件流播放句柄
 					// 一般在客户端创建,用于播放服务端发送的媒体流数据
 					// 设置较小的播放缓存,移动进度条时,可以及时更新
-					m_pPlayContext->hPlayerStream = dvoplay_OpenStream(m_pPlayContext->hWndView, (CHAR*)&MediaHeader, sizeof(DVO_MEDIAINFO),4);
+					m_pPlayContext->hPlayerStream = dvoplay_OpenStream(m_pPlayContext->hWndView, (byte*)&MediaHeader, sizeof(DVO_MEDIAINFO),4);
 					if (!m_pPlayContext->hPlayerStream)
 					{
 						m_wndStatus.SetWindowText(_T("无法打开流播放器."));
@@ -982,17 +1039,17 @@ bool IsDVOAudioFrame(app_net_tcp_enc_stream_head_t *pStreamHeader)
 void CDvoIPCPlayDemoDlg::PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr)
 {
 	PlayerContext *pContext = (PlayerContext *)pUserPtr;
-	if (pContext->pThis)
-	{
-		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
-		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
-			return;
-		pDlg->m_dfLastUpdate = GetExactTime();
-		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
-		if (nDvoError == DVO_Succeed ||
-			nDvoError == DVO_Error_FileNotExist)
-			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
-	}
+// 	if (pContext->pThis)
+// 	{
+// 		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
+// 		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
+// 			return;
+// 		pDlg->m_dfLastUpdate = GetExactTime();
+// 		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
+//  		if (nDvoError == DVO_Succeed ||
+//  			nDvoError == DVO_Error_FileNotExist)
+//  			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
+// 	}
 
 }
 void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
@@ -1011,6 +1068,44 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);	
 	time_t tSec = pStreamHeader->sec;
 	time_t tFrame = tSec * 1000 * 1000 + pStreamHeader->usec;
+	
+	switch (pStreamHeader->frame_type)
+	{
+	case 0:
+	case APP_NET_TCP_COM_DST_IDR_FRAME:
+	case APP_NET_TCP_COM_DST_I_FRAME:
+	case APP_NET_TCP_COM_DST_P_FRAME:
+	case APP_NET_TCP_COM_DST_B_FRAME:
+	{
+		__int64  dfNow1 = (__int64)(GetExactTime()*1000*1000);
+		SYSTEMTIME sysTime;
+		GetSystemTime(&sysTime);
+		unsigned long long tNow;
+		SystemTime2UTC(&sysTime, &tNow);
+		double dfNow = tNow + (double)sysTime.wMilliseconds / 1000;
+		//pContext->nTimeStamp[pContext->nTimeCount++] = dfNow*1000*1000 - tFrame;
+		
+// 		if (pContext->nTimeCount >= 100)
+// 		{
+// 			int nSum = 0;
+// 			TraceMsgA("%s Play Delay:\n", __FUNCTION__);			
+// 			for (int i = 0; i < pContext->nTimeCount; i++)
+// 			{
+// 				TraceMsgA("%d\t", (pContext->nTimeStamp[i])/1000);
+// 				nSum += ((pContext->nTimeStamp[i]) / 1000);
+// 
+// 				if ((i + 1) % 20 == 0)
+// 					TraceMsgA("\n");
+// 			}
+// 			TraceMsgA("%s Avg Delay = %d.\n", __FUNCTION__, nSum / 100);
+// 			pContext->nTimeCount = 0;
+// 		}
+	}
+	break;
+	default:
+		break;
+	}
+	
 
 	switch (pStreamHeader->frame_type)
 	{
@@ -1071,8 +1166,8 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 		break;
 	}
 	for (int i = 0; i < pContext->nPlayerCount;i ++)
-	if (pContext->hPlayer[i])
-		dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tFrame);
+ 	if (pContext->hPlayer[i])
+ 		dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tFrame);
 
 	// 写入录像数据
 	if (pContext->pRecFile && pContext->bRecvIFrame)
@@ -1112,7 +1207,7 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
 			return;
 		pDlg->m_dfLastUpdate = GetExactTime();
-		pDlg->PostMessage(WM_UPDATE_STREAMINFO);
+		//pDlg->PostMessage(WM_UPDATE_STREAMINFO);
 	}
 }
 
@@ -1486,7 +1581,6 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
 	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
-		
 		if (bIsStreamPlay)
 		{
 			dvoplay_Pause(m_pPlayContext->hPlayerStream);
@@ -1613,5 +1707,31 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonStopforword()
 		}
 
 		dvoplay_SeekTime(m_pPlayContext->hPlayer[0], nSeekTime, bUpdate);
+	}
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedButtonSeeknextframe()
+{
+	// 步进5秒
+	int nTotalFrames = 0;
+	PlayerInfo pi;
+	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
+	if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
+	{
+		
+		dvoplay_SeekNextFrame(m_pPlayContext->hPlayer[0]);
+	}
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablelog()
+{
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
+	{
+		if (IsDlgButtonChecked(IDC_CHECK_ENABLELOG) == BST_CHECKED)
+			EnableLog(m_pPlayContext->hPlayer[0],"DVOIPCPlaySdk");
+		else
+			EnableLog(m_pPlayContext->hPlayer[0], nullptr);
 	}
 }
