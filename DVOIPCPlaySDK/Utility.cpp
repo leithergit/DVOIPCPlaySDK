@@ -2258,7 +2258,7 @@ int GetFixedHardDriversA(CHAR *szDrvList,int nBuffSize)
 			{
 				// Copy the drive letter to the template string
 				*szDrive = *p;
-				if (QueryDosDeviceA(szDrive, szName, BUFSIZE))
+				if (QueryDosDeviceA(szDrive, szName, MAX_PATH))
 				{
 					TraceMsgA("%s=%s ",szDrive,szName);
 				}
@@ -2383,7 +2383,7 @@ int GetFixedHardDriversW(WCHAR *szDrvList,int nBuffSize)
 		{
 			// Copy the drive letter to the template string
 			*szDrive = *p;
-			if (QueryDosDeviceW(szDrive, szName, BUFSIZE))
+			if (QueryDosDeviceW(szDrive, szName, MAX_PATH))
 			{
 				TraceMsgW(L"%s=%s ",szDrive,szName);
 			}

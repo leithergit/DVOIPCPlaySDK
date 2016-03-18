@@ -458,8 +458,11 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonConnect()
 		return;
 	}
 	
-//	CSocketClient *pClient = new CSocketClient();
-//  if (pClient->Connect(szIPAddress, 6001) == 0)
+// 	CSocketClient *pClient = new CSocketClient();
+// 	if (pClient->Connect(szIPAddress, 6001) == 0)
+// 	{
+// 		int a = 1;
+// 	}
 	CWaitCursor Wait;
 	app_net_tcp_sys_logo_info_t LoginInfo;
 	USER_HANDLE hUser = DVO2_NET_Login(szIPAddress, 6001, szAccount, szPassowd, &LoginInfo, &nError, 5000);

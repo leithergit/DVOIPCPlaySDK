@@ -335,7 +335,7 @@ public:
 private:
 	list<StreamFramePtr>::iterator ItLoop;
 	list<StreamFramePtr>m_listAudioCache;///< 流播放帧缓冲
-	list<StreamFramePtr>m_listVideoCache;///< 流播放帧缓冲	
+	list<StreamFramePtr>m_listVideoCache;///< 流播放帧缓冲
 	CRITICAL_SECTION	m_csVideoCache;
 	CRITICAL_SECTION	m_csAudioCache;	
 	int					m_nMaxFrameCache;///< 最大视频缓冲数量,默认值125
@@ -391,6 +391,7 @@ private:	// 音频播放相关变量
 	int			m_nAudioFrames;			///< 当前缓存中音频帧数量
 	int			m_nCurAudioFrame;		///< 当前正播放的音频帧ID
 	static shared_ptr<CDSoundEnum> m_pDsoundEnum;	///< 音频设备枚举器
+	static CriticalSectionPtr m_csDsoundEnum;
 private:
 	HANDLE		m_hThreadParser;		///< 解析DVO私有格式录像的线程
 	HANDLE		m_hThreadPlayVideo;		///< 视频解码和播放线程
@@ -413,6 +414,7 @@ private:	// 文件播放相关变量
 	HANDLE		m_hDvoFile;				///< 正在播放的文件句柄
 #ifdef _DEBUG
 	bool		m_bSeekSetDetected = false;///< 是否存在跳动帧动作
+	DWORD		m_nLifeTime;			///< 当前对象存在时间
 #endif
 	shared_ptr<DVO_MEDIAINFO>m_pMediaHeader;/// 媒体文件头
 	UINT		m_nFrametoRead;			///< 当前将要读取的视频帧ID
@@ -717,8 +719,17 @@ public:
 	CDvoPlayer(HWND hWnd, CHAR *szFileName = nullptr, char *szLogFile = nullptr)
 	{
 		ZeroMemory(&m_csVideoCache, sizeof(CDvoPlayer) - offsetof(CDvoPlayer, m_csVideoCache));
+#ifdef _DEBUG
+		m_nLifeTime = timeGetTime();
+		OutputMsg("%s CDvoPlayer Object:%08X m_nLifeTime = %d.\n", __FUNCTION__,this, m_nLifeTime);
+#endif
 		if (szLogFile)
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
+		OutputMsg("%s Alloc a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
+		m_csDsoundEnum->Lock();
+		if (!m_pDsoundEnum)
+			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
+		m_csDsoundEnum->Unlock();
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
@@ -777,6 +788,7 @@ public:
 	
 	~CDvoPlayer()
 	{
+		OutputMsg("%s \tReady to Free a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
 		StopPlay();
 		/*
 		if (m_hWnd)
@@ -825,6 +837,10 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
+		OutputMsg("%s \tFinish Free a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
+#ifdef _DEBUG
+		OutputMsg("%s \tCDvoPlayer Object:%08X Exist Time = %u.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+#endif
 	}
 	/// @brief  是否为文件播放
 	/// @retval			true	文件播放
@@ -907,6 +923,9 @@ public:
 	///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停播放
 	int StartPlay(bool bEnaleAudio = false,bool bEnableHaccel = false,bool bFitWindow = true)
 	{
+#ifdef _DEBUG
+		OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+#endif
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;		
 		
@@ -1139,6 +1158,9 @@ public:
 
 	void StopPlay()
 	{
+#ifdef _DEBUG
+		OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+#endif
 		m_bThreadParserRun = false;
 		m_bThreadPlayVideoRun = false;
 		m_bThreadPlayAudioRun = false;
@@ -1245,7 +1267,7 @@ public:
 			return DVO_Error_InvalidParameters;
 		if (m_hThreadPlayVideo|| m_hDvoFile)
 		{
-			ZeroMemory(pPlayInfo, sizeof(pPlayInfo));
+			ZeroMemory(pPlayInfo, sizeof(PlayerInfo));
 			pPlayInfo->nVideoCodec	 = m_nVideoCodec;
 			pPlayInfo->nVideoWidth	 = m_nVideoWidth;
 			pPlayInfo->nVideoHeight	 = m_nVideoHeight;
@@ -1631,6 +1653,7 @@ public:
 	/// @retval			DVO_Error_AudioFailed	音频播放设备未就绪
 	int  EnableAudio(bool bEnable = true)
 	{
+		TraceFunction();
 		if (m_fPlayRate != 1.0f)
 			return DVO_Error_AudioFailed;
 		if (m_pDsoundEnum->GetAudioPlayDevices() <= 0)
@@ -2427,8 +2450,10 @@ public:
 
 	static DWORD WINAPI ThreadPlayVideo(void *p)
 	{
-		//int *pTestLeak = new int[8];
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
+#ifdef _DEBUG
+		pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, pThis, timeGetTime() - pThis->m_nLifeTime);
+#endif
 		int nAvError = 0;
 		char szAvError[1024] = { 0 };
 		if (!pThis->m_hWnd)
@@ -2462,8 +2487,11 @@ public:
 			}
 			else
 			{
-				pThis->OutputMsg("%s Warning!!!\nNot receive an I frame in %d second.\n", __FUNCTION__, (int)dfTimeout);
-				assert(false);
+				pThis->OutputMsg("%s Warning!!!\nNot receive an I frame in %d second.m_listVideoCache.size() = %d.\n", __FUNCTION__, (int)dfTimeout,pThis->m_listVideoCache.size());
+#ifdef _DEBUG
+				pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis,__LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+				//assert(false);
 				return 0;
 			}
 		}
@@ -2473,7 +2501,10 @@ public:
 		if (pDecodec->ProbeStream(pThis,ReadAvData, pThis->m_nMaxFrameSize) != 0)
 		{
 			pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
-			assert(false);
+#ifdef _DEBUG
+			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+			//assert(false);
 			return 0;
 		}
 		pDecodec->CancelProbe();
@@ -2483,13 +2514,19 @@ public:
 		if (!pDecodec->InitDecoder(pThis->m_bEnableHaccel))
 		{
 			pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
-			assert(false);
+#ifdef _DEBUG
+			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+			//assert(false);
 			return 0;
 		}
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE )
 		{
 			pThis->OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
-			assert(false);
+#ifdef _DEBUG
+			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+			//assert(false);
 			return 0;
 		}
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_H264)
@@ -2506,7 +2543,7 @@ public:
 		{
 			pThis->m_nVideoCodec = CODEC_UNKNOWN;
 			pThis->OutputMsg("%s Unsupported Video Codec.\n", __FUNCTION__);
-			assert(false);
+			//assert(false);
 			return 0;
 		}
 		pThis->m_nVideoWidth = pDecodec->m_pAVCtx->width;
@@ -2524,8 +2561,8 @@ public:
 			if (pThis->m_bEnableHaccel)
 				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
 			else
-				//InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
-				InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
+				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				//InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
 			InitInfo.bWindowed = TRUE;
 			//if (!pWndDxInit->GetSafeHwnd())
 				InitInfo.hPresentWnd = pThis->m_hWnd;
@@ -2538,12 +2575,18 @@ public:
 				InitInfo.nD3DFormat))
 			{
 				pThis->OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
-				assert(false);
+#ifdef _DEBUG
+				pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+				//assert(false);
 				return 0;
 			}
 			RECT rtWindow;
 			GetWindowRect(pThis->m_hWnd, &rtWindow);
 			pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
+#ifdef _DEBUG
+			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
 		}
 
 		pThis->m_pDecodec = pDecodec;

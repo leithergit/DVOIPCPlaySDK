@@ -17,10 +17,9 @@
 #include "DVOIPCPlaySDK.h"
 #include "DvoPlayer.h"
 
-#include "DvoPlayer.h"
-
 CAvRegister CDvoPlayer::avRegister;
-shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
+CriticalSectionPtr CDvoPlayer::m_csDsoundEnum = make_shared<CriticalSectionWrap>();
+shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = nullptr;/*= make_shared<CDSoundEnum>()*/;	///< 音频设备枚举器
 //shared_ptr<CDSound> CDvoPlayer::m_pDsPlayer = make_shared<CDSound>(nullptr);
 //shared_ptr<CSimpleWnd> CDvoPlayer::m_pWndDxInit = make_shared<CSimpleWnd>();	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 

@@ -107,7 +107,7 @@ public:
 		if (FAILED(m_pDSBuffer->QueryInterface(IID_IDirectSoundNotify, (LPVOID*)&pDSNotify)))
 		{
 			DsTrace("%s m_pDSBSlavely->QueryInterface Failed.\n", __FUNCTION__);
-			SAFE_DELETE(m_pDSBuffer);
+			SAFE_RELEASE(m_pDSBuffer);
 			return FALSE;
 		}
 
@@ -427,8 +427,8 @@ public:
 	~CDSound()
 	{
 		UnInitialize();
-		if (m_hWnd)
-			::PostMessage(m_hWnd, WM_DESTROY, 0, 0);
+// 		if (m_hWnd)
+// 			::PostMessage(m_hWnd, WM_DESTROY, 0, 0);
 		DeleteCriticalSection(&m_csDsound);
 		DeleteCriticalSection(&m_csListBuffer);
 	}
@@ -516,7 +516,7 @@ public:
 		if (FAILED(hr = m_pDirectSound->CreateSoundBuffer(&dsbd, &m_pDSBPrimary, NULL)))
 		{
 			DsTrace("%s CreateSoundBuffer Failed.\n",__FUNCTION__);
-			SAFE_DELETE(m_pDirectSound);
+			SAFE_RELEASE(m_pDirectSound);
 			return false;
 		}
 		return true;
