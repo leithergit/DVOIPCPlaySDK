@@ -439,6 +439,8 @@ private:
 	void*			m_pUserCaptureYUVEx;
 	FilePlayProc	m_pFilePlayCallBack;
 	void*			m_pUserFilePlayer;
+	CaptureYUVEx	m_pfnYUVFileter;
+	void*			m_pUserYUVFilter;
 private:
 	shared_ptr<CRunlog> m_pRunlog;	///< 运行日志
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
@@ -711,11 +713,6 @@ public:
 		}
 		else
 			m_pRunlog = nullptr;
-	}
-	void SetPlayCallBack(FilePlayProc pFilePlayCallBack,void *pUserPtr)
-	{
-		m_pFilePlayCallBack = pFilePlayCallBack;
-		m_pUserFilePlayer = pUserPtr;
 	}
 
 	CDvoPlayer(HWND hWnd, CHAR *szFileName = nullptr, char *szLogFile = nullptr)
@@ -1105,14 +1102,16 @@ public:
 // 					return DVO_Error_AudioThreadNotRun;
 				if (!m_bEnableAudio)
 					break;
+				if (m_fPlayRate != 1.0f)
+					break;
+				CAutoLock lock(&m_csAudioCache);
+				if (m_listAudioCache.size() >= m_nMaxFrameCache)
+					return DVO_Error_FrameCacheIsFulled;
 				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize, m_nFileFrameInterval/2);
 				if (!pStream)
 					return DVO_Error_InsufficentMemory;
-
-				::EnterCriticalSection(&m_csAudioCache);
 				m_listAudioCache.push_back(pStream);
 				m_nAudioFrames++;
-				::LeaveCriticalSection(&m_csAudioCache);
 				break;
 			}
 			default:
@@ -1742,45 +1741,61 @@ public:
 		if (m_hWnd)
 			::InvalidateRect(m_hWnd, nullptr, true);
 	}
-	
-	/// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
-	void SetYUVCapture(IN CaptureYUV pYUVProc, IN void *pUserPtr)
-	{
-		if (!pYUVProc)
-			return ;
-		m_pfnCaptureYUV = pYUVProc;
-		m_pUserCaptureYUV = pUserPtr;
-		
-	}
 
-	/// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
-	void SetYUVCaptureEx(IN CaptureYUVEx pYUVExProc, IN void *pUserPtr)
+	int SetCallBack(DVO_CALLBACK nCallBackType, IN void *pUserCallBack, IN void *pUserPtr)
 	{
-		if (!pYUVExProc)
-			return;
-		m_pfnCaptureYUVEx = pYUVExProc;
-		m_pUserCaptureYUVEx = pUserPtr;
-	}
-
-	/// @brief			设置DVO私用格式录像，帧解析回调,通过此回，用户可直接获取原始的帧数据
-	void SetFrameParserCapture(IN CaptureFrame pFrameParserProc,IN void *pUserPtr)
-	{
-		if (!pFrameParserProc)
-			return;
-		m_pfnCaptureFrame = pFrameParserProc;
-		m_pUserCaptureFrame = pUserPtr;
-
-	}
-	/// @brief			设置外部绘制回调接口
-	int SetExternDraw(void *pExternDrawProc, void *pUserPtr)
-	{
-		if (m_pDxSurface)
+		if (!pUserCallBack)
+			return DVO_Error_InvalidParameters;
+		switch (nCallBackType)
 		{
-			m_pDxSurface->SetExternDraw(pExternDrawProc, pUserPtr);
-			return 0;
+		case ExternDcDraw:
+		{
+			if (m_pDxSurface)
+			{
+				m_pDxSurface->SetExternDraw(pUserCallBack, pUserPtr);
+				return DVO_Succeed;
+			}
+			else
+				return DVO_Error_DxError;
 		}
-		else
-			return -1;
+			break;
+		case ExternDcDrawEx:
+			break;
+		case YUVCapture:
+		{
+			m_pfnCaptureYUV = (CaptureYUV)pUserCallBack;
+			m_pUserCaptureYUV = pUserPtr;
+		}
+			break;
+		case YUVCaptureEx:
+		{
+			m_pfnCaptureYUVEx = (CaptureYUVEx)pUserCallBack;
+			m_pUserCaptureYUVEx = pUserPtr;
+		}
+			break;
+		case YUVFilter:
+		{
+			m_pfnYUVFileter = (CaptureYUVEx)pUserCallBack;
+			m_pUserYUVFilter = pUserPtr;
+		}
+			break;
+		case FramePaser:
+		{
+			m_pfnCaptureFrame = (CaptureFrame)pUserCallBack;
+			m_pUserCaptureFrame = pUserPtr;
+		}
+			break;
+		case FilePlayer:
+		{
+			m_pFilePlayCallBack = (FilePlayProc)pUserCallBack;
+			m_pUserFilePlayer = pUserPtr;
+		}
+			break;
+		default:
+			return DVO_Error_InvalidParameters;
+			break;
+		}
+		return DVO_Succeed;
 	}
 	
 	/// @brief			解析帧数据
@@ -2327,6 +2342,39 @@ public:
 		pSurface->UnlockRect();
 	}
 
+	void ProcessYUVFilter(AVFrame *pAvFrame, LONGLONG nTimestamp)
+	{
+		if (m_pfnYUVFileter)
+		{// 在m_pfnYUVFileter中，用户需要把YUV数据处理分，再分成YUV数据
+			if (pAvFrame->format == AV_PIX_FMT_DXVA2_VLD)
+			{// dxva 硬解码帧
+				CopyDxvaFrame(m_pYUV, pAvFrame);
+				byte* pU = m_pYUV + pAvFrame->width*pAvFrame->height;
+				byte* pV = m_pYUV + pAvFrame->width*pAvFrame->height / 4;
+				m_pfnYUVFileter(this,
+								m_pYUV,
+								pU,
+								pV,
+								pAvFrame->linesize[0],
+								pAvFrame->linesize[1],
+								pAvFrame->width,
+								pAvFrame->height,
+								nTimestamp,
+								m_pUserYUVFilter);
+			}
+			else
+				m_pfnYUVFileter(this,
+								pAvFrame->data[0],
+								pAvFrame->data[1],
+								pAvFrame->data[2],
+								pAvFrame->linesize[0],
+								pAvFrame->linesize[1],
+								pAvFrame->width,
+								pAvFrame->height,
+								nTimestamp,
+								m_pUserYUVFilter);
+		}
+	}
 	
 	void ProcessYVUCapture(AVFrame *pAvFrame,LONGLONG nTimestamp)
 	{
@@ -2584,8 +2632,8 @@ public:
 			if (pThis->m_bEnableHaccel)
 				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
 			else
-				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
-				//InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
+				//InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
 			InitInfo.bWindowed = TRUE;
 			//if (!pWndDxInit->GetSafeHwnd())
 				InitInfo.hPresentWnd = pThis->m_hWnd;
@@ -2666,7 +2714,7 @@ public:
 		{
 			if (pThis->m_bPause)
 			{
-				Sleep(50);
+				Sleep(100);
 				continue;
 			}
 			if (!pThis->m_bIpcStream)
@@ -2827,7 +2875,8 @@ public:
  			{
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
-				if (pThis->m_pDxSurface)
+				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)GetExactTime() * 1000);
+ 				if (pThis->m_pDxSurface)
  					pThis->RenderFrame(pAvFrame);
  				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)GetExactTime()*1000);
  				if (pThis->m_pFilePlayCallBack)
@@ -2952,6 +3001,17 @@ public:
 #endif
 		while (pThis->m_bThreadPlayAudioRun)
 		{
+			if (pThis->m_bPause)
+			{
+				::EnterCriticalSection(&pThis->m_csAudioCache);
+				pThis->m_listAudioCache.clear();
+				::LeaveCriticalSection(&pThis->m_csAudioCache);
+				if (pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->StopPlay();
+				Sleep(100);
+				continue;
+			}
+
 			nTimeSpan = (int)((GetExactTime() - dfT1) * 1000);
 			if (pThis->m_fPlayRate != 1.0f)
 			{// 只有正常倍率才播放声音
@@ -2961,7 +3021,7 @@ public:
 				if (pThis->m_listAudioCache.size() > 0)	
 					pThis->m_listAudioCache.pop_front();
 				::LeaveCriticalSection(&pThis->m_csAudioCache);
-				Sleep(10);
+				Sleep(5);
 				continue;
 			}
 			

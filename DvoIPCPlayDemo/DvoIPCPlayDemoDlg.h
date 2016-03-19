@@ -10,6 +10,7 @@
 #include "GlliteryStatic.h"
 #include "fullscreen.h"
 #include "SocketClient.h"
+#include "DirectDraw.h"
 using namespace std;
 using namespace std::tr1;
 
@@ -423,11 +424,11 @@ public:
 	list<shared_ptr<PlayerContext>>m_listPlayer;
 	// 相机实时码流捕捉回调函数
 	static void  __stdcall StreamCallBack(IN USER_HANDLE  lUserID,
-		IN REAL_HANDLE lStreamHandle,
-		IN int         nErrorType,
-		IN const char* pBuffer,
-		IN int         nDataLen,
-		IN void*       pUser);
+										IN REAL_HANDLE lStreamHandle,
+										IN int         nErrorType,
+										IN const char* pBuffer,
+										IN int         nDataLen,
+										IN void*       pUser);
 
 	static void __stdcall PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
 	shared_ptr<PlayerInfo>	m_pPlayerInfo;
@@ -447,6 +448,51 @@ public:
 	UINT m_nOriMonitorIndex = 0;
 	FullScreenWnd m_FullScreen;
 	void *m_hIOCP = nullptr;
+	shared_ptr<CDirectDraw> m_pDDraw = nullptr;
+	shared_ptr<ImageSpace> m_pYUVImage = nullptr;
+	bool m_bEnableVCA = false;
+	/// @brief		解码后YVU数据回调
+	static void __stdcall YUVFilterProc(DVO_PLAYHANDLE hPlayHandle,
+										const unsigned char* pY,
+										const unsigned char* pU,
+										const unsigned char* pV,
+										int nStrideY,
+										int nStrideUV,
+										int nWidth,
+										int nHeight,
+										INT64 nTime,
+										void *pUserPtr)
+	{
+		CDvoIPCPlayDemoDlg *pThis = (CDvoIPCPlayDemoDlg *)pUserPtr;
+		if (!pThis->m_bEnableVCA ||
+			!pThis->m_pPlayContext->hPlayer[0])
+		{
+			return;
+		}
+		if (!pThis->m_pDDraw)
+		{
+			PlayerInfo pi;
+			if (dvoplay_GetPlayerInfo(pThis->m_pPlayContext->hPlayer[0], &pi) != DVO_Succeed)
+			{
+				assert(false);
+				return;
+			}
+			//构造表面  
+			DDSURFACEDESC2 ddsd = { 0 };
+			FormatYV12::Build(ddsd, pi.nVideoWidth, pi.nVideoHeight);
+			pThis->m_pDDraw = make_shared<CDirectDraw>();
+			pThis->m_pDDraw->Create<FormatYV12>(pThis->m_pVideoWndFrame->GetPanelWnd(1), ddsd);
+			pThis->m_pYUVImage = make_shared<ImageSpace>();
+			pThis->m_pYUVImage->dwLineSize[0] = nWidth;
+			pThis->m_pYUVImage->dwLineSize[1] = nWidth >> 1;
+			pThis->m_pYUVImage->dwLineSize[2] = nWidth >> 1;
+		}
+		pThis->m_pYUVImage->pBuffer[0] = (PBYTE)pY;
+		pThis->m_pYUVImage->pBuffer[1] = (PBYTE)pU;
+		pThis->m_pYUVImage->pBuffer[2] = (PBYTE)pV;
+		pThis->m_pDDraw->Draw(*pThis->m_pYUVImage,true);
+		// todo:把YUV数据整合为YV12数据，并交给VCA引擎进行分析，把分析交给VCA Render渲染，再把渲染结果还到pY,pU,pV当中
+	}
 
 	afx_msg LRESULT OnTroggleFullScreen(WPARAM W, LPARAM L)
 	{
@@ -617,8 +663,6 @@ public:
 		}
 		return 0;
 	}
-	
-	
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnBnClickedButtonTracecache();
 	afx_msg void OnLvnGetdispinfoListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult);
@@ -626,4 +670,5 @@ public:
 	afx_msg void OnBnClickedButtonStopforword();
 	afx_msg void OnBnClickedButtonSeeknextframe();
 	afx_msg void OnBnClickedCheckEnablelog();
+	afx_msg void OnBnClickedCheckEnablevca();
 };

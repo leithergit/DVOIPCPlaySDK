@@ -63,6 +63,15 @@
     <ClInclude Include="SocketClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DirectDraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogVCALoad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vca.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DvoIPCPlayDemo.cpp">
@@ -90,6 +99,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SocketClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogVCALoad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

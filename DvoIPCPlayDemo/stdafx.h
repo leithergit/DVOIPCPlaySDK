@@ -44,6 +44,7 @@
 
 #include "../MulMonitor/MultiMonitorAPI.h"
 #pragma comment(lib,"../MulMonitor/MultiMonitorAPI.lib")
+
 #include "Utility.h"
 #include "TimeUtility.h"
 #include "Markup.h"
@@ -56,6 +57,10 @@ using namespace std::tr1;
 
 extern HANDLE g_hStdout;
 extern HANDLE g_hStdin;
+
+#include "VCA5CoreLib.h"
+#include "Cap5BoardLibEx.h"
+#include "VCAMetaLib.h"
 
 #define Var2Str(var) (#var)
 

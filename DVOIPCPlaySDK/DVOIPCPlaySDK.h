@@ -70,6 +70,17 @@ typedef enum SNAPSHOT_FORMAT
 	XIFF_FORCE_DWORD = 0x7fffffff
 } ;
 
+enum DVO_CALLBACK
+{
+	ExternDcDraw,	/// 外部DC绘制函数，回调定义详见@see ExternDraw
+	ExternDcDrawEx,	/// 外部绘制函数，回调定义详见@see ExternDrawEx
+	YUVCapture,		/// YUV数据回调，可得到完整的YUV数据,回调定义详见@see CaptureYUV
+	YUVCaptureEx,	/// 扩展的YUV回调，可得到已分离的YUV数据和相应的参数数据,回调定义详见@see CaptureYUVEx
+	YUVFilter,		/// YUV过滤器，可得到已分离的YUV数据和相应的参数数据，若对数据作出改变会显示在画面上,回调定义详见@see CaptureYUVEx
+	FramePaser,		/// 文件帧解析回调，可得到完整正在播放的文件中的一帧未解码的帧,回调定义详见@see CaptureFrame
+	FilePlayer		/// 文件播放回调，可得到关于播放器的一些完整信息,回调定义详见@see FilePlayProc
+};
+
 /// @enum PlayRate
 /// @brief 播放倍率
 // enum PlayRate
@@ -94,15 +105,15 @@ typedef enum SNAPSHOT_FORMAT
 // };
 
 #define		DVO_Succeed						(0)		///< 操作成功
-#define		DVO_Error_InvalidParameters		(-1)	///< 无效的参数
-#define		DVO_Error_NotDvoVideoFile		(-2)	///< 非DVO录像文件
-#define		DVO_Error_NotInputStreamHeader	(-3)	///< 未输入DVO录像文件头
-#define		DVO_Error_InvalidSDKVersion		(-4)	///< 录像文件头中的的SDK版本无效
-#define		DVO_Error_PlayerNotStart		(-5)	///< 播放器尚未启动,无法取得播放过程的信息或属性
-#define		DVO_Error_PlayerHasStart		(-6)	///< 播放器已经启动，不能执行初始化或其它设置操作
-#define		DVO_Error_NotFilePlayer			(-7)	///< 这不是一个文件播放对象
-#define		DVO_Error_InvalidFrame			(-8)	///< 无效的帧
-#define		DVO_Error_InvalidFrameType		(-9)	///< 无效的帧类型
+#define		DVO_Error_InvalidParameters		(-1)		///< 无效的参数
+#define		DVO_Error_NotDvoVideoFile		(-2)		///< 非DVO录像文件
+#define		DVO_Error_NotInputStreamHeader	(-3)		///< 未输入DVO录像文件头
+#define		DVO_Error_InvalidSDKVersion		(-4)		///< 录像文件头中的的SDK版本无效
+#define		DVO_Error_PlayerNotStart		(-5)		///< 播放器尚未启动,无法取得播放过程的信息或属性
+#define		DVO_Error_PlayerHasStart		(-6)		///< 播放器已经启动，不能执行初始化或其它设置操作
+#define		DVO_Error_NotFilePlayer			(-7)		///< 这不是一个文件播放对象
+#define		DVO_Error_InvalidFrame			(-8)		///< 无效的帧
+#define		DVO_Error_InvalidFrameType		(-9)		///< 无效的帧类型
 #define		DVO_Error_SummaryNotReady		(-10)	///< 文件摘要信息尚未准备好
 #define		DVO_Error_FrameCacheIsFulled	(-11)	///< 视频帧缓冲区已经满
 #define		DVO_Error_FileNotOpened			(-12)	///< 尚未打开视频文件
@@ -145,6 +156,7 @@ struct PlayerInfo
 ///	@brief	DVO文件播放句柄
 
 typedef void* 	DVO_PLAYHANDLE;
+
 /// @brief		解码后YVU数据回调
 typedef void (__stdcall *CaptureYUV)(DVO_PLAYHANDLE hPlayHandle,
 									const unsigned char* pYUV,
@@ -440,6 +452,14 @@ DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle);
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 DVOIPCPLAYSDK_API int  dvoplay_GetTimeEplased(IN DVO_PLAYHANDLE hPlayHandle, LONGLONG &nEplaseTime);
+
+/// @brief			设置获取用户回调接口,通过此回调，用户可通过回调得到一些数据,或对得到的数据作一些处理
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		回调函数的类型 @see DVO_CALLBACK
+/// @param [in]		pUserCallBack	回调函数指针
+/// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
+DVOIPCPLAYSDK_API int dvoplay_SetCallBack(IN DVO_PLAYHANDLE hPlayHandle, DVO_CALLBACK nCallBackType, IN void *pUserCallBack, IN void *pUserPtr);
+
 
 /// @brief			设置外部绘制回调接口
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

@@ -62,7 +62,7 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFile
 	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd, szFileName,szLogFile);
 	if (pPlayer)
 	{
-		pPlayer->SetPlayCallBack(pPlayCallBack,pUserPtr);
+		pPlayer->SetCallBack(FilePlayer, pPlayCallBack, pUserPtr);
 		return pPlayer;
 	}
 	else
@@ -609,6 +609,22 @@ DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle)
 	return DVO_Succeed;
 }
 
+/// @brief			设置获取用户回调接口,通过此回调，用户可通过回调得到一些数据,或对得到的数据作一些处理
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		回调函数的类型 @see DVO_CALLBACK
+/// @param [in]		pUserCallBack	回调函数指针
+/// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
+DVOIPCPLAYSDK_API int dvoplay_SetCallBack(IN DVO_PLAYHANDLE hPlayHandle, DVO_CALLBACK nCallBackType, IN void *pUserCallBack, IN void *pUserPtr)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->SetCallBack(nCallBackType, pUserCallBack, pUserPtr);
+	return DVO_Succeed;
+}
+
 /// @brief			设置外部绘制回调接口
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
@@ -619,8 +635,7 @@ DVOIPCPLAYSDK_API int dvoplay_SetExternDrawCallBack(IN DVO_PLAYHANDLE hPlayHandl
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	pPlayer->SetExternDraw(pExternCallBack, pUserPtr);
-	return DVO_Succeed;
+	return pPlayer->SetCallBack(ExternDcDraw,pExternCallBack, pUserPtr);
 }
 
 /// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
@@ -633,8 +648,7 @@ DVOIPCPLAYSDK_API int dvoplay_SetYUVCapture(IN DVO_PLAYHANDLE hPlayHandle, IN vo
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	pPlayer->SetYUVCapture((CaptureYUV)pCaptureYUV, pUserPtr);
-	return DVO_Succeed;
+	return pPlayer->SetCallBack(YUVCapture, pCaptureYUV, pUserPtr);
 }
 
 /// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
@@ -647,8 +661,7 @@ DVOIPCPLAYSDK_API int dvoplay_SetYUVCaptureEx(IN DVO_PLAYHANDLE hPlayHandle, IN 
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	pPlayer->SetYUVCaptureEx((CaptureYUVEx)pCaptureYUVEx, pUserPtr);
-	return DVO_Succeed;
+	return pPlayer->SetCallBack(YUVCaptureEx,pCaptureYUVEx, pUserPtr);
 }
 
 /// @brief			设置DVO私用格式录像，帧解析回调,通过此回，用户可直接获取原始的帧数据
@@ -662,8 +675,7 @@ DVOIPCPLAYSDK_API int dvoplay_SetFrameParserCallback(IN DVO_PLAYHANDLE hPlayHand
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
 
-	pPlayer->SetFrameParserCapture((CaptureFrame)pCaptureFrame, pUserPtr);
-	return DVO_Succeed;
+	return	pPlayer->SetCallBack(FramePaser,pCaptureFrame, pUserPtr);
 }
 
 /// @brief			生成一个DVO录像文件头
