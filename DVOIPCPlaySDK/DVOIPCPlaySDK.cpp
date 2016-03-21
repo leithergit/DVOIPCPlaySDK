@@ -17,6 +17,11 @@
 #include "DVOIPCPlaySDK.h"
 #include "DvoPlayer.h"
 
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
+
 CAvRegister CDvoPlayer::avRegister;
 CriticalSectionPtr CDvoPlayer::m_csDsoundEnum = make_shared<CriticalSectionWrap>();
 shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = nullptr;/*= make_shared<CDSoundEnum>()*/;	///< ÒôÆµÉè±¸Ã¶¾ÙÆ÷

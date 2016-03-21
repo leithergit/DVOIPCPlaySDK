@@ -3,10 +3,15 @@
 #include <windows.h>
 #include <time.h>
 #include <assert.h>
-#include <thread>
-#include <chrono>
-using namespace std::this_thread;
-using namespace std::chrono;
+//#include <thread>
+//#include <chrono>
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
+
+// using namespace std::this_thread;
+// using namespace std::chrono;
 #ifdef _UNICODE
 #define GetDateTime			GetDateTimeW
 #define	_DateTime			DateTimeW
@@ -163,7 +168,8 @@ struct CThreadSleep
 			dfSumSpan2 += TimeSpanEx(dfT1);
 
 			dfT1 = GetExactTime();
-			std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+			//std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+			Sleep(1);
 			dfSumSpan3 += TimeSpanEx(dfT1);
 		}
 		double dfSpanSum = dfSumSpan1;
@@ -201,7 +207,8 @@ struct CThreadSleep
 		}
 			break;
 		case Std_Sleep:
-			std::this_thread::sleep_for(std::chrono::nanoseconds(nTimems*1000));
+			//std::this_thread::sleep_for(std::chrono::nanoseconds(nTimems*1000));
+			Sleep(1);
 			break;
 		default:
 			assert(false);

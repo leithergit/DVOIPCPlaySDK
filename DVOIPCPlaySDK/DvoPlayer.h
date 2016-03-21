@@ -35,6 +35,10 @@
 #include "AudioDecoder.h"
 #include "Runlog.h"
 //#include "DirectDraw.h"
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
 
 #ifdef _DEBUG
 #define _New	new
@@ -2174,6 +2178,7 @@ public:
 				if (nResult != DVO_Succeed)
 					return nResult;
 				wcscpy(m_szSnapShotFile, szFileName);
+				TraceMsgA("%s Input FileName:%s\tOuput FileName:%s\n", __FUNCTION__, szFileName, m_szSnapShotFile);
 				SetEvent(m_hEventYUVRequire);		// 请求YUV数据
 				m_nD3DImageFormat = nFileFormat;
 				// 等待截图完成
@@ -2186,6 +2191,7 @@ public:
 		}
 		else
 			return DVO_Error_PlayerNotStart;
+		return DVO_Succeed;
 	}
 	/// @brief			处理截图请求
 	/// remark			处理完成后，将置信m_hEventSnapShot事件
@@ -2211,6 +2217,7 @@ public:
 		pYUVFrame->nLineSize[2] = pAvFrame->linesize[2];
 		pYUVFrame->nD3DImageFormat = m_nD3DImageFormat;
 		wcscpy(pYUVFrame->szFileName, m_szSnapShotFile);
+		TraceMsgA("%s Input FileName:%s\tOuput FileName:%s.\n", __FUNCTION__, m_szSnapShotFile, pYUVFrame->szFileName);
 		byte *pYUV = (byte *)(((byte *)pYUVFrame) + sizeof(YUVFrame));
 		
 		if (pAvFrame->format == AV_PIX_FMT_DXVA2_VLD)
@@ -2357,7 +2364,7 @@ public:
 		else
 			m_nFrametoRead = nBackWord;
 		m_nCurVideoFrame = m_nFrametoRead;
-		TraceMsgA("%s Seek to Frame %d\tFrameTime = %I64d\n", __FUNCTION__, m_nFrametoRead, m_pFrameOffsetTable[m_nFrametoRead].tTimeStamp/1000);
+		//TraceMsgA("%s Seek to Frame %d\tFrameTime = %I64d\n", __FUNCTION__, m_nFrametoRead, m_pFrameOffsetTable[m_nFrametoRead].tTimeStamp/1000);
 		if (m_hThreadParser)
 			SetSeekOffset(m_pFrameOffsetTable[m_nFrametoRead].nOffset);
 		else
@@ -2945,7 +2952,6 @@ public:
 						m_nHeaderFrameID = m_listVideoCache.front()->FrameHeader()->nFrameID;
 						TraceMsgA("HeadFrame ID = %d.\n", m_nHeaderFrameID);
 						bFirstBlockIsFilled = false;
-						m_bEnableAudio = false;
 					}
 				}
 
@@ -3397,6 +3403,34 @@ public:
 		pSurface->UnlockRect();
 	}
 
+	// 把YUVC420P帧复制到YV12缓存中
+	void CopyFrameYUV420(byte *pYUV420, int nYUV420Size, AVFrame *pFrame420P)
+	{
+		byte *pDest = pYUV420;
+		int nStride = pFrame420P->width;
+		int nSize = nStride * nStride;
+		int nHalfSize = (nSize) >> 1;
+		byte *pDestY = pDest;										// Y分量起始地址
+
+		byte *pDestU = pDest + nSize;								// U分量起始地址
+		int nSizeofU = nHalfSize >> 1;
+
+		byte *pDestV = pDestU + (size_t)(nHalfSize >> 1);			// V分量起始地址
+		int nSizeofV = nHalfSize >> 1;
+
+		// YUV420P的U和V分量对调，便成为YV12格式
+		// 复制Y分量
+		for (int i = 0; i < pFrame420P->height; i++)
+			memcpy_s(pDestY + i * nStride, nSize * 3 / 2 - i*nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
+
+		// 复制YUV420P的U分量到目村的YV12的U分量
+		for (int i = 0; i < pFrame420P->height / 2; i++)
+			memcpy_s(pDestU + i * nStride / 2, nSizeofU - i*nStride / 2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width / 2);
+
+		// 复制YUV420P的V分量到目村的YV12的V分量
+		for (int i = 0; i < pFrame420P->height / 2; i++)
+			memcpy_s(pDestV + i * nStride / 2, nSizeofV - i*nStride / 2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width / 2);
+	}
 	void ProcessYUVFilter(AVFrame *pAvFrame, LONGLONG nTimestamp)
 	{
 		if (m_pfnYUVFilter)
@@ -3437,7 +3471,7 @@ public:
 		{
 			if (!m_pYUV)
 			{
-				m_nYUVSize = pAvFrame->linesize[0] * pAvFrame->height * 3 / 2;
+				m_nYUVSize = pAvFrame->width * pAvFrame->height * 3 / 2;
 				m_pYUV = (byte *)av_malloc(m_nYUVSize);
 				m_pYUVPtr = shared_ptr<byte>(m_pYUV, av_free);
 			}
@@ -3609,7 +3643,9 @@ public:
 		// 等待I帧
 		long tFirst = timeGetTime();
 //#ifdef _DEBUG
-		DWORD dfTimeout = 60000;
+		DWORD dfTimeout = 15000;
+		if (!pThis->m_bIpcStream)	// 只有IPC码流才需要长时间等待
+			dfTimeout = 5000;
 // #else
 // 		DWORD dfTimeout = 4000;		// 等待I帧时间
 // #endif
@@ -3619,7 +3655,7 @@ public:
 			!pThis->m_nVideoWidth||
 			!pThis->m_nVideoHeight)
 		{
-			while (!bProbeSucced)
+			while (!bProbeSucced && pThis->m_bThreadPlayVideoRun)
 			{
 				if ((timeGetTime() - tFirst) < dfTimeout)
 				{
@@ -3643,9 +3679,12 @@ public:
 					return 0;
 				}
 			}
+			if (!pThis->m_bThreadPlayVideoRun)
+				return 0;
 			// 探测码流类型
-			
+			EnterCriticalSection(&pThis->m_csVideoCache);
 			StreamFramePtr FramePtr = pThis->m_listVideoCache.front();
+			LeaveCriticalSection(&pThis->m_csVideoCache);
 			if (!bProbeSucced)
 			{
 				pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
@@ -3711,6 +3750,8 @@ public:
 			}
 		}
 		
+		if (!pThis->m_bThreadPlayVideoRun)
+			return 0;
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE )
 		{
 			pThis->OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);

@@ -1,6 +1,11 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 #include "DvoPlayer.h"
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
+
 HANDLE g_hThread_ClosePlayer = nullptr;
 HANDLE g_hEventThreadExit = nullptr;
 volatile bool g_bThread_ClosePlayer/* = false*/;
@@ -156,8 +161,13 @@ DWORD WINAPI Thread_ClosePlayer(void *)
 			for (auto it = g_listPlayer.begin(); it != g_listPlayer.end();)
 			{
 				CDvoPlayer *pDvoPlayer = (CDvoPlayer *)(*it);
-				delete pDvoPlayer;
-				it = g_listPlayer.erase(it);
+				if (pDvoPlayer->StopPlay())
+				{
+					delete pDvoPlayer;
+					it = g_listPlayer.erase(it);
+				}
+				else
+					it++;
 			}
 		}
 #if _DEBUG

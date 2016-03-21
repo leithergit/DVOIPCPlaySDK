@@ -11,6 +11,10 @@
 #include <windows.h>
 #include <TCHAR.H>
 #include <memory>
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
 using namespace std;
 using namespace std::tr1;
 

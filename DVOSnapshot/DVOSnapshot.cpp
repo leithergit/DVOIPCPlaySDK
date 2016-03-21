@@ -18,15 +18,15 @@
 using namespace std;
 using namespace std::tr1;
 
-#define ID_F12 WM_USER + 1024
-CDxSurfaceEx *g_pDxSurface = nullptr;
+#define ID_F10 WM_USER + 1024
+CDxSurface *g_pDxSurface = nullptr;
 int g_nVideoWidth = 1280;
 int g_nVideoHeight = 720;
 
 bool g_bWindowShowed = false;
 HINSTANCE hInst;	
 HWND g_hEditText = nullptr;
-bool g_bWaitForDebug = true;
+bool g_bWaitForDebug = false;
 void WaitForDebug()
 {
 	while (g_bWaitForDebug)
@@ -223,11 +223,17 @@ HANDLE		 g_hSnapShotEvent = nullptr;
 BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 {
 	// ×¢²áÈÈ¼ü
-	::RegisterHotKey(hDlg, ID_F12, MOD_ALT | MOD_CONTROL, VK_F12);
+	::RegisterHotKey(hDlg, ID_F10, MOD_ALT | MOD_CONTROL, VK_F10);
 	g_bWindowShowed = false;
 	if (!g_pDxSurface)
 	{
-		g_pDxSurface = new CDxSurfaceEx();
+		OSVERSIONINFOEX osVer;
+		osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+		GetVersionEx((OSVERSIONINFO *)&osVer);
+		//if (osVer.dwMajorVersion < 6)
+			g_pDxSurface = new CDxSurface();
+// 		else
+// 			g_pDxSurface = new CDxSurfaceEx();
 		g_pDxSurface->InitD3D(GetDlgItem(hDlg, IDC_STATIC_FRAME), g_nVideoWidth, g_nVideoHeight, TRUE);
 	}
 	g_hEditText = GetDlgItem(hDlg, IDC_EDIT_TEXT);
@@ -309,16 +315,16 @@ BOOL OnCopyData(HWND hWnd, HWND hwndFrom, PCOPYDATASTRUCT pCDS)
 		_tstrtime(szTime);
 		_tstrdate(szDate);
 		if (g_pDxSurface->SaveSurfaceToFileW(pYUVFrame->szFileName, (D3DXIMAGE_FILEFORMAT)pYUVFrame->nD3DImageFormat))
-			ScrollEdit(g_hEditText, _T("%s %s Snapshot succeed,File:%s.\r\n"), szDate, szTime, pYUVFrame->szFileName);
+			ScrollEdit(g_hEditText, _T("%s %s Snapshot succeed:%s.\r\n"), szDate, szTime, pYUVFrame->szFileName);
 		else
-			ScrollEdit(g_hEditText, _T("%s %s Snapshot Failed,File:%s.\r\n"), szDate, szTime, pYUVFrame->szFileName);
+			ScrollEdit(g_hEditText, _T("%s %s Snapshot Failed:%s.\r\n"), szDate, szTime, pYUVFrame->szFileName);
 		av_free(pFrame);
 	}
 	return TRUE;
 }
 void OnHotKey(HWND hwnd, int idHotKey, UINT fuModifiers, UINT vk)
 {
-	if (idHotKey == ID_F12)
+	if (idHotKey == ID_F10)
 	{
 		if (!g_bWindowShowed)
 			::ShowWindow(hwnd, SW_SHOW);

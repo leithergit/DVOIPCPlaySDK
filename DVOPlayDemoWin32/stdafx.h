@@ -10,8 +10,12 @@
 // #include <vld.h>
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
+#include <assert.h>
 #include <windows.h>
-
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
 // C RunTime Header Files
 #include <stdlib.h>
 #include <malloc.h>

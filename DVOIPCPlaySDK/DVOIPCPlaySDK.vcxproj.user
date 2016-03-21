@@ -10,6 +10,15 @@
     <RemoteDebuggerServerName>192.168.1.172</RemoteDebuggerServerName>
     <RemoteDebuggerConnection>RemoteWithoutAuthentication</RemoteDebuggerConnection>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DRelease|Win32'">
+    <LocalDebuggerCommand>E:\DVO\Git\public\OCX\DVO_OCX_DEMO\DvoNetShowOcxDemo.exe</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments />
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <RemoteDebuggerCommand>C:\Program Files (x86)\DiveoTech\610\Mp4Server_24.exe</RemoteDebuggerCommand>
+    <RemoteDebuggerWorkingDirectory>C:\Program Files (x86)\DiveoTech\610</RemoteDebuggerWorkingDirectory>
+    <RemoteDebuggerServerName>192.168.1.172</RemoteDebuggerServerName>
+    <RemoteDebuggerConnection>RemoteWithoutAuthentication</RemoteDebuggerConnection>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LocalDebuggerCommand>C:\Program Files %28x86%29\DiveoTech\610\Mp4Server_24.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>

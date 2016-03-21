@@ -1,7 +1,13 @@
 #pragma once
+
 #include <assert.h>
 #include <Windows.h>
 #include <stdio.h>
+
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
 /// @brief 可以自动加锁和解锁临界区的类
 ///
 /// 适用于解锁条件复杂,不方便手动解锁临界区代码的场合

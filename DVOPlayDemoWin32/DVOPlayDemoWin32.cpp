@@ -24,6 +24,11 @@ using namespace std::tr1;
 #define ID_TIMER_CHECKSTREAM	1024
 #define ID_TIMER_SNAPSHOT		1025
 
+#ifdef Release_D
+#undef assert
+#define assert	((void)0)
+#endif
+
 // Global Variables:
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
@@ -210,6 +215,9 @@ public:
 	}
 };
 
+
+
+
 shared_ptr<PlayerContext> m_pPlayContext[STREAM_COUNT] = { nullptr, nullptr, nullptr, nullptr };
 BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
@@ -217,7 +225,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_ LPTSTR    lpCmdLine,
                      _In_ int       nCmdShow)
 {
-	
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
