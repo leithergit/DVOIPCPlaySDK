@@ -553,11 +553,11 @@ public:
 				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer[0], &pFrameBuffer, nFrameSize) != DVO_Succeed)
 				{
 					TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
-					Sleep(10);
+					Sleep(5);
 					continue;
 				}
 				nFrames++;
-				TraceMsgA("%s nFrames = %d FrameSize = %d.\n", __FUNCTION__, nFrames,nFrameSize);
+				//TraceMsgA("%s nFrames = %d FrameSize = %d.\n", __FUNCTION__, nFrames,nFrameSize);
 				nStreamListSize = pThis->SendStream(pFrameBuffer, nFrameSize);
 			}
 			else
@@ -592,7 +592,7 @@ public:
 				nStreamListSize = pThis->RecvStream(pStream, bRecved);
 				if (!bRecved)
 				{
-					Sleep(10);
+					Sleep(5);
 					continue;
 				}
 			}
@@ -600,13 +600,20 @@ public:
 			nLoopCount++;
 			if (nDvoError = dvoplay_InputStream(pPlayCtx->hPlayerStream, pStream->pStream, pStream->nStreamSize) != DVO_Succeed)
 			{
-				TraceMsgA("%s dvoplay_InputStream Failed:%d.\n", __FUNCTION__, nDvoError);
+				
+				int nDvoError = dvoplay_GetPlayerInfo(pPlayCtx->hPlayerStream, pThis->m_pPlayerInfo.get());
+				TraceMsgA("%s dvoplay_InputStream Failed:%d\tVideocache size = %d.\n", __FUNCTION__, nDvoError, pThis->m_pPlayerInfo->nCacheSize);
 				bInputList = false;
-				Sleep(10);
+				Sleep(5);
 				continue;
-			}	
+			}
+			
+			int nDvoError = dvoplay_GetPlayerInfo(pPlayCtx->hPlayerStream, pThis->m_pPlayerInfo.get());
+			if (nDvoError == DVO_Succeed ||
+				nDvoError == DVO_Error_FileNotExist)
+				pThis->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pThis->m_pPlayerInfo.get(), (LPARAM)nDvoError);
 			bInputList = true;
-			Sleep(10);
+			Sleep(5);
 		}
 		return 0;
 	}

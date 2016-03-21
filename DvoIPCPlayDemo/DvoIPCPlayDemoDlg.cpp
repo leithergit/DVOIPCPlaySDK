@@ -189,18 +189,18 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	m_wndStreamInfo.InsertColumn(nCol++, _T("内容"), LVCFMT_LEFT, 130);
 	int nItem = 0;
 	ZeroMemory(m_szListText, sizeof(ListItem) * 16);
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("视频信息"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("音频编码"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("码      率"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("帧      率"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("视频缓存"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("音频缓存"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("码流总长"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("连接时长"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("播放时长"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("录像文件"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("录像长度"));
-	_tcscpy_s(m_szListText[nItem++].szItemName, 256, _T("录像时长"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("视频信息"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("音频编码"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("码      率"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("帧      率"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("视频缓存"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("音频缓存"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("码流总长"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("连接时长"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("播放时长"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("录像文件"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("录像长度"));
+	_tcscpy_s(m_szListText[nItem++].szItemName, 32, _T("录像时长"));
 	m_wndStreamInfo.SetItemCount(nItem);
 	SendDlgItemMessage(IDC_COMBO_STREAM, CB_SETCURSEL, 0, 0);
 	SetDlgItemText(IDC_EDIT_ACCOUNT, _T("admin"));
@@ -1042,17 +1042,17 @@ bool IsDVOAudioFrame(app_net_tcp_enc_stream_head_t *pStreamHeader)
 void CDvoIPCPlayDemoDlg::PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr)
 {
 	PlayerContext *pContext = (PlayerContext *)pUserPtr;
-// 	if (pContext->pThis)
-// 	{
-// 		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
-// 		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
-// 			return;
-// 		pDlg->m_dfLastUpdate = GetExactTime();
-// 		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
-//  		if (nDvoError == DVO_Succeed ||
-//  			nDvoError == DVO_Error_FileNotExist)
-//  			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
-// 	}
+	if (pContext->pThis)
+	{
+		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
+		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
+			return;
+		pDlg->m_dfLastUpdate = GetExactTime();
+		int nDvoError = dvoplay_GetPlayerInfo(hPlayHandle, pDlg->m_pPlayerInfo.get());
+ 		if (nDvoError == DVO_Succeed ||
+ 			nDvoError == DVO_Error_FileNotExist)
+ 			pDlg->PostMessage(WM_UPDATE_PLAYINFO, (WPARAM)pDlg->m_pPlayerInfo.get(), (LPARAM)nDvoError);
+	}
 
 }
 void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
@@ -1210,7 +1210,7 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
 			return;
 		pDlg->m_dfLastUpdate = GetExactTime();
-		//pDlg->PostMessage(WM_UPDATE_STREAMINFO);
+		pDlg->PostMessage(WM_UPDATE_STREAMINFO);
 	}
 }
 
@@ -1503,9 +1503,9 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonSnapshot()
 
 void CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed()
 {
+	UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
 	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
 	{
-		
 		int nCurSecl = SendDlgItemMessage(IDC_COMBO_PLAYSPEED, CB_GETCURSEL);
 		if (nCurSecl <= 0 && nCurSecl > 16)
 		{
@@ -1568,8 +1568,10 @@ void CDvoIPCPlayDemoDlg::OnCbnSelchangeComboPlayspeed()
 			fPlayRate = 32.0f;
 			break;
 		}
-		
-		dvoplay_SetRate(m_pPlayContext->hPlayer[0], fPlayRate);
+		if (bIsStreamPlay)
+			dvoplay_SetRate(m_pPlayContext->hPlayerStream, fPlayRate);
+		else
+			dvoplay_SetRate(m_pPlayContext->hPlayer[0], fPlayRate);
 	}
 	else
 	{

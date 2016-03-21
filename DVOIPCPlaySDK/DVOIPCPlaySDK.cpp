@@ -669,11 +669,11 @@ DVOIPCPLAYSDK_API int dvoplay_SetFrameParserCallback(IN DVO_PLAYHANDLE hPlayHand
 /// @brief			生成一个DVO录像文件头
 /// @param [in,out]	pMediaHeader	由用户提供的用以接收DVO录像文件头的缓冲区
 /// @param [in,out]	pHeaderSize		指定用户提供的用缓冲区的长度，若操作成功，则返回已生成的DVO录像文件头长度
-/// @param [in]		nFPS			视频的帧率
 /// @param [in]		nAudioCodec		音频的编码类型
 /// @param [in]		nVideoCodec		视频的编译类型
+/// @param [in]		nFPS			视频的帧率
 /// @remark		    若pMediaHeader为NULL,则pHeaderSize只返回所需缓冲区的长度
-DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT int  *pHeaderSize,IN DVO_CODEC nAudioCodec,IN DVO_CODEC nVideoCodec)
+DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT int  *pHeaderSize,IN DVO_CODEC nAudioCodec,IN DVO_CODEC nVideoCodec,USHORT nFPS)
 {
 	if (!pHeaderSize)
 		return DVO_Error_InvalidParameters;
@@ -694,7 +694,7 @@ DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT i
 
 	DVO_MEDIAINFO *pMedia = new DVO_MEDIAINFO();
 	pMedia->nCameraType	 = 0;	// 0为迪维欧相机产生的文件
-	pMedia->nFps		 = 0;	// FPS可以文件中推算，因此FPS字段已无意义
+	pMedia->nFps			 = (UCHAR)nFPS;	
 	pMedia->nVideoCodec  = nVideoCodec;
 	pMedia->nAudioCodec  = nAudioCodec;	
 	memcpy(pMediaHeader, pMedia, sizeof(DVO_MEDIAINFO));

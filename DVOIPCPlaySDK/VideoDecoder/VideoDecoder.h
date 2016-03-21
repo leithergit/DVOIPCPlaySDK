@@ -417,7 +417,7 @@ public:
 			DxTraceMsg("%s avio_alloc_context Failed.\n", __FUNCTION__);
 			return -1;
 		}
-		m_pAvQueue->pAvBuffer = pAvBuffer;
+		//m_pAvQueue->pAvBuffer = pAvBuffer;
 		m_pFormatCtx->pb = m_pIoContext;
 		AVInputFormat *pInputFormatCtx = NULL;
 		if (nAvError = av_probe_input_buffer(m_pIoContext, &pInputFormatCtx, "", NULL, 0, 0) < 0)
@@ -474,10 +474,10 @@ public:
 	}
 	void CancelProbe()
 	{
-		if (!m_pAvQueue)
+		if (m_pAvQueue)
 		{
-			if (m_pAvQueue->pAvBuffer)
-				delete[]m_pAvQueue->pAvBuffer;
+// 			if (m_pAvQueue->pAvBuffer)
+// 				delete []m_pAvQueue->pAvBuffer;
 			delete m_pAvQueue;
 			m_pAvQueue = nullptr;
 		}

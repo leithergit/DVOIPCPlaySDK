@@ -197,11 +197,11 @@ BOOL SystemTime2UTC(SYSTEMTIME *pSystemTime,UINT64 *pTime)
 		return FALSE;
 	if (pSystemTime->wDay< 1 || pSystemTime->wDay > 31)
 		return FALSE;
-	if (pSystemTime->wHour < 0 || pSystemTime->wHour > 24)
+	if (pSystemTime->wHour > 24)
 		return FALSE;
-	if (pSystemTime->wMonth < 0 || pSystemTime->wMinute > 60)
+	if (pSystemTime->wMinute > 60)
 		return FALSE;
-	if (pSystemTime->wSecond < 0 || pSystemTime->wSecond > 60)
+	if (pSystemTime->wSecond > 60)
 		return FALSE;
 	if (pSystemTime->wMilliseconds < 0)
 		return FALSE;

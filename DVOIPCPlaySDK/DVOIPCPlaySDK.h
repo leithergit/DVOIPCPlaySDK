@@ -464,11 +464,11 @@ DVOIPCPLAYSDK_API int dvoplay_SetFrameParserCallback(IN DVO_PLAYHANDLE hPlayHand
 /// @brief			生成一个DVO录像文件头
 /// @param [in,out]	pMediaHeader	由用户提供的用以接收DVO录像文件头的缓冲区
 /// @param [in,out]	pHeaderSize		指定用户提供的用缓冲区的长度，若操作成功，则返回已生成的DVO录像文件头长度
-/// @param [in]		nFPS			视频的帧率
 /// @param [in]		nAudioCodec		音频的编码类型
 /// @param [in]		nVideoCodec		视频的编译类型
+/// @param [in]		nFPS			视频的帧率
 /// @remark		    若pMediaHeader为NULL,则pHeaderSize只返回所需缓冲区的长度
-DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT int  *pHeaderSize, IN DVO_CODEC nAudioCodec, IN DVO_CODEC nVideoCodec = CODEC_H264);
+DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT int  *pHeaderSize, IN DVO_CODEC nAudioCodec, IN DVO_CODEC nVideoCodec = CODEC_H264,USHORT nFPS = 25);
 
 /// @brief			生成一个DVO录像帧
 /// @param [in,out]	pFrameHeader	由用户提供的用以接收DVO录像帧的缓冲区

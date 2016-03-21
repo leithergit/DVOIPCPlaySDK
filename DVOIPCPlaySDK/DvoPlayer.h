@@ -197,7 +197,7 @@ struct StreamFrame
 		ZeroMemory(this, sizeof(StreamFrame));
 	}
 	/// @brief	接收已封装好的带DVOFrameHeaderEx头的数据
-	StreamFrame(byte *pBuffer, int nLenth)
+	StreamFrame(byte *pBuffer, int nLenth,INT nFrameInterval)
 	{
 		assert(pBuffer != nullptr);
 		assert(nLenth >= sizeof(DVOFrameHeaderEx));
@@ -205,6 +205,8 @@ struct StreamFrame
 		pInputData = _New byte[nLenth];
 		if (pInputData)
 			memcpy(pInputData, pBuffer, nLenth);
+		DVOFrameHeaderEx* pHeader = (DVOFrameHeaderEx *)pInputData;
+		pHeader->nTimestamp = pHeader->nFrameID*nFrameInterval*1000;
 	}
 	/// @brief	接收来自相机或其它实时码流的数据
 	StreamFrame(IN byte *pFrame, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime )
@@ -871,7 +873,24 @@ public:
 		if (m_pMediaHeader)
 		{
 			memcpy(m_pMediaHeader.get(), szStreamHeader, sizeof(DVO_MEDIAINFO));
-			return 0;
+			switch (m_pMediaHeader->nSDKversion)
+			{
+			case DVO_IPC_SDK_VERSION_2015_09_07:
+				if (m_pMediaHeader->nFps != 0 && m_pMediaHeader->nFps != 1)
+					m_nFileFPS = m_pMediaHeader->nFps;
+				break;
+			case DVO_IPC_SDK_VERSION_2015_10_20:
+			case DVO_IPC_SDK_VERSION_2015_12_16:
+				if (m_pMediaHeader->nFps == 0)
+					m_nFileFPS = 25;
+				else
+					m_nFileFPS = m_pMediaHeader->nFps;
+				break;
+			default:
+				return DVO_Error_InvalidSDKVersion;
+			}
+			m_nFileFrameInterval = 1000 / m_nFileFPS;
+			return DVO_Succeed;
 		}
 		else
 			return DVO_Error_InsufficentMemory;
@@ -939,9 +958,7 @@ public:
 			{
 				return GetLastError();
 			}
-// 			if (m_pDxSurface)
-// 				m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
-			
+		
 			// 启动文件解析线程
 			m_bThreadParserRun = true;
 			//m_hThreadParser = (HANDLE)_beginthreadex(nullptr, 0, ThreadParser, this, 0, 0);
@@ -1032,11 +1049,15 @@ public:
 			break;
 		case DVO_IPC_SDK_VERSION_2015_10_20:
 		case DVO_IPC_SDK_VERSION_2015_12_16:
-			//m_nFPS = m_pMediaHeader->nFps;		// FPS不再从文件头中获得,而是从帧间隔中推算
+			if (m_pMediaHeader->nFps == 0)
+				m_nFileFPS = 25;
+			else
+				m_nFileFPS = m_pMediaHeader->nFps;
 			break;
 		default:
 			return DVO_Error_InvalidSDKVersion;
 		}
+		m_nFileFrameInterval = 1000 / m_nFileFPS;
 		return DVO_Succeed;
 	}
 	
@@ -1069,7 +1090,7 @@ public:
 				CAutoLock lock(&m_csVideoCache);
 				if (m_listVideoCache.size() >= m_nMaxFrameCache)
 					return DVO_Error_FrameCacheIsFulled;
-				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize);
+				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize,m_nFileFrameInterval);
 				if (!pStream)
 					return DVO_Error_InsufficentMemory;
 				m_listVideoCache.push_back(pStream);
@@ -1084,7 +1105,7 @@ public:
 // 					return DVO_Error_AudioThreadNotRun;
 				if (!m_bEnableAudio)
 					break;
-				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize);
+				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize, m_nFileFrameInterval/2);
 				if (!pStream)
 					return DVO_Error_InsufficentMemory;
 
@@ -1283,24 +1304,25 @@ public:
 			EnterCriticalSection(&m_csAudioCache);
 			pPlayInfo->nCacheSize2 = m_listAudioCache.size();
 			LeaveCriticalSection(&m_csAudioCache);
-	
-			if (m_pszFileName && ::PathFileExistsA(m_pszFileName))
+			
+			if (m_pszFileName &&
+				::PathFileExistsA(m_pszFileName))
 			{
-				if (/*m_nCurVideoFrame == 0 ||*/
-					!m_pFrameOffsetTable)
+				if (nullptr == m_pFrameOffsetTable)
 				{
 					int nError = GetFileSummary();
 					if (nError != DVO_Succeed)
 						return DVO_Error_SummaryNotReady;
 				}
-				pPlayInfo->nCurFrameID = m_nCurVideoFrame;
-				pPlayInfo->nTotalFrames = m_nTotalFrames;
-				pPlayInfo->tCurFrameTime = (m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
 				pPlayInfo->tTotalTime = (m_pFrameOffsetTable[m_nTotalFrames - 1].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000;
-				return DVO_Succeed;
 			}
 			else
-				return DVO_Error_FileNotExist;
+				pPlayInfo->tTotalTime = 0;
+			pPlayInfo->nCurFrameID = m_nCurVideoFrame;
+			pPlayInfo->nTotalFrames = m_nTotalFrames;
+			pPlayInfo->tCurFrameTime = m_nCurVideoFrame*m_fPlayInterval/*(m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000*/;
+			
+			return DVO_Succeed;
 		}
 		else
 			return DVO_Error_PlayerNotStart;
@@ -1368,9 +1390,10 @@ public:
 		dm.dmSize = sizeof(DEVMODE);
 		::EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
 		m_fPlayInterval = (int)(1000 / (m_nFileFPS*fPlayRate));
-		float nMinPlayInterval = ((float)1000) / dm.dmDisplayFrequency;
-		if (m_fPlayInterval < nMinPlayInterval)
-			m_fPlayInterval = nMinPlayInterval;
+/// marked by xionggao.lee @2016.03.23
+// 		float nMinPlayInterval = ((float)1000) / dm.dmDisplayFrequency;
+// 		if (m_fPlayInterval < nMinPlayInterval)
+// 			m_fPlayInterval = nMinPlayInterval;
 		m_nPlayFPS = 1000 / m_fPlayInterval;
 		m_fPlayRate = fPlayRate;
 
@@ -1421,8 +1444,7 @@ public:
 				break;
 			nBackWord --;
 		}
-		if (nBackWord < 0)
-			nBackWord = 0;
+	
 		if ((nForward - nFrameID) <= (nFrameID - nBackWord))
 			m_nFrametoRead = nForward;
 		else
@@ -2094,7 +2116,8 @@ public:
 					m_pFrameOffsetTable[nFrames].nOffset = nFrameOffset;
 					m_pFrameOffsetTable[nFrames].nFrameSize = Parser.nFrameSize;
 					m_pFrameOffsetTable[nFrames].bIFrame = bIFrame;
-					m_pFrameOffsetTable[nFrames].tTimeStamp = Parser.pHeaderEx->nTimestamp;
+					// 根据帧ID和文件播放间隔来精确调整每一帧的播放时间
+					m_pFrameOffsetTable[nFrames].tTimeStamp = Parser.pHeaderEx->nFrameID*m_nFileFrameInterval * 1000;
 					nFrames++;
 				}
 				else
@@ -2107,18 +2130,18 @@ public:
 		}
 #ifdef _DEBUG
 		OutputMsg("%s TimeSpan = %.3f.\n", __FUNCTION__, TimeSpanEx(dfTimeStart));
-#endif
-		// 查找最一个I帧
-		__int64 nLastIFrameID = m_nTotalFrames - 1;
-// 		for (; nLastIFrameID > 0; nLastIFrameID--)
+// 		int nArrayCount = 0;
+// 		OutputMsg("%s Frame TimeSpan for File %s:\n", __FUNCTION__, m_pszFileName);
+// 		for (int i = 0; i < m_nTotalFrames - 1; i++)
 // 		{
-// 			if (m_pFrameOffsetTable[nLastIFrameID].bIFrame)
-// 				break;
+// 			OutputMsg("%d\t", (m_pFrameOffsetTable[i + 1].tTimeStamp - m_pFrameOffsetTable[i].tTimeStamp)/1000);
+// 			if ((i+1)% 25 == 0 )
+// 			{
+// 				OutputMsg("\n");
+// 				nArrayCount = 0;
+// 			}
 // 		}
-		// 根据录像总时间和总有完整帧数计算FPS
-		m_nFileFPS = nLastIFrameID *(1000 * 1000)/ (m_pFrameOffsetTable[nLastIFrameID].tTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) ;
-		
-		m_nFileFrameInterval = 1000 / m_nFileFPS;
+#endif		
 		// 把文件指针重新移回到文件头部
 		nOffset = sizeof(DVO_MEDIAINFO);
 		if (SetFilePointer(m_hDvoFile, nOffset, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
@@ -2568,6 +2591,8 @@ public:
 				InitInfo.hPresentWnd = pThis->m_hWnd;
     		//else
     		//	InitInfo.hPresentWnd = pWndDxInit->GetSafeHwnd();
+				
+			pThis->m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
 			if (!pThis->m_pDxSurface->InitD3D(InitInfo.hPresentWnd,
 				InitInfo.nFrameWidth,
 				InitInfo.nFrameHeight,
@@ -2636,8 +2661,7 @@ public:
 #endif
 		int nIFrameTime = 0;
 		int nFramesAfterIFrame = 0;		// 相对I帧的编号,I帧后的第一帧为1，第二帧为2依此类推
-		int nSkipFrames = 0;
-		
+		int nSkipFrames = 0;		
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -2652,31 +2676,30 @@ public:
 				{
 					bool bPopFrame = false;
 					//if (pThis->m_nPlayInterval < nRefreshInvertal)	//播放间隔小于显示器刷新间隔，即播速度快于显示器刷新速度,则需要跳帧
-					{// 查找时间上最匹配的帧,并删除不匹配的非I帧
-						int nSkipFrames = 0;
-						CAutoLock lock(&pThis->m_csVideoCache);
-						for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
+					// 查找时间上最匹配的帧,并删除不匹配的非I帧
+					int nSkipFrames = 0;
+					CAutoLock lock(&pThis->m_csVideoCache);
+					for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
+					{
+						time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
+						if (tFrameSpan >= pThis->m_fPlayInterval*pThis->m_fPlayRate
+							|| StreamFrame::IsIFrame(*it))
 						{
-							time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
-							if (tFrameSpan >= pThis->m_fPlayInterval*pThis->m_fPlayRate
-								|| StreamFrame::IsIFrame(*it))
-							{
-								bPopFrame = true;
-								break;
-							}
-							else
-							{
-								it = pThis->m_listVideoCache.erase(it);
-								nSkipFrames++;
-							}
+							bPopFrame = true;
+							break;
 						}
-// 						if (nSkipFrames)
-// 							OutputMsg("%s Skip Frames = %d bPopFrame = %s.\n", __FUNCTION__, nSkipFrames, bPopFrame ? "true" : "false");
-						if (bPopFrame)
+						else
 						{
-							FramePtr = pThis->m_listVideoCache.front();
-							pThis->m_listVideoCache.pop_front();
+							it = pThis->m_listVideoCache.erase(it);
+							nSkipFrames++;
 						}
+					}
+ 					if (nSkipFrames)
+ 						pThis->OutputMsg("%s Skip Frames = %d bPopFrame = %s.\n", __FUNCTION__, nSkipFrames, bPopFrame ? "true" : "false");
+					if (bPopFrame)
+					{
+						FramePtr = pThis->m_listVideoCache.front();
+						pThis->m_listVideoCache.pop_front();
 					}
 // 					else
 // 					{
@@ -2726,7 +2749,6 @@ public:
 				}
 			}
 #ifdef _DEBUG
-
 // 			SYSTEMTIME sysTime;
 // 			GetSystemTime(&sysTime);
 // 			unsigned long long tNow;
@@ -2805,7 +2827,8 @@ public:
  			{
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
- 				pThis->RenderFrame(pAvFrame);
+				if (pThis->m_pDxSurface)
+ 					pThis->RenderFrame(pAvFrame);
  				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)GetExactTime()*1000);
  				if (pThis->m_pFilePlayCallBack)
  					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);
@@ -2919,8 +2942,6 @@ public:
 		}
 		if (nPCMSize < nDecodeSize)
 		{
-			if (pPCM)
-				delete[]pPCM;
 			pPCM = new byte[nDecodeSize];
 			nPCMSize = nDecodeSize;
 		}

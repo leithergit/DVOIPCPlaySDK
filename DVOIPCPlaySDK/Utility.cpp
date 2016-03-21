@@ -497,11 +497,8 @@ void GetLastErrorMessageA(IN LPCSTR szErrorText,OUT LPSTR szText,IN DWORD dwErro
 			(LPSTR) &lpMsgBuf,
 			0,
 			NULL);
-		if (!szErrorText)
-			sprintf(szText, "%s 因以下错误而失败:\r\n\t%s\r\n", szErrorText, (CHAR *)lpMsgBuf);
-		else
-			sprintf(szText, "发生错误:\r\n\t%s\r\n",  (CHAR *)lpMsgBuf);
-		//_tcscpy(szErrorText,szText);
+		
+		sprintf(szText, "%s 因以下错误而失败:\r\n\t%s\r\n", szErrorText, (CHAR *)lpMsgBuf);
 	}
 	__finally
 	{
@@ -528,10 +525,7 @@ void GetLastErrorMessageW(IN LPCWSTR szErrorText,OUT LPWSTR szText,IN DWORD dwEr
 			(LPWSTR) &lpMsgBuf,
 			0,
 			NULL);
-		if (!szErrorText)
-			swprintf(szText, L"%s 因以下错误而失败:\r\n\t%s\r\n", szErrorText, (WCHAR *)lpMsgBuf);
-		else
-			swprintf(szText, L"发生错误:\r\n\t%s\r\n", (WCHAR *)lpMsgBuf);
+		swprintf(szText, L"%s 因以下错误而失败:\r\n\t%s\r\n", szErrorText, (WCHAR *)lpMsgBuf);
 	}
 	__finally
 	{
@@ -1674,8 +1668,7 @@ bool SetAutoRunA(LPCSTR strAutoRunItem,LPCSTR szAppPath)
 
 	bool bResult = false;
 	__try
-	{
-		HKEY  hKey = NULL;
+	{	
 		DWORD retCode = 0;
 		LPCSTR szMainSubKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 		retCode = RegOpenKeyExA(HKEY_LOCAL_MACHINE,szMainSubKey,0,KEY_ALL_ACCESS,&hKey);
@@ -1707,7 +1700,7 @@ bool SetAutoRunA(LPCSTR strAutoRunItem,LPCSTR szAppPath)
 	}
 	__finally
 	{
-		if (hKey != NULL)
+		if (hKey )
 			RegCloseKey(hKey);
 	}
 	return bResult;
@@ -1721,7 +1714,6 @@ bool SetAutoRunW(LPCWSTR strAutoRunItem,LPCWSTR szAppPath)
 	bool bResult = false;
 	__try
 	{
-		HKEY  hKey = NULL;
 		DWORD retCode = 0;
 		LPCWSTR szMainSubKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 		retCode = RegOpenKeyExW(HKEY_LOCAL_MACHINE,szMainSubKey,0,KEY_ALL_ACCESS,&hKey);
@@ -1753,7 +1745,7 @@ bool SetAutoRunW(LPCWSTR strAutoRunItem,LPCWSTR szAppPath)
 	}
 	__finally
 	{
-		if (hKey != NULL)
+		if (hKey )
 			RegCloseKey(hKey);
 	}
 	return bResult;
@@ -1814,7 +1806,6 @@ bool DeleteAutoRunW(LPCWSTR strAutoRunItem)
 	bool bResult = false;
 	__try
 	{
-		HKEY  hKey = NULL;
 		DWORD retCode = 0;
 		LPCWSTR szMainSubKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 		retCode = RegOpenKeyExW(HKEY_LOCAL_MACHINE,szMainSubKey,0,KEY_ALL_ACCESS,&hKey);
@@ -1846,7 +1837,7 @@ bool DeleteAutoRunW(LPCWSTR strAutoRunItem)
 	}
 	__finally
 	{
-		if (hKey != NULL)
+		if (hKey)
 			RegCloseKey(hKey);
 	}
 	return bResult;
@@ -1861,7 +1852,6 @@ bool IsAutoRunA(LPCSTR strAutoRunItem,bool &bAutoRun)
 	bAutoRun = false;
 	__try
 	{
-		HKEY  hKey = NULL;
 		DWORD retCode = 0;
 		LPCSTR szMainSubKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 		CHAR szAppValue[MAX_PATH];
@@ -1911,7 +1901,7 @@ bool IsAutoRunA(LPCSTR strAutoRunItem,bool &bAutoRun)
 	}
 	__finally
 	{
-		if (hKey != NULL)
+		if (hKey )
 			RegCloseKey(hKey);
 	}
 	return bResult;
@@ -1925,7 +1915,6 @@ bool IsAutoRunW(LPCWSTR strAutoRunItem,bool &bAutoRun)
 	bAutoRun = false;
 	__try
 	{
-		HKEY  hKey = NULL;
 		DWORD retCode = 0;
 		LPCWSTR szMainSubKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 		WCHAR szAppValue[MAX_PATH];
@@ -2250,7 +2239,7 @@ int GetFixedHardDriversA(CHAR *szDrvList,int nBuffSize)
 			ZeroMemory(szDrvList,nBuffSize);
 			if (!GetLogicalDriveStringsA(BUFSIZE-1, szTemp)) 
 				__leave;
-			CHAR szName[MAX_PATH];
+			CHAR szName[512];
 			CHAR szDrive[3] = " :";
 			BOOL bFound = FALSE;
 			CHAR* p = szTemp;
@@ -2258,7 +2247,7 @@ int GetFixedHardDriversA(CHAR *szDrvList,int nBuffSize)
 			{
 				// Copy the drive letter to the template string
 				*szDrive = *p;
-				if (QueryDosDeviceA(szDrive, szName, MAX_PATH))
+				if (QueryDosDeviceA(szDrive, szName, 512))
 				{
 					TraceMsgA("%s=%s ",szDrive,szName);
 				}
@@ -2375,7 +2364,7 @@ int GetFixedHardDriversW(WCHAR *szDrvList,int nBuffSize)
 		ZeroMemory(szDrvList,nBuffSize);
 		if (!GetLogicalDriveStringsW(BUFSIZE-1, szTemp)) 
 			__leave;
-		WCHAR szName[MAX_PATH];
+		WCHAR szName[512];
 		WCHAR szDrive[3] = L" :";
 		BOOL bFound = FALSE;
 		WCHAR* p = szTemp;
@@ -2383,7 +2372,7 @@ int GetFixedHardDriversW(WCHAR *szDrvList,int nBuffSize)
 		{
 			// Copy the drive letter to the template string
 			*szDrive = *p;
-			if (QueryDosDeviceW(szDrive, szName, MAX_PATH))
+			if (QueryDosDeviceW(szDrive, szName, 512))
 			{
 				TraceMsgW(L"%s=%s ",szDrive,szName);
 			}

@@ -2059,7 +2059,6 @@ _Failed:
 			{
 				DxTraceMsg("%s The device is hung.\n",__FUNCTION__);
 				DxCleanup();
-				assert(hr == S_OK);
 				if (FAILED(hr))
 					return false;
 				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	
@@ -2070,8 +2069,7 @@ _Failed:
 				DxTraceMsg("%s if the device has been removed.\n",__FUNCTION__);
 				DxCleanup();
 				SafeRelease(m_pDirect3D9Ex);
-				HRESULT hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pDirect3D9Ex);
-				assert(hr == S_OK);
+				hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pDirect3D9Ex);
 				if (FAILED(hr))
 					return false;
 				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	

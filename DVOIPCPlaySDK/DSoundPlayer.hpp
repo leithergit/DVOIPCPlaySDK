@@ -162,16 +162,17 @@ public:
 			return FALSE;
 		m_bPause = FALSE;
 		HRESULT hr = m_pDSBuffer->SetCurrentPosition(0L);
+				
+		if (FAILED(hr))
+		{
+			DsTrace("%s m_pDSBSlavely->SetCurrentPosition() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
+			return FALSE;
+		}
+
 		hr = m_pDSBuffer->Stop();
 		if (FAILED(hr))
 		{
 			DsTrace("%s m_pDSBSlavely->Stop() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
-			return FALSE;
-		}
-		
-		if (FAILED(hr))
-		{
-			DsTrace("%s m_pDSBSlavely->SetCurrentPosition() Failed,hr = 0x%08X.\n", __FUNCTION__, hr);
 			return FALSE;
 		}
 		return TRUE;
