@@ -34,7 +34,7 @@
 #include "DSoundPlayer.hpp"
 #include "AudioDecoder.h"
 #include "Runlog.h"
-#include "DirectDraw.h"
+//#include "DirectDraw.h"
 
 #ifdef _DEBUG
 #define _New	new

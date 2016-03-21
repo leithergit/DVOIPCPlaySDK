@@ -576,8 +576,6 @@ protected:
 	D3DFORMAT				m_nD3DFormat;
 	UINT					m_nVideoWidth;
 	UINT					m_nVideoHeight;
-	bool					m_bSurfaceFullSize;	// 使用全尺寸表面,当需要对同一画面进行拉伸全屏时，需要开启该选项，不然全屏时画面可能会有锯齿
-												// 该选项会消耗更多的显存资源
 	bool					m_bInitialized;	
 	HMODULE					m_hD3D9;
 	shared_ptr<PixelConvert>m_pPixelConvert;
@@ -699,17 +697,6 @@ public:
 		}
 		else
 			return false;
-	}
-	// 设置DirectX的资源是否以全屏尺寸创建
-	// bResourceFullSize为ture时，则按全屏尺寸创建，否则按窗口尺寸创建
-	// 此函数必须在InitD3D函数前执行才会有效
-	inline void SetResourceFullSize(bool bResourceFullSize = true)
-	{
-		m_bSurfaceFullSize = bResourceFullSize;
-	}
-	inline bool IsResourceFullSize()
-	{
-		return m_bSurfaceFullSize;
 	}
 
 	void SetExternDraw(void *pExternDrawProc,void *pUserPtr)
@@ -1063,17 +1050,9 @@ public:
 			else
 				m_d3dpp.PresentationInterval	= D3DPRESENT_INTERVAL_DEFAULT;
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
-			if (m_bSurfaceFullSize)
-			{
-				m_d3dpp.BackBufferWidth			= GetSystemMetrics(SM_CXSCREEN);	// 获得屏幕宽;
-				m_d3dpp.BackBufferHeight		= GetSystemMetrics(SM_CYSCREEN);	// 获得屏幕高;
-			}
-			else
-			{
-				m_d3dpp.BackBufferHeight		= 0;
-				m_d3dpp.BackBufferWidth			= 0;
-			}
 			
+			m_d3dpp.BackBufferHeight			= nVideoHeight;
+			m_d3dpp.BackBufferWidth				= nVideoWidth;
 			m_d3dpp.EnableAutoDepthStencil		= FALSE;							// 关闭自动深度缓存
 		}
 		else
@@ -2116,17 +2095,8 @@ public:
 						
 			m_d3dpp.FullScreen_RefreshRateInHz	= 0;							// 显示器刷新率，窗口模式该值必须为0
 			m_d3dpp.SwapEffect					= D3DSWAPEFFECT_DISCARD;		// 指定系统如何将后台缓冲区的内容复制到前台缓冲区 D3DSWAPEFFECT_DISCARD:清除后台缓存的内容
-			if (m_bSurfaceFullSize)
-			{
-				m_d3dpp.BackBufferWidth			= GetSystemMetrics(SM_CXSCREEN);	// 获得屏幕宽;
-				m_d3dpp.BackBufferHeight		= GetSystemMetrics(SM_CYSCREEN);	// 获得屏幕高;
-			}
-			else
-			{
-				m_d3dpp.BackBufferHeight		= 0;
-				m_d3dpp.BackBufferWidth			= 0;
-			}
-
+			m_d3dpp.BackBufferHeight			= nVideoHeight;
+			m_d3dpp.BackBufferWidth				= nVideoWidth;
 			m_d3dpp.EnableAutoDepthStencil		= FALSE;							// 关闭自动深度缓存
 		}
 		else

@@ -223,7 +223,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		IDC_SLIDER_BRIGHTNESS,
 		IDC_SLIDER_CONTRAST,
 		IDC_SLIDER_CHROMA,
-		IDC_SLIDER_PICSCALE,
+		IDC_SLIDER_ZOOMSCALE,
 		IDC_SLIDER_VOLUME,
 		IDC_SLIDER_PLAYER};
 	// 设置滑动块的取舍范围
@@ -234,6 +234,9 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		SendDlgItemMessage(nSliderIDArray[i], TBM_SETRANGEMAX, bRedraw, 100);
 	}
 	SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_SETPOS, TRUE, 80);
+	SendDlgItemMessage(IDC_SLIDER_ZOOMSCALE, TBM_SETPOS, TRUE, 100);
+	SetDlgItemText(IDC_EDIT_PICSCALE, "100");
+	EnableDlgItem(IDC_SLIDER_ZOOMSCALE, true);
 
 	InitializeCriticalSection(&m_csListStream);
 	m_nHotkeyID = GlobalAddAtom(_T("{A1C54F9F-A835-4fca-88DA-BF0C0DA0E6C5}"));
@@ -290,7 +293,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		IDC_STATIC_PICSCALE,
 		IDC_COMBO_PICSCALE,
 		IDC_STATIC_ZOOMSCALE,
-		IDC_SLIDER_PICSCALE,
+		IDC_SLIDER_ZOOMSCALE,
 		IDC_EDIT_PICSCALE,
 		IDC_CHECK_FITWINDOW,
 		IDC_BUTTON_SNAPSHOT,
@@ -906,7 +909,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 					IDC_SLIDER_BRIGHTNESS,
 					IDC_SLIDER_CONTRAST,
 					IDC_SLIDER_CHROMA,
-					IDC_SLIDER_PICSCALE,
+					IDC_SLIDER_ZOOMSCALE,
 					IDC_SLIDER_VOLUME);
 				EnableDlgItem(IDC_SLIDER_PLAYER, false);
 				EnableDlgItem(IDC_EDIT_ROW, false);
@@ -934,7 +937,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 					IDC_SLIDER_BRIGHTNESS,
 					IDC_SLIDER_CONTRAST,
 					IDC_SLIDER_CHROMA,
-					IDC_SLIDER_PICSCALE,
+					IDC_SLIDER_ZOOMSCALE,
 					IDC_SLIDER_VOLUME);
 				EnableDlgItem(IDC_SLIDER_PLAYER, false);
 				EnableDlgItem(IDC_EDIT_ROW, true);
@@ -1040,7 +1043,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 // 					IDC_SLIDER_BRIGHTNESS,
 // 					IDC_SLIDER_CONTRAST,
 // 					IDC_SLIDER_CHROMA,
-// 					IDC_SLIDER_PICSCALE,
+// 					IDC_SLIDER_ZOOMSCALE,
 // 					IDC_SLIDER_VOLUME);
 // 				EnableDlgItem(IDC_SLIDER_PLAYER, false);
 // 				EnableDlgItem(IDC_EDIT_ROW, false);
@@ -1068,7 +1071,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 // 					IDC_SLIDER_BRIGHTNESS,
 // 					IDC_SLIDER_CONTRAST,
 // 					IDC_SLIDER_CHROMA,
-// 					IDC_SLIDER_PICSCALE,
+// 					IDC_SLIDER_ZOOMSCALE,
 // 					IDC_SLIDER_VOLUME);
 // 				EnableDlgItem(IDC_SLIDER_PLAYER, false);
 // 				EnableDlgItem(IDC_EDIT_ROW, true);
@@ -1407,7 +1410,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					IDC_SLIDER_BRIGHTNESS,
 					IDC_SLIDER_CONTRAST,
 					IDC_SLIDER_CHROMA,
-					IDC_SLIDER_PICSCALE,
+					IDC_SLIDER_ZOOMSCALE,
 					IDC_SLIDER_VOLUME, 
 					IDC_SLIDER_PLAYER);
 }
@@ -1831,11 +1834,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 
 void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
-	if (!m_pPlayContext || !m_pPlayContext->hPlayer[0])
-	{
-		CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
-		return;
-	}
+	
 	
 	UINT nSliderID = pScrollBar->GetDlgCtrlID();	
 	nPos = SendDlgItemMessage(nSliderID, TBM_GETPOS, 0, 0l);
@@ -1853,16 +1852,43 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 	case IDC_SLIDER_CHROMA:
 		TraceMsgA("SliderID:%s\tPos = %d.\n", _Var(IDC_SLIDER_CHROMA), nPos);
 		break;
-	case IDC_SLIDER_PICSCALE:
-		TraceMsgA("SliderID:%s\tPos = %d.\n", _Var(IDC_SLIDER_PICSCALE), nPos);
+	case IDC_SLIDER_ZOOMSCALE:
+	{
+		CRect  rtVideoFrame;
+		GetDlgItemRect(IDC_STATIC_FRAME, rtVideoFrame);
+		int nWidth = rtVideoFrame.Width();
+		int nHeight = rtVideoFrame.Height();
+		int nCenterX = rtVideoFrame.left +  nWidth/ 2;
+		int nCenterY = rtVideoFrame.top + nHeight / 2;
+		int nNewWidth = nPos*nWidth / 100;
+		int nNewHeight = nPos*nHeight / 100;
+		rtVideoFrame.left = nCenterX - nNewWidth / 2;
+		rtVideoFrame.right = rtVideoFrame.left + nNewWidth;
+		rtVideoFrame.top = nCenterY - nNewHeight / 2;
+		rtVideoFrame.bottom = rtVideoFrame.top + nNewHeight;
+		m_pVideoWndFrame->MoveWindow(&rtVideoFrame);
+		SetDlgItemInt(IDC_EDIT_PICSCALE, nPos);
+
+		TraceMsgA("SliderID:%s\tPos = %d.\n", _Var(IDC_SLIDER_ZOOMSCALE), nPos);
 		break;
+	}
 	case IDC_SLIDER_VOLUME:
 	{
+		if (!m_pPlayContext || !m_pPlayContext->hPlayer[0])
+		{
+			CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
+			return;
+		}
 		dvoplay_SetVolume(m_pPlayContext->hPlayer[0], nPos);
 	}
 		break;
 	case IDC_SLIDER_PLAYER:
 	{
+		if (!m_pPlayContext || !m_pPlayContext->hPlayer[0])
+		{
+			CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
+			return;
+		}
 		DeclareRunTime();
 		switch (nSBCode)
 		{
