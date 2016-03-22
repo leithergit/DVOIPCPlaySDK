@@ -70,6 +70,14 @@ void GetAppPathA(CHAR *szPath, int nBuffLen)
 }
 
 
+/// @brief		解码后YVU数据回调
+void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
+	const unsigned char* pYUV,
+	int nSize,
+	int nWidth,
+	int nHeight,
+	INT64 nTime,
+	void *pUserPtr);
 void  __stdcall StreamCallBack(IN USER_HANDLE  lUserID,
 	IN REAL_HANDLE lStreamHandle,
 	IN int         nErrorType,
@@ -93,7 +101,7 @@ public:
 		double		dfTimeRecv2 = 0.0f;
 		HWND		hWndView;
 		int			nItem;
-		
+		HANDLE		hYUVFile;
 		bool		bRecvIFrame;
 		time_t		tLastFrame;
 		int			nFPS;
@@ -692,6 +700,37 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 						}
 						SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100,nullptr);
 						dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
+						if (IsDlgButtonChecked(hDlg,IDC_CHECK_SAVEYUV) == BST_CHECKED)
+						{
+							SYSTEMTIME sysTime;
+							GetLocalTime(&sysTime);
+							char szYUVFile[512] = { 0 };
+							sprintf(szYUVFile, "YVU%s_%04d%02d%02d_%02d%02d%02d.YUV",
+								g_vIPCamera[i].c_str(),
+								sysTime.wYear,
+								sysTime.wMonth,
+								sysTime.wDay,
+								sysTime.wHour,
+								sysTime.wMinute,
+								sysTime.wSecond);
+							m_pPlayContext[i]->hYUVFile = CreateFileA(szYUVFile,
+								GENERIC_WRITE,
+								FILE_GENERIC_WRITE,
+								NULL,
+								OPEN_ALWAYS,
+								FILE_ATTRIBUTE_ARCHIVE,
+								NULL);
+							if (m_pPlayContext[i]->hYUVFile != INVALID_HANDLE_VALUE)
+							{
+								sprintf(szText, "YVU数据将被保存到文件%s中.", szYUVFile);
+								ListBox_AddString(g_hListMessage, szText);
+							}
+							else
+							{
+								sprintf(szText, "打开文件%s失败，YVU数据将无法保存.", szYUVFile);
+								ListBox_AddString(g_hListMessage, szText);
+							}
+						}
 						dvoplay_Start(m_pPlayContext[i]->hPlayer, false, true);
 					}
 					m_pPlayContext[i]->dwLastStreamTime = timeGetTime();
@@ -931,4 +970,24 @@ void  __stdcall StreamCallBack(IN USER_HANDLE  lUserID,
 	//for (int i = 0; i < pContext->nPlayerCount; i++)
 	if (pContext->hPlayer)
 		dvoplay_InputIPCStream(pContext->hPlayer, pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, 0);
+}
+
+/// @brief		解码后YVU数据回调
+void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
+	const unsigned char* pYUV,
+	int nSize,
+	int nWidth,
+	int nHeight,
+	INT64 nTime,
+	void *pUserPtr)
+{
+	PlayerContext *pContext = (PlayerContext *)pUserPtr;
+	if (pContext->hYUVFile)
+	{
+		DWORD dwBytesWrite = 0;
+		if (!WriteFile(pContext->hYUVFile, pYUV, nSize, &dwBytesWrite, nullptr))
+		{
+			ListBox_AddString(g_hListMessage, "写入YVU数据失败");
+		}
+	}
 }
