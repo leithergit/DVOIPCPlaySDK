@@ -12,7 +12,7 @@
 #define new DEBUG_NEW
 #endif
 
-
+CVca* g_pVca = nullptr;
 enum _SubItem
 {
 	Item_VideoInfo,

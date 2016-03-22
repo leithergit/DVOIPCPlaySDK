@@ -20,6 +20,10 @@
 CAvRegister CDvoPlayer::avRegister;
 CriticalSectionPtr CDvoPlayer::m_csDsoundEnum = make_shared<CriticalSectionWrap>();
 shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = nullptr;/*= make_shared<CDSoundEnum>()*/;	///< 音频设备枚举器
+#ifdef _DEBUG
+int	CDvoPlayer::m_nGloabalCount = 0;
+CriticalSectionPtr CDvoPlayer::m_pCSGlobalCount = make_shared<CriticalSectionWrap>();
+#endif
 //shared_ptr<CDSound> CDvoPlayer::m_pDsPlayer = make_shared<CDSound>(nullptr);
 //shared_ptr<CSimpleWnd> CDvoPlayer::m_pWndDxInit = make_shared<CSimpleWnd>();	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 

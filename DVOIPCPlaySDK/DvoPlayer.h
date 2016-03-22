@@ -330,6 +330,44 @@ struct FileFrameInfo
 	bool	bIFrame;	///< 是否I帧
 	time_t	tTimeStamp;
 };
+// //调试开关
+// struct _DebugPin
+// {
+// 	bool bSwitch;
+// 	double dfLastTime;
+// 	_DebugPin()
+// 	{
+// 		bSwitch = true;
+// 		dfLastTime = GetExactTime();
+// 	}
+// 
+// };
+// 
+// struct _DebugSwitch
+// {
+// 	_DebugPin InputIpcStream;	
+// 	_DebugPin DecodeSucceed;
+// 	_DebugPin DecodeFailure;
+// 	_DebugPin RenderSucceed;
+// 	_DebugPin RenderFailure;
+// };
+// #ifdef _DEBUG
+// #define SwitchTrace(pDebugSwitch,member) { if (pDebugSwitch && pDebugSwitch->##member##.bSwitch) if (TimeSpanEx(pDebugSwitch->##member##.dfLastTime) >= 5.0f) {	DxTraceMsg("%s %d %s.\n", __FUNCTION__, __LINE__,#member);	pDebugSwitch->##member##.dfLastTime = GetExactTime();}}
+// #endif 
+struct _OutputTime
+{
+	DWORD nDecode;
+	DWORD nInputStream;
+	DWORD nRender;
+	DWORD nQueueSize;
+	_OutputTime()
+	{
+		// 自动初始化所有DWORD型变量，即使后续增加变量也不用再作改动
+		DWORD *pThis = (DWORD *)this;
+		for (int i = 0; i < sizeof(_OutputTime) / 4; i++)
+			pThis[i] = timeGetTime();;
+	}
+};
 class CDvoPlayer
 {
 public:
@@ -341,7 +379,13 @@ private:
 	CRITICAL_SECTION	m_csVideoCache;
 	CRITICAL_SECTION	m_csAudioCache;	
 	int					m_nMaxFrameCache;///< 最大视频缓冲数量,默认值125
-										///< 当m_FrameCache中的视频帧数量超过m_nMaxFrameCache时，便无法再继续输入流数据
+#ifdef _DEBUG		///< 当m_FrameCache中的视频帧数量超过m_nMaxFrameCache时，便无法再继续输入流数据
+	static CriticalSectionPtr m_pCSGlobalCount;
+	static int	m_nGloabalCount;		///< 当前进程中CDvoPlayer对象总数
+	int			m_nObjIndex;			///< 当前对象的计数
+	DWORD		m_nLifeTime;			///< 当前对象存在时间
+	_OutputTime	m_OuputTime;
+#endif
 private:
 	// 视频播放相关变量
 	int			m_nTotalFrames;			///< 当前文件中有效音频帧的数量,仅当播放文件时有效
@@ -416,7 +460,7 @@ private:	// 文件播放相关变量
 	HANDLE		m_hDvoFile;				///< 正在播放的文件句柄
 #ifdef _DEBUG
 	bool		m_bSeekSetDetected = false;///< 是否存在跳动帧动作
-	DWORD		m_nLifeTime;			///< 当前对象存在时间
+	
 #endif
 	shared_ptr<DVO_MEDIAINFO>m_pMediaHeader;/// 媒体文件头
 	UINT		m_nFrametoRead;			///< 当前将要读取的视频帧ID
@@ -617,7 +661,7 @@ private:
 	int m_nRenderFrames = 0;
 	double dfTRender = 0.0f;
 #endif
-	
+
 	/// @brief 渲染一帧
 	void RenderFrame(AVFrame *pAvFrame)
 	{
@@ -630,10 +674,23 @@ private:
 			m_nRenderFPS = m_nRenderFrames / TimeSpanEx(dfTRender);
 			//OutputMsg("%s m_nRenderFPS = %d.\n", __FUNCTION__, m_nRenderFPS);
 		}
+		char *szStatus = "Succeed";
 #endif
 		CAutoLock lock(&m_csDxSurface);
 		if (m_bFitWindow)
-			m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr);
+		{
+			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr);
+#ifdef _DEBUG
+			
+			if (!bFlag)
+				szStatus = "Failed";
+			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
+			{
+				OutputMsg("%s \tObject:%d\tRender Succeed\n", __FUNCTION__, m_nObjIndex);
+				m_OuputTime.nRender = timeGetTime();
+			}
+#endif
+		}
 		else
 		{
 			RECT rtRender;
@@ -674,7 +731,18 @@ private:
 					rtRender.right -= nOverWidth / 2;
 				}
 			}
-			m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+#ifdef _DEBUG
+
+			//OutputMsg("%s \tObject:%d m_nLifeTime = %d.\n", __FUNCTION__, m_nObjIndex, m_nLifeTime);
+			if (!bFlag)
+				szStatus = "Failed";
+			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
+			{
+				OutputMsg("%s \tObject:%d. Render Succeed\n", __FUNCTION__, m_nObjIndex);
+				m_OuputTime.nRender = timeGetTime();
+			}
+#endif
 			//OutputMsg("%s Width = %d\tHeight = %d.\n", __FUNCTION__, (rtRender.right - rtRender.left), (rtRender.bottom - rtRender.top));
 		}
 	}
@@ -719,12 +787,22 @@ public:
 	{
 		ZeroMemory(&m_csVideoCache, sizeof(CDvoPlayer) - offsetof(CDvoPlayer, m_csVideoCache));
 #ifdef _DEBUG
+		m_pCSGlobalCount->Lock();
+		m_nObjIndex = m_nGloabalCount++;
+		m_pCSGlobalCount->Unlock();
 		m_nLifeTime = timeGetTime();
-		OutputMsg("%s CDvoPlayer Object:%08X m_nLifeTime = %d.\n", __FUNCTION__,this, m_nLifeTime);
-#endif
+// 		m_OuputTime.nDecode = m_nLifeTime;
+// 		m_OuputTime.nInputStream = m_nLifeTime;
+// 		m_OuputTime.nRender = m_nLifeTime;
+
+		OutputMsg("%s \tObject:%d m_nLifeTime = %d.\n", __FUNCTION__, m_nObjIndex, m_nLifeTime);
+#endif 
 		if (szLogFile)
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
-		OutputMsg("%s Alloc a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
+#ifdef _DEBUG
+		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+#endif
+
 		m_csDsoundEnum->Lock();
 		if (!m_pDsoundEnum)
 			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
@@ -787,7 +865,9 @@ public:
 	
 	~CDvoPlayer()
 	{
-		OutputMsg("%s \tReady to Free a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
+#ifdef _DEBUG
+		OutputMsg("%s \tReady to Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+#endif
 		StopPlay();
 		/*
 		if (m_hWnd)
@@ -836,9 +916,9 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
-		OutputMsg("%s \tFinish Free a CDvoPlayer Object:%08X.\n", __FUNCTION__, this);
 #ifdef _DEBUG
-		OutputMsg("%s \tCDvoPlayer Object:%08X Exist Time = %u.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+		OutputMsg("%s \tFinish Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+		OutputMsg("%s \tObject:%d Exist Time = %u(ms).\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
 	}
 	/// @brief  是否为文件播放
@@ -940,7 +1020,7 @@ public:
 	int StartPlay(bool bEnaleAudio = false,bool bEnableHaccel = false,bool bFitWindow = true)
 	{
 #ifdef _DEBUG
-		OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;		
@@ -1132,6 +1212,13 @@ public:
 	///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停播放
 	int InputStream(IN byte *pFrameData, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime)
 	{
+#ifdef _DEBUG
+		if ((timeGetTime() - m_OuputTime.nInputStream) >= 5000)
+		{
+			OutputMsg("%s \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+			m_OuputTime.nInputStream = timeGetTime();
+		}
+#endif
 		m_bIpcStream = true;
 		switch (nFrameType)
 		{
@@ -1179,7 +1266,7 @@ public:
 	void StopPlay()
 	{
 #ifdef _DEBUG
-		OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, this, timeGetTime() - m_nLifeTime);
+		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
 		m_bThreadParserRun = false;
 		m_bThreadPlayVideoRun = false;
@@ -1834,6 +1921,11 @@ public:
 		if (pFrameParser)
 		{
 			pFrameParser->pHeaderEx = (DVOFrameHeaderEx *)(*ppBuffer);
+			bool bIFrame = false;
+			if (IsDVOVideoFrame(pFrameParser->pHeaderEx, bIFrame))
+				OutputMsg("Frame ID:%d\tType = Video:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
+			else
+				OutputMsg("Frame ID:%d\tType = Audio:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
 			pFrameParser->nFrameSize = FrameSize(*ppBuffer);
 			pFrameParser->pLawFrame = *ppBuffer + sizeof(DVOFrameHeaderEx);
 			pFrameParser->nLawFrameSize = Frame(*ppBuffer)->nLength;
@@ -2523,7 +2615,7 @@ public:
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 #ifdef _DEBUG
-		pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Time = %d.\n", __FUNCTION__, pThis, timeGetTime() - pThis->m_nLifeTime);
+		pThis->OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
 #endif
 		int nAvError = 0;
 		char szAvError[1024] = { 0 };
@@ -2560,7 +2652,7 @@ public:
 			{
 				pThis->OutputMsg("%s Warning!!!\nNot receive an I frame in %d second.m_listVideoCache.size() = %d.\n", __FUNCTION__, (int)dfTimeout,pThis->m_listVideoCache.size());
 #ifdef _DEBUG
-				pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis,__LINE__, timeGetTime() - pThis->m_nLifeTime);
+				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 				//assert(false);
 				return 0;
@@ -2573,7 +2665,7 @@ public:
 		{
 			pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
 #ifdef _DEBUG
-			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 			//assert(false);
 			return 0;
@@ -2586,7 +2678,7 @@ public:
 		{
 			pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
 #ifdef _DEBUG
-			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 			//assert(false);
 			return 0;
@@ -2595,7 +2687,7 @@ public:
 		{
 			pThis->OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
 #ifdef _DEBUG
-			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 			//assert(false);
 			return 0;
@@ -2649,7 +2741,7 @@ public:
 			{
 				pThis->OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
 #ifdef _DEBUG
-				pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 				//assert(false);
 				return 0;
@@ -2658,7 +2750,7 @@ public:
 			GetWindowRect(pThis->m_hWnd, &rtWindow);
 			pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
 #ifdef _DEBUG
-			pThis->OutputMsg("%s \tCDvoPlayer Object:%08X Line %d Time = %d.\n", __FUNCTION__, pThis, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 		}
 
@@ -2783,6 +2875,13 @@ public:
 			{// IPC 码流，则直接播放
 				bool bPopFrame = false;
 				::EnterCriticalSection(&pThis->m_csVideoCache);
+#ifdef _DEBUG
+				if ((timeGetTime() - pThis->m_OuputTime.nQueueSize) > 5000)
+				{
+					pThis->OutputMsg("%s \tObject:%d VideoCache Size = %d\n", __FUNCTION__, pThis->m_nObjIndex, pThis->m_listVideoCache.size());
+					pThis->m_OuputTime.nQueueSize = timeGetTime();
+				}
+#endif
 				if (pThis->m_listVideoCache.size() > 0)
 				{
 					FramePtr = pThis->m_listVideoCache.front();
