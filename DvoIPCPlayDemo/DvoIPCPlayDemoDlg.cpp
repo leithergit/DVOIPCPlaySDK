@@ -705,8 +705,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 					break;
 				}
 			}
-			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
-			//int i = 0;
+			//for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			int i = 0;
 			{
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
 				bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);		

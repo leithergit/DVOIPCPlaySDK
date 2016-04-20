@@ -203,7 +203,8 @@ struct StreamFrame
 		assert(pBuffer != nullptr);
 		assert(nLenth >= sizeof(DVOFrameHeaderEx));
 		nSize = nLenth;
-		pInputData = _New byte[nLenth];
+		//pInputData = _New byte[nLenth];
+		pInputData = (byte *)_aligned_malloc(nLenth, 16);
 		if (pInputData)
 			memcpy(pInputData, pBuffer, nLenth);
 		DVOFrameHeaderEx* pHeader = (DVOFrameHeaderEx *)pInputData;
@@ -800,8 +801,22 @@ public:
 		else
 			m_pRunlog = nullptr;
 	}
-
-	CDvoPlayer(HWND hWnd, CHAR *szFileName = nullptr, char *szLogFile = nullptr)
+	void ClearOnException()
+	{
+		if (m_pszFileName)
+		{
+			delete[]m_pszFileName;
+			m_pszFileName = nullptr;
+		}
+		if (m_pRunlog)
+			m_pRunlog = nullptr;
+		DeleteCriticalSection(&m_csVideoCache);
+		DeleteCriticalSection(&m_csAudioCache);
+		DeleteCriticalSection(&m_csSeekOffset);
+		DeleteCriticalSection(&m_csParser);
+		DeleteCriticalSection(&m_csDxSurface);
+	}
+	CDvoPlayer(HWND hWnd, CHAR *szFileName = nullptr, char *szLogFile = nullptr) 
 	{
 		ZeroMemory(&m_csVideoCache, sizeof(CDvoPlayer) - offsetof(CDvoPlayer, m_csVideoCache));
 #ifdef _DEBUG
@@ -821,22 +836,20 @@ public:
 			strcpy(m_szLogFileName, szLogFile);
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
 		}
-		
-#ifdef _DEBUG
-		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
-#endif
-
-		m_csDsoundEnum->Lock();
-		if (!m_pDsoundEnum)
-			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
-		m_csDsoundEnum->Unlock();
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
 		InitializeCriticalSection(&m_csParser);
 		InitializeCriticalSection(&m_csDxSurface);
-		nSize = sizeof(CDvoPlayer);
+		m_csDsoundEnum->Lock();
+		if (!m_pDsoundEnum)
+			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
+		m_csDsoundEnum->Unlock();
 		
+#ifdef _DEBUG
+		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+#endif
+		nSize = sizeof(CDvoPlayer);
 		m_nMaxFrameSize	 = 1024 * 256;
 		m_nFileFPS		 = 25;				// FPS的默认值为25
 		m_fPlayRate		 = 1;
@@ -849,7 +862,6 @@ public:
 #else
 		m_nMaxFrameCache = 100;				// 默认最大视频缓冲数量为100
 #endif
-		nSize = sizeof(CDvoPlayer);
 		if (szFileName)
 		{
 			m_pszFileName = _New char[MAX_PATH];
@@ -867,10 +879,66 @@ public:
 				// 取得文件的概要的信息,如文件总帧数,文件偏移表
 				int nError = GetFileSummary();
 				if (nError != DVO_Succeed)
-					SetLastError(nError);
+				{
+					OutputMsg("%s %d(%s):Not a DVO Media File.\n", __FILE__,__LINE__,__FUNCTION__);
+					ClearOnException();
+					throw std::exception("Not a DVO Media File.");
+				}
+				if (m_pMediaHeader)
+				{
+					switch (m_pMediaHeader->nSDKversion)
+					{
+					case DVO_IPC_SDK_VERSION_2015_09_07:
+						if (m_pMediaHeader->nFps != 0 && m_pMediaHeader->nFps != 1)
+							m_nFileFPS = m_pMediaHeader->nFps;
+						break;
+					case DVO_IPC_SDK_VERSION_2015_10_20:
+					case DVO_IPC_SDK_VERSION_2015_12_16:
+					{
+						m_nVideoCodec = m_pMediaHeader->nVideoCodec;
+						m_nAudioCodec = m_pMediaHeader->nAudioCodec;
+						if (m_nVideoCodec == CODEC_UNKNOWN)
+						{
+							m_nVideoWidth = 0;
+							m_nVideoHeight = 0;
+						}
+						else
+						{
+							m_nVideoWidth = m_pMediaHeader->nVideoWidth;
+							m_nVideoHeight = m_pMediaHeader->nVideoHeight;
+							if (!m_nVideoWidth || !m_nVideoHeight)
+							{
+// 								OutputMsg("%s %d(%s):Invalid Mdeia File Header.\n", __FILE__, __LINE__, __FUNCTION__);
+// 								ClearOnException();
+// 								throw std::exception("Invalid Mdeia File Header.");
+								m_nVideoCodec = CODEC_UNKNOWN;
+							}
+						}
+						if (m_pMediaHeader->nFps == 0)
+							m_nFileFPS = 25;
+						else
+							m_nFileFPS = m_pMediaHeader->nFps;
+					}
+					break;
+					default:
+					{
+						OutputMsg("%s %d(%s):Invalid SDK Version.\n", __FILE__, __LINE__, __FUNCTION__);
+						ClearOnException();
+						throw std::exception("Invalid SDK Version.");
+					}
+					}
+					m_nFileFrameInterval = 1000 / m_nFileFPS;
+				}
+				m_nParserBufferSize	 = m_nMaxFrameSize * 4;
+				//m_pParserBuffer		 = new byte[m_nParserBufferSize];
+				m_pParserBuffer = (byte *) _aligned_malloc(m_nParserBufferSize,16);
 			}
-			m_nParserBufferSize	 = m_nMaxFrameSize * 4;
-			m_pParserBuffer		 = new byte[m_nParserBufferSize];
+			else
+			{
+				OutputMsg("%s %d(%s):Open file failed.\n", __FILE__, __LINE__, __FUNCTION__);
+				ClearOnException();
+				throw std::exception("Open file failed.");
+			}
 		}
 		if (hWnd && IsWindow(hWnd))
 		{// 必采要有窗口才会播放视频和声音
@@ -917,7 +985,8 @@ public:
 		*/
 		if (m_pParserBuffer)
 		{
-			delete[]m_pParserBuffer;
+			//delete[]m_pParserBuffer;
+			_aligned_free(m_pParserBuffer);
 #ifdef _DEBUG
 			m_pParserBuffer = nullptr;
 #endif
@@ -1001,6 +1070,9 @@ public:
 				{
 					m_nVideoWidth = m_pMediaHeader->nVideoWidth;
 					m_nVideoHeight = m_pMediaHeader->nVideoHeight;
+					if (!m_nVideoWidth || !m_nVideoHeight)
+						//return DVO_Error_MediaFileHeaderError;
+						m_nVideoCodec = CODEC_UNKNOWN;
 				}
 				if (m_pMediaHeader->nFps == 0)
 					m_nFileFPS = 25;
@@ -1158,6 +1230,12 @@ public:
 			return -1;
 		}
 
+		if (SetFilePointer(m_hDvoFile, 0, nullptr, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+		{
+			assert(false);
+			return 0;
+		}
+
 		if (!ReadFile(m_hDvoFile, (void *)m_pMediaHeader.get(), sizeof(DVOFrameHeaderEx), &dwBytesRead, nullptr))
 		{
 			CloseHandle(m_hDvoFile);
@@ -1179,15 +1257,33 @@ public:
 			break;
 		case DVO_IPC_SDK_VERSION_2015_10_20:
 		case DVO_IPC_SDK_VERSION_2015_12_16:
+		{
+			m_nVideoCodec = m_pMediaHeader->nVideoCodec;
+			m_nAudioCodec = m_pMediaHeader->nAudioCodec;
+			if (m_nVideoCodec == CODEC_UNKNOWN)
+			{
+				m_nVideoWidth = 0;
+				m_nVideoHeight = 0;
+			}
+			else
+			{
+				m_nVideoWidth = m_pMediaHeader->nVideoWidth;
+				m_nVideoHeight = m_pMediaHeader->nVideoHeight;
+				if (!m_nVideoWidth || !m_nVideoHeight)
+					//return DVO_Error_MediaFileHeaderError;
+					m_nVideoCodec = CODEC_UNKNOWN;
+			}
 			if (m_pMediaHeader->nFps == 0)
 				m_nFileFPS = 25;
 			else
 				m_nFileFPS = m_pMediaHeader->nFps;
-			break;
+		}
+		break;
 		default:
 			return DVO_Error_InvalidSDKVersion;
 		}
 		m_nFileFrameInterval = 1000 / m_nFileFPS;
+		
 		return DVO_Succeed;
 	}
 	
@@ -2217,6 +2313,11 @@ public:
 		}
 		m_nVideoWidth = pDecodec->m_pAVCtx->width;
 		m_nVideoHeight = pDecodec->m_pAVCtx->height;
+		if (!m_nVideoWidth || !m_nVideoHeight)
+		{
+			assert(false);
+			return false;
+		}
 		return true;
 	}
 	/// @brief			取得文件的概要的信息,如文件总帧数,文件偏移表
@@ -2315,7 +2416,9 @@ public:
 					break;
 				if (IsDVOVideoFrame(Parser.pHeaderEx, bIFrame))	// 只记录视频帧的文件偏移
 				{
-					if (bIFrame && !bStreamProbed)
+					if (m_nVideoCodec == CODEC_UNKNOWN && 
+						bIFrame && 
+						!bStreamProbed)
 					{// 尝试探测码流
 						bStreamProbed = ProbeStream((byte *)Parser.pHeaderEx, Parser.nFrameSize);
 					}
@@ -2794,7 +2897,9 @@ public:
 // #else
 // 		DWORD dfTimeout = 4000;		// 等待I帧时间
 // #endif
-		if (pThis->m_nVideoCodec == CODEC_UNKNOWN)		/// 码流未知则尝试探测码
+		if (pThis->m_nVideoCodec == CODEC_UNKNOWN ||		/// 码流未知则尝试探测码
+			!pThis->m_nVideoWidth||
+			!pThis->m_nVideoHeight)
 		{
 			while (true)
 			{
@@ -2916,6 +3021,8 @@ public:
 		}
 		pThis->m_nVideoWidth = pDecodec->m_pAVCtx->width;
 		pThis->m_nVideoHeight = pDecodec->m_pAVCtx->height;
+		if (!pThis->m_nVideoWidth || !pThis->m_nVideoHeight)
+			assert(false);
 		//shared_ptr<CSimpleWnd>pWndDxInit = make_shared<CSimpleWnd>(pThis->m_nVideoWidth, pThis->m_nVideoHeight);	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 		nRetry = 0;
 		while (pThis->m_bThreadPlayVideoRun)
@@ -2990,7 +3097,7 @@ public:
 		int nIFrameTime = 0;
 		int nFramesAfterIFrame = 0;		// 相对I帧的编号,I帧后的第一帧为1，第二帧为2依此类推
 		int nSkipFrames = 0;
-		bool bDxInited = false;
+		bool bDecodeSucceed = false;
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -3171,6 +3278,13 @@ public:
 			av_packet_unref(pAvPacket);
  			if (nGot_picture)
  			{
+#ifdef _DEBUG
+				if (!bDecodeSucceed)
+				{
+					bDecodeSucceed = true;
+					pThis->OutputMsg("%s \tObject:%d  DecodeSucceed m_nLifeTime = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
+				}
+#endif
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
 				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)GetExactTime() * 1000);

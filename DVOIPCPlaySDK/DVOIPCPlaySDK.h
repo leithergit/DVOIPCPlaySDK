@@ -132,6 +132,7 @@ enum DVO_CALLBACK
 #define		DVO_Error_PlayerIsNotPaused		(-24)	///< 播放器尚未暂停
 #define		DVO_Error_VideoThreadStartFailed (-25)	///< 播放线程启动失败
 #define		DVO_Error_VideoThreadAbnormalExit (-26)	///< 播放线程异常退出
+#define		DVO_Error_MediaFileHeaderError	(-27)	///< 文件件头有错误
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 #define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：

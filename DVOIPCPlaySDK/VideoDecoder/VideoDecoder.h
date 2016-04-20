@@ -470,13 +470,14 @@ public:
 		}
 		//avcodec_parameters_to_context(AVCodecContext* codec, AVCodecParameters const* par)
 		m_pAVCtx = avcodec_alloc_context3(pAvCodec);
-		if (!m_pAVCtx)
+		if (m_pAVCtx)
 			avcodec_parameters_to_context(m_pAVCtx, m_pFormatCtx->streams[m_nVideoIndex]->codecpar);
 		else
 		{
 			DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
 			return false;
 		}
+		m_bProbeSucceed = true;
 		//m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codecpar;
 		return 0;
 	}
@@ -509,6 +510,8 @@ public:
 	{
 		AVCodecID nCodecID = AV_CODEC_ID_NONE;
 		AVCodec*  pAvCodec = nullptr;
+		if (!m_bProbeSucceed)
+			DestroyDecoder();
 		if (nCodec != AV_CODEC_ID_NONE && nWidth && nHeight)
 		{
 			pAvCodec = avcodec_find_decoder(nCodec);
@@ -536,7 +539,6 @@ public:
 		}
 		else
 		{
-			
 			if (m_nVideoIndex == -1)
 			{
 				for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
@@ -588,7 +590,7 @@ public:
 // 			return false;
 // 		}
 		
-		DestroyDecoder();
+		
 		if (bEnableHaccel)
 		{
 			HRESULT hr = InitD3D(nAdapter);
@@ -610,7 +612,6 @@ public:
 				}
 			}
 		}
-		
 		
 		if (m_nManufacturer == FFMPEG)
 		{
@@ -701,8 +702,9 @@ private:
 				m_pAVCtx->hwaccel_context = nullptr;
 			}
 // 			av_freep(&m_pAVCtx->extradata);
-// 			av_freep(&m_pAVCtx);
+// 			
 			avcodec_close(m_pAVCtx);
+			av_freep(&m_pAVCtx);
 		}
 		av_frame_free(&m_pFrame);
 		m_pFrame = nullptr;
@@ -991,6 +993,7 @@ public:
 	AVFormatContext		*m_pFormatCtx = nullptr;
 	AVIOContext			*m_pIoContext = nullptr;
 	AvQueue				*m_pAvQueue = nullptr;
+	bool				m_bProbeSucceed = false;
 	AVFrame             *m_pFrame = nullptr;
 	AVCodecID           m_nCodecId = AV_CODEC_ID_NONE;
 	BOOL                m_bInInit = FALSE;

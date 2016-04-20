@@ -68,14 +68,24 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFile
 		SetLastError(ERROR_FILE_NOT_FOUND);
 		return nullptr;
 	}
-	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd, szFileName,szLogFile);
-	if (pPlayer)
+	CDvoPlayer *pPlayer = nullptr;
+	try
 	{
-		pPlayer->SetCallBack(FilePlayer, pPlayCallBack, pUserPtr);
-		return pPlayer;
+		CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd, szFileName, szLogFile);
+		if (pPlayer)
+		{
+			pPlayer->SetCallBack(FilePlayer, pPlayCallBack, pUserPtr);
+			return pPlayer;
+		}
+		else
+			return nullptr;
 	}
-	else
+	catch (std::exception &e)
+	{
+		if (pPlayer)
+			delete pPlayer;
 		return nullptr;
+	}
 }
 
 ///	@brief			用于播放DVO私有格式的录像文件
