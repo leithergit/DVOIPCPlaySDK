@@ -13,6 +13,7 @@
 #include "gpu_memcpy_sse4.h"
 #include "DxTrace.h"
 #include "../AutoLock.h"
+#include "../Runlog.h"
 #ifdef _DEBUG
 #include "../TimeUtility.h"
 #endif
@@ -90,6 +91,7 @@ typedef void(*CopyFrameProc)(const BYTE *pSourceData, BYTE *pY, BYTE *pUV, size_
 extern CopyFrameProc CopyFrameNV12;
 //extern CopyFrameProc CopyFrameYUV420P;
 
+
 #define WM_RENDERFRAME		WM_USER + 1024		// 帧渲染消息	WPARAM为CDxSurface指针,LPARAM为一个指向DxSurfaceRenderInfo结构的指针,
 #define	WM_INITDXSURFACE	WM_USER + 1025		// DXSurface初始化消息	WPARAM为CDxSurface指针，LPARAM为DxSurfaceInitInfo结构的指针
 struct DxSurfaceInitInfo
@@ -148,7 +150,7 @@ enum GraphicQulityParameter
 {
 	GQ_SINC = -3,		//30		相对于上一算法，细节要清晰一些。
 	GQ_SPLINE = -2,		//47		和上一个算法，我看不出区别。
-	GQ_LANCZOS = -1,	//70		相对于上一算法，要平滑(也可以说是模糊)一点点，几乎无区别。
+	GQ_LANCZOS = -1,		//70		相对于上一算法，要平滑(也可以说是模糊)一点点，几乎无区别。
 	GQ_BICUBIC = 0,		//80		感觉差不多，比上上算法边缘要平滑，比上一算法要锐利。	
 	GQ_GAUSS,			//80		相对于上一算法，要平滑(也可以说是模糊)一些。
 	GQ_BICUBLIN,		//87		同上。
@@ -163,6 +165,7 @@ enum GraphicQulityParameter
 
 #if defined(_DEBUG) && defined(_TraceMemory)
 #define TraceFunction()	CTraceFunction Tx(__FUNCTION__);
+#define TraceFunction1(szText)	CTraceFunction Tx(__FUNCTION__,true,szText);
 #else 
 #define TraceFunction()	
 #endif
@@ -180,8 +183,10 @@ class CTraceFunction
 {
 	explicit CTraceFunction(){};
 public:
-	CTraceFunction(CHAR *szFunction, bool bDeconstructOut = true)
+	CTraceFunction(CHAR *szFunction, bool bDeconstructOut = true,CHAR *szTxt = nullptr)
 	{
+		ZeroMemory(this, sizeof(CTraceFunction));
+		m_dfTimeIn = GetExactTime();
 		m_bDeconstructOut = bDeconstructOut;
 		HANDLE handle = GetCurrentProcess();
 		PROCESS_MEMORY_COUNTERS pmc;
@@ -189,8 +194,9 @@ public:
 		CloseHandle(handle);
 		m_nMemoryCount = pmc.WorkingSetSize / 1024;
 		strcpy_s(m_szFunction, 256, szFunction);
+		if (szTxt)
+			strcpy_s(m_szText, 1024, szTxt);
 		CHAR szText[1024] = { 0 };
-		m_dfTimeIn = GetExactTime();
 		sprintf_s(szText, 1024, "%s\t_IN_ %s \tMemory = %d KB.\n",__FUNCTION__, szFunction, m_nMemoryCount);
 		OutputDebugStringA(szText);
 	}
@@ -198,14 +204,20 @@ public:
 	{
 		if (m_bDeconstructOut)
 		{
-			CHAR szText[1024] = { 0 };
+			CHAR szText[4096] = { 0 };
 			HANDLE handle = GetCurrentProcess();
 			PROCESS_MEMORY_COUNTERS pmc;
 			GetProcessMemoryInfo(handle, &pmc, sizeof(pmc));
 			CloseHandle(handle);
 			m_nMemoryCount = pmc.WorkingSetSize / 1024;
-			sprintf_s(szText, 1024, "%s\t_OUT_ %s \tMemory = %d KB\tTimeSpan = %.3f.\n",__FUNCTION__, m_szFunction, m_nMemoryCount,TimeSpanEx(m_dfTimeIn));
-			OutputDebugStringA(szText);
+			if (TimeSpanEx(m_dfTimeIn) > 0.200f)
+			{
+				if (strlen(m_szText) ==0)
+					sprintf_s(szText, 4096, "%s\t_OUT_ %s \tMemory = %d KB\tTimeSpan = %.3f.\n",__FUNCTION__, m_szFunction, m_nMemoryCount,TimeSpanEx(m_dfTimeIn));
+				else
+					sprintf_s(szText, 4096, "%s\t_OUT_ %s %s\tMemory = %d KB\tTimeSpan = %.3f.\n", __FUNCTION__, m_szFunction,m_szText, m_nMemoryCount, TimeSpanEx(m_dfTimeIn));
+				OutputDebugStringA(szText);
+			}
 		}
 	}
 private:
@@ -213,10 +225,87 @@ private:
 	double	m_dfTimeIn;
 	bool	m_bDeconstructOut;
 	CHAR	m_szFile[MAX_PATH];
+	CHAR	m_szText[1024];
 	CHAR	m_szFunction[256];
 };
 #endif
 
+
+struct LineTime
+{
+	CHAR szFile[256];
+	int nLine;
+	DWORD nTime;
+	LineTime(char *pszFile,int nFileLine)
+	{
+		nTime = timeGetTime();
+		strcpy(szFile, pszFile);
+		nLine = nFileLine;
+	}
+};
+#ifdef _DEBUG
+#define SaveRunTime()		LineSave.SaveLineTime(__FILE__,__LINE__);
+#define DeclareRunTime()	CLineRunTime LineSave;
+#else
+#define SaveRunTime()
+#define DeclareRunTime()			
+#endif
+
+#include <vector>
+using namespace  std;
+class CLineRunTime
+{
+public:
+	CLineRunTime(CRunlogA *plog = nullptr)
+	{
+		pRunlog = plog;
+	}
+	~CLineRunTime()
+	{
+		DWORD dwTotalSpan = 0;
+		int nSize = pTimeArray.size();
+		if (nSize < 1)
+			return;
+		else if (nSize < 2 )
+			dwTotalSpan = timeGetTime() - pTimeArray[0]->nTime;
+		if (dwTotalSpan >= _LockOverTime * 2)
+		{
+			OutputMsg("%s %s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
+		}
+		for (int i = 1; i < nSize;i ++)
+		{
+			DWORD dwSpan = pTimeArray[i]->nTime - pTimeArray[i - 1]->nTime;
+			if (dwSpan >= _LockOverTime)
+				OutputMsg("%s %s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
+		}
+	}
+	void SaveLineTime(char *szFile, int nLine)
+	{
+		shared_ptr<LineTime> pLineTime = make_shared<LineTime>(szFile, nLine);
+		pTimeArray.push_back(pLineTime);
+	}
+#define __countof(array) (sizeof(array)/sizeof(array[0]))
+#pragma warning (disable:4996)
+	void OutputMsg(char *pFormat, ...)
+	{
+		int nBuff;
+		CHAR szBuffer[4096];
+		va_list args;
+		va_start(args, pFormat);
+		nBuff = _vsnprintf(szBuffer, __countof(szBuffer), pFormat, args);
+		//::wvsprintf(szBuffer, pFormat, args);
+		//assert(nBuff >=0);
+#ifdef _DEBUG
+		OutputDebugStringA(szBuffer);
+#endif
+		if (pRunlog)
+			pRunlog->Runlog(szBuffer);
+		va_end(args);
+	}
+public:
+	vector<shared_ptr<LineTime>> pTimeArray;
+	CRunlogA *pRunlog = nullptr;
+};
 
 // 把FFMPEG像素转换为D3DFomrat像素
 struct PixelConvert
@@ -271,7 +360,14 @@ public:
 			DxTraceMsg("%s av_image_get_buffer_size failed:%s.\n",__FUNCTION__,szAvError);
 			assert(false);
 		}
-		pImage		 =	new byte[nImageSize];
+		//pImage = new (std::nothrow) byte[nImageSize];
+		pImage = (byte *)_aligned_malloc(nImageSize, 32);
+		if (!pImage)
+		{
+			DxTraceMsg("%s Alloc memory failed @%s %d.\n", __FUNCTION__, __FUNCTION__, __LINE__);
+			assert(false);
+			return;
+		}
 		DxTraceMsg("%s Image size = %d.\n",__FUNCTION__,nImageSize);
 		// 把显示图像与YUV帧关联
 		av_image_fill_arrays(pFrameNew->data,pFrameNew->linesize, pImage, nDstAvFormat, pSrcFrame->width,pSrcFrame->height,8);
@@ -369,8 +465,12 @@ public:
 	}
 	~PixelConvert()
 	{
-		delete []pImage;
-		pImage = NULL;
+		if (pImage)
+		{
+			//delete[]pImage;
+			_aligned_free(pImage);
+			pImage = NULL;
+		}
 		av_free(pFrameNew);
 		pFrameNew = NULL;
 		sws_freeContext(pConvertCtx);
@@ -380,6 +480,8 @@ public:
 	// 进行像素转换
 	int inline ConvertPixel(AVFrame *pSrcFrame,GraphicQulityParameter nGQ = GQ_BICUBIC)
 	{
+		if (!pImage)
+			return -1;
 		if (nGQP != nGQ)
 		{
 			// 转换算法调整
@@ -958,13 +1060,27 @@ public:
 			m_dwStyle	 &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
-
+		/*
+		CreateDevice的BehaviorFlags参数选项：
+		D3DCREATE_ADAPTERGROUP_DEVICE只对主显卡有效，让设备驱动输出给它所拥有的所有显示输出
+		D3DCREATE_DISABLE_DRIVER_MANAGEMENT代替设备驱动来管理资源，这样在发生资源不足时D3D调用不会失败
+		D3DCREATE_DISABLE_PRINTSCREEN:不注册截屏快捷键，只对Direct3D 9Ex
+		D3DCREATE_DISABLE_PSGP_THREADING：强制计算工作必须在主线程上，vista以上有效
+		D3DCREATE_ENABLE_PRESENTSTATS：允许GetPresentStatistics收集统计信息只对Direct3D 9Ex
+		D3DCREATE_FPU_PRESERVE；强制D3D与线程使用相同的浮点精度，会降低性能
+		D3DCREATE_HARDWARE_VERTEXPROCESSING：指定硬件进行顶点处理，必须跟随D3DCREATE_PUREDEVICE
+		D3DCREATE_MIXED_VERTEXPROCESSING：指定混合顶点处理
+		D3DCREATE_SOFTWARE_VERTEXPROCESSING：指定纯软的顶点处理
+		D3DCREATE_MULTITHREADED：要求D3D是线程安全的，多线程时
+		D3DCREATE_NOWINDOWCHANGES：拥有不改变窗口焦点
+		D3DCREATE_PUREDEVICE：只试图使用纯硬件的渲染
+		D3DCREATE_SCREENSAVER：允许被屏保打断只对Direct3D 9Ex
+		D3DCREATE_HARDWARE_VERTEXPROCESSING, D3DCREATE_MIXED_VERTEXPROCESSING, and D3DCREATE_SOFTWARE_VERTEXPROCESSING中至少有一个一定要设置
+		*/
 		if (FAILED(hr = m_pDirect3D9->CreateDevice(D3DADAPTER_DEFAULT,
 			D3DDEVTYPE_HAL,
 			m_d3dpp.hDeviceWindow,
-			vp |
-			D3DCREATE_MULTITHREADED |
-			D3DCREATE_FPU_PRESERVE,
+			vp ,
 			&m_d3dpp,
 			/* NULL,*/
 			&m_pDirect3DDevice)))
@@ -1045,15 +1161,32 @@ _Failed:
 	bool IsNeedRender(HWND hRenderWnd)
 	{
 		// 若窗口被隐藏或最小化则不再显示图像
-		if (IsIconic(hRenderWnd) ||		// 窗口最小化
-			!IsWindowVisible(hRenderWnd))	// 窗口隐藏
+		if (IsIconic(hRenderWnd))		// 窗口最小化	
+		{
+			DxTraceMsg("%s hRenderWnd is Iconic.\n", __FUNCTION__);
 			return false;
+		}
+		if (!IsWindowVisible(hRenderWnd))// 窗口隐藏
+		{
+			DxTraceMsg("%s hRenderWnd is Unvisible Window.\n", __FUNCTION__);
+			return false;
+		}
 		// 若当前窗口的根窗口被隐藏或最小化亦不显示图像
 		HWND hRoot = GetAncestor(hRenderWnd,GA_ROOT);
-		if (hRoot && 
-			(IsIconic(hRoot) ||			// 窗口最小化
-			!IsWindowVisible(hRoot)))	// 窗口隐藏))
-			return false;
+		if (hRoot)
+		{
+			if (IsIconic(hRoot))			// 窗口最小化
+			{
+				DxTraceMsg("%s hRoot is Iconic.\n", __FUNCTION__);
+				return false;
+			}
+			if (!IsWindowVisible(hRoot))	// 窗口隐藏
+			{
+				DxTraceMsg("%s hRoot is WindowUnvisible.\n", __FUNCTION__);
+				ShowWindow(hRoot, SW_SHOW);
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -1249,7 +1382,7 @@ _Failed:
 #ifdef _DEBUG
 		double dfT1 = GetExactTime();
 #endif
-		CAutoLock lock(&m_csRender);	
+		//CAutoLock lock(&m_csRender,false,__FUNCTION__,__LINE__);	
 		switch(pAvFrame->format)
 		{
 		case  AV_PIX_FMT_DXVA2_VLD:
@@ -1376,7 +1509,7 @@ _Failed:
 				{
 					m_pDirect3DDevice->EndScene();
 					DxTraceMsg("%s line(%d) IDirect3DDevice9::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
-					return true;
+					return false;
 				}	
 				pBackSurface->GetDesc(&Desc);
 				RECT dstrt = { 0, 0, Desc.Width, Desc.Height };
@@ -1416,7 +1549,10 @@ _Failed:
 		double dfT4 = GetExactTime();
 		//DxTraceMsg("%s TimeSpan(T3-T4)\t%.6f\n",__FUNCTION__,dfT4 - dfT3);
 #endif
-		return HandelDevLost();	
+		if (SUCCEEDED(hr))
+			return true;
+		else
+			return HandelDevLost();	
 	}
 
 	// 设置是以固定比便显示视频
@@ -1882,7 +2018,29 @@ public:
 			vp = D3DCREATE_HARDWARE_VERTEXPROCESSING;
 		else		
 			vp = D3DCREATE_SOFTWARE_VERTEXPROCESSING;
-		
+		/*
+		caps.DevCaps的取值及含义
+		D3DDEVCAPS_CANBLTSYSTONONLOCAL		Device supports blits from system-memory textures to nonlocal video-memory textures.
+		D3DDEVCAPS_CANRENDERAFTERFLIP		Device can queue rendering commands after a page flip. Applications do not change their behavior if this flag is set; this capability means that the device is relatively fast.
+		D3DDEVCAPS_DRAWPRIMITIVES2			Device can support at least a DirectX 5-compliant driver.
+		D3DDEVCAPS_DRAWPRIMITIVES2EX		Device can support at least a DirectX 7-compliant driver.
+		D3DDEVCAPS_DRAWPRIMTLVERTEX			Device exports an IDirect3DDevice9::DrawPrimitive-aware hal.
+		D3DDEVCAPS_EXECUTESYSTEMMEMORY		Device can use execute buffers from system memory.
+		D3DDEVCAPS_EXECUTEVIDEOMEMORY		Device can use execute buffers from video memory.
+		D3DDEVCAPS_HWRASTERIZATION			Device has hardware acceleration for scene rasterization.
+		D3DDEVCAPS_HWTRANSFORMANDLIGHT		Device can support transformation and lighting in hardware.
+		D3DDEVCAPS_NPATCHES					Device supports N patches.
+		D3DDEVCAPS_PUREDEVICE				Device can support rasterization, transform, lighting, and shading in hardware.
+		D3DDEVCAPS_QUINTICRTPATCHES			Device supports quintic Bézier curves and B-splines.
+		D3DDEVCAPS_RTPATCHES				Device supports rectangular and triangular patches.
+		D3DDEVCAPS_RTPATCHHANDLEZERO		When this device capability is set, the hardware architecture does not require caching of any information, and uncached patches (handle zero) will be drawn as efficiently as cached ones. Note that setting D3DDEVCAPS_RTPATCHHANDLEZERO does not mean that a patch with handle zero can be drawn. A handle-zero patch can always be drawn whether this cap is set or not.
+		D3DDEVCAPS_SEPARATETEXTUREMEMORIES	Device is texturing from separate memory pools.
+		D3DDEVCAPS_TEXTURENONLOCALVIDMEM	Device can retrieve textures from non-local video memory.
+		D3DDEVCAPS_TEXTURESYSTEMMEMORY		Device can retrieve textures from system memory.
+		D3DDEVCAPS_TEXTUREVIDEOMEMORY		Device can retrieve textures from device memory.
+		D3DDEVCAPS_TLVERTEXSYSTEMMEMORY		Device can use buffers from system memory for transformed and lit vertices.
+		D3DDEVCAPS_TLVERTEXVIDEOMEMORY		Device can use buffers from video memory for transformed and lit vertices.
+		*/
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
 		if (FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
@@ -1949,22 +2107,41 @@ public:
 			m_dwStyle	 &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
-		
+		/*
+		CreateDevice的BehaviorFlags参数选项：
+		D3DCREATE_ADAPTERGROUP_DEVICE只对主显卡有效，让设备驱动输出给它所拥有的所有显示输出
+		D3DCREATE_DISABLE_DRIVER_MANAGEMENT代替设备驱动来管理资源，这样在发生资源不足时D3D调用不会失败
+		D3DCREATE_DISABLE_PRINTSCREEN:不注册截屏快捷键，只对Direct3D 9Ex
+		D3DCREATE_DISABLE_PSGP_THREADING：强制计算工作必须在主线程上，vista以上有效
+		D3DCREATE_ENABLE_PRESENTSTATS：允许GetPresentStatistics收集统计信息只对Direct3D 9Ex
+		D3DCREATE_FPU_PRESERVE；强制D3D与线程使用相同的浮点精度，会降低性能
+		D3DCREATE_HARDWARE_VERTEXPROCESSING：指定硬件进行顶点处理，必须跟随D3DCREATE_PUREDEVICE
+		D3DCREATE_MIXED_VERTEXPROCESSING：指定混合顶点处理
+		D3DCREATE_SOFTWARE_VERTEXPROCESSING：指定纯软的顶点处理
+		D3DCREATE_MULTITHREADED：要求D3D是线程安全的，多线程时
+		D3DCREATE_NOWINDOWCHANGES：拥有不改变窗口焦点
+		D3DCREATE_PUREDEVICE：只试图使用纯硬件的渲染
+		D3DCREATE_SCREENSAVER：允许被屏保打断只对Direct3D 9Ex
+		D3DCREATE_HARDWARE_VERTEXPROCESSING, D3DCREATE_MIXED_VERTEXPROCESSING, and D3DCREATE_SOFTWARE_VERTEXPROCESSING中至少有一个一定要设置
+		*/
+		if (m_pDirect3DDeviceEx)
+			SafeRelease(m_pDirect3DDeviceEx);
+
 		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT,
 			D3DDEVTYPE_HAL,
 			m_d3dpp.hDeviceWindow,
-			vp |
-			//D3DCREATE_MULTITHREADED | 
-			D3DCREATE_FPU_PRESERVE,
+			vp ,
 			&m_d3dpp,
 			NULL,
 			&m_pDirect3DDeviceEx)))
 		{
 			
-			DxTraceMsg("%s CreateDeviceEx Failed.\nhr=%x", __FUNCTION__, hr);
+			DxTraceMsg("%s CreateDeviceEx Failed.\thr=%x.\n", __FUNCTION__, hr);
 			goto _Failed;
 		}
 
+		if (m_pDirect3DSurfaceRender)
+			SafeRelease(m_pDirect3DSurfaceRender);
 		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth,
 			nVideoHeight,
 			nD3DFormat,
@@ -1972,7 +2149,7 @@ public:
 			&m_pDirect3DSurfaceRender,
 			NULL)))
 		{
-			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
+			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\thr=%x.\n", __FUNCTION__, hr);
 			goto _Failed;
 		}
 
@@ -2188,27 +2365,34 @@ _Failed:
 			DxTraceMsg("%s D3DXSaveSurfaceToFile Failed,hr = %08X.\n", __FUNCTION__, hr);
 		SafeRelease(pSnapshotSurface);
 	}
-
+#define RenderTimeout	100 //ms
 	bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
 	{
 		if (!pAvFrame)
 			return false;
-
+		DeclareRunTime();
 		HWND hRenderWnd = m_d3dpp.hDeviceWindow;
 		if (hWnd)
 			hRenderWnd = hWnd;
+		//IsNeedRender(hRenderWnd);
 		if (!IsNeedRender(hRenderWnd))
 			return true;
-
+		SaveRunTime();
 		HRESULT hr = -1;		
 		D3DLOCKED_RECT SrcRect;
+		DWORD dwTNow = timeGetTime();
 		if (!HandelDevLost())
+		{
 			return false;
+			SaveRunTime();
+		}
+
 		// HandelDevLost仍无法使用m_pDirect3DDevice，则直接返回false
 		if (!m_pDirect3DDeviceEx)
 			return false;
 		
-		CAutoLock lock(&m_csRender);
+		//CAutoLock lock(&m_csRender,false,__FUNCTION__,__LINE__);
+		
 		switch(pAvFrame->format)
 		{
 		case  AV_PIX_FMT_DXVA2_VLD:
@@ -2281,9 +2465,11 @@ _Failed:
 			}
 		default:		
 			{// 软解码帧，只支持YUV420P格式
+				SaveRunTime();
 				TransferSnapShotSurface(pAvFrame);
 				D3DLOCKED_RECT d3d_rect;
 				D3DSURFACE_DESC Desc;
+				SaveRunTime();
 				hr = m_pDirect3DSurfaceRender->GetDesc(&Desc);
 				hr |= m_pDirect3DSurfaceRender->LockRect(&d3d_rect, NULL, D3DLOCK_DONOTWAIT);
 				if (FAILED(hr))
@@ -2291,6 +2477,7 @@ _Failed:
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
+				SaveRunTime();
 				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
 					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
@@ -2309,19 +2496,22 @@ _Failed:
 					else					
 						memcpy((byte *)d3d_rect.pBits,m_pPixelConvert->pImage,m_pPixelConvert->nImageSize);
 				}
+				SaveRunTime();
 				hr = m_pDirect3DSurfaceRender->UnlockRect();
 				if (FAILED(hr))
 				{
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
+				SaveRunTime();
 				// 处理外部分绘制接口
 				ExternDrawCall(hWnd,pRenderRt);
-
+				SaveRunTime();
 				IDirect3DSurface9 * pBackSurface = NULL;	
 				m_pDirect3DDeviceEx->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
 				m_pDirect3DDeviceEx->BeginScene();
 				hr = m_pDirect3DDeviceEx->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackSurface);
+				SaveRunTime();
 				if (FAILED(hr))
 				{
 					m_pDirect3DDeviceEx->EndScene();
@@ -2332,9 +2522,11 @@ _Failed:
 				RECT dstrt = { 0, 0, Desc.Width, Desc.Height };
 				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
 				hr = m_pDirect3DDeviceEx->StretchRect(m_pDirect3DSurfaceRender, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
-				
+				SaveRunTime();
 				SafeRelease(pBackSurface);
 				m_pDirect3DDeviceEx->EndScene();
+				SaveRunTime();
+
 			}
 			break;
 		case AV_PIX_FMT_NONE:
@@ -2353,6 +2545,15 @@ _Failed:
 		else
 			// (PresentEx)(RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion,DWORD dwFlags)
 			hr |= m_pDirect3DDeviceEx->PresentEx(NULL, NULL,m_d3dpp.hDeviceWindow, NULL,0);
-		return HandelDevLost();	
+		SaveRunTime();
+		if (SUCCEEDED(hr))
+			return true;
+		else
+		{
+			SaveRunTime();
+			bool bRet =  HandelDevLost();
+			SaveRunTime();
+			return bRet;
+		}
 	}
 };

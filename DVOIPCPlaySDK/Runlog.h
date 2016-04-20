@@ -10,6 +10,9 @@
 #endif // _MSC_VER > 1000
 #include <windows.h>
 #include <TCHAR.H>
+#include <memory>
+using namespace std;
+using namespace std::tr1;
 
 #ifndef byte
 #define byte unsigned char
@@ -47,6 +50,7 @@ private:
 	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
 	bool m_bCanlog;
 	CHAR	m_szFileName[MAX_PATH];
+	shared_ptr<char>m_pLogBuffer;
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };
@@ -68,6 +72,7 @@ private:
 	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
 	bool m_bCanlog;
 	WCHAR	m_szFileName[MAX_PATH];
+	shared_ptr<WCHAR>m_pLogBuffer;
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };

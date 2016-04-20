@@ -96,6 +96,8 @@
 #define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_LINE_GET  (0x000B)    //自定义OSD行参数获取
 #define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_SET  (0x000C)    //自定义OSD行数据设置
 #define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_GET  (0x000D)    //自定义OSD行数据获取
+#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_CLEAR (0x000E)   //自定义OSD行数据清除(全部)
+#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_ARRAY_SET  (0x000F)   //自定义OSD行数据批量设置
 
 /// 图像处理消息
 #define		APP_NET_TCP_TYPE_IMAGE_SUB_COLOR_SET            (0x0001)    //图像颜色参数设置color
@@ -394,39 +396,16 @@ typedef struct{
 typedef struct{
     u32         chn;                //视频输入通道号，取值0~MAX-1.
     u32         stream;             //码流编号：0:主码流，1：子码流，2：第三码流。
-    u32         row_no;             //行号 从0开始
+    u32         row_no;             //行号 从0开始,不能超过app_net_tcp_custom_osd_zone_cfg_ack_t.max_line_num
     pm_color_t  color;              //字体颜色
     u32         outline;            //是否沟边
     u32         rev[7];
 }app_net_tcp_custom_osd_line_cfg_t;
-/*
-typedef struct{
-    u32         chn;                //视频输入通道号，取值0~MAX-1.
-    u32         stream;             //码流编号：0:主码流，1：子码流，2：第三码流。
-    u32         row_no;             //行号 从0开始
-    u32         length;             //字符长度
-    u8          text[256];          //不超过255个字符
-    u32         rev[8];
-}app_net_tcp_custom_osd_line_data_t;
-
 
 typedef struct{
     u32		    chn;                //视频输入通道号，取值0~MAX-1.
     u32	        stream;             //码流编号：0:主码流，1：子码流，2：第三码流。
-    u32		    row_no;             //行号 从0开始
-    u32		    length;             //字符长度
-    u8          text[256];          //不超过255个字符
-    u32         set_color;          //是否设置颜色 0:不设置 1:设置
-    u32         outline;            //是否勾边 0：不勾边，1：勾边
-    pm_color_t  color;              //字体颜色
-    u32		    rev[5];
-}app_net_tcp_custom_osd_line_data_t2;
-*/
-
-typedef struct{
-    u32		    chn;                //视频输入通道号，取值0~MAX-1.
-    u32	        stream;             //码流编号：0:主码流，1：子码流，2：第三码流。
-    u32		    row_no;             //行号 从0开始
+    u32		    row_no;             //行号 从0开始,不能超过app_net_tcp_custom_osd_zone_cfg_ack_t.max_line_num
     u32		    length;             //字符长度
     u8          text[256];          //不超过255个字符
     u32         set_color;          //是否设置颜色 0:不设置 1:设置
@@ -436,45 +415,14 @@ typedef struct{
 }app_net_tcp_custom_osd_line_data_t;
 
 
+typedef struct
+{
+    U32         lines;		        // 要设置OSD文本的行数
+    U32         rev[8];
+    app_net_tcp_custom_osd_line_data_t*	pLineArray; // OSD行数组指针
+    /* OsdArray[1~MaxLine-1];1~MaxLines-1,MaxLines可根据OSD参数max_line_num得出，pLineArray中的一个元素为一行OSD文本，文本的行数必须与lines值相同*/
+}app_net_tcp_custom_osd_line_data_array_t;
 
-//typedef enum {
-//APP_NET_TCP_COM_VIDEO_MODE_320_240   = 1,
-//APP_NET_TCP_COM_VIDEO_MODE_640_480,
-//APP_NET_TCP_COM_VIDEO_MODE_800_600,
-//APP_NET_TCP_COM_VIDEO_MODE_1024_768,
-//APP_NET_TCP_COM_VIDEO_MODE_1280_960,
-//APP_NET_TCP_COM_VIDEO_MODE_1280_1024,
-//
-//APP_NET_TCP_COM_VIDEO_MODE_320_176	= 10,
-//APP_NET_TCP_COM_VIDEO_MODE_640_360,
-//APP_NET_TCP_COM_VIDEO_MODE_800_450,
-//APP_NET_TCP_COM_VIDEO_MODE_1280_720,
-//APP_NET_TCP_COM_VIDEO_MODE_1366_768,
-//APP_NET_TCP_COM_VIDEO_MODE_1920_1080,
-//
-//APP_NET_TCP_COM_VIDEO_MODE_720_576	= 20,
-//APP_NET_TCP_COM_VIDEO_MODE_704_576,
-//APP_NET_TCP_COM_VIDEO_MODE_704_288,
-//APP_NET_TCP_COM_VIDEO_MODE_352_288,
-//APP_NET_TCP_COM_VIDEO_MODE_MAX,
-//} APP_NET_TCP_COM_VIDEO_MODE;//视频编码尺寸。
-//
-//typedef enum{
-//APP_NET_TCP_COM_VIDEO_MODE_1920_1080 	= 15 ,
-//APP_NET_TCP_COM_VIDEO_MODE_1280_720 	= 13,
-//APP_NET_TCP_COM_VIDEO_MODE_1280_960	= 5,
-//APP_NET_TCP_COM_VIDEO_MODE_1024_768	= 4,
-//}APP_NET_TCP_COM_VIDEO_FST_MODE2; //主码流尺寸取值范围。
-//
-//typedef enum{
-//APP_NET_TCP_COM_VIDEO_MODE_720_576	= 20,
-//APP_NET_TCP_COM_VIDEO_MODE_704_576	= 21,
-//APP_NET_TCP_COM_VIDEO_MODE_352_288	= 23,
-//}APP_NET_TCP_COM_VIDEO_FST_MODE3; //子码流尺寸取值范围。
-//
-//typedef enum{
-// APP_NET_TCP_COM_VIDEO_MODE_352_288	= 23,
-//}APP_NET_TCP_COM_VIDEO_FST_MODE4; //第三码流尺寸取值范围。
 
 typedef enum {
     APP_NET_TCP_ENC_FMT_FR_NONE = 0,    //无变化

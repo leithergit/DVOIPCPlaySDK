@@ -51,7 +51,7 @@ BOOL CDvoIPCPlayDemoApp::InitInstance()
 	InitCommonControlsEx(&InitCtrls);
 
 	CWinApp::InitInstance();
-	DVO2_NET_Init();
+	DVO2_NET_Init(true);
 
 	AfxEnableControlContainer();
 

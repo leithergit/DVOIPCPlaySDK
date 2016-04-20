@@ -12,6 +12,7 @@
 *
 *  @version
 *    - v1.0.1.0    2015/08/11 15:18    luo_ws 
+*    - v2.0.5.1    2016/03/30 09:18    luo_ws 
 */
 
 #ifndef DVO_IPC_NET_SDK_H_
@@ -63,25 +64,29 @@ extern "C" {
 /**
 *  @date        2015/08/12 13:26
 *  @brief       网络SDK 初始化，和上一版本保持一致，就是调用 DVO2_NET_Init
-*  @param[in]   localport,新版本中，该无效
+*  @param[in]   bUseThreadPool,启用线程池处理,TRUE为启用,FALSE不启用,默认为FALSE
 *  @return      成功返回0，否则为失败的错误代码      
-*  @remarks     SDK模块第一次使用时调用，同一进程只需要调用一次       
+*  @remarks     SDK模块第一次使用时调用，同一进程只需要调用一次,
+*               bUseThreadPool参数只有进程第一次调用Init时有效,
+*               当上层在SDK的回调函数中有耗时处理时,可设置bUseThreadPool为FALSE,以免影响其他会话;
+*               当设置bUseThreadPool为TRUE,上层在SDK的回调函数中不能有耗时处理,以免影响其他会话,
+*               大量会话时使用线程池会更高效,占用的系统资源更少。
 */
-DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Init();
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Init(BOOL bUseThreadPool = FALSE);
 
 /**
 *  @date        2015/08/12
 *  @brief       释放SDK所有相关的资源
 *  @return      成功返回0，否则为失败的错误代码       
-*  @remarks     结束SDK模块时调用，与DVO2_NET_Init的调用对应，否则可能无法卸载DLL。 
+*  @remarks     结束SDK模块时调用，与DVO2_NET_Init的调用一一对应，否则可能无法卸载DLL或被提前卸载。 
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Release();
 
 /**
 *  @date        2015/08/12
 *  @brief       获取网络SDK的版本
-*  @param[out]  pMainVersion,主版本号
-*  @param[out]  pSubVersion,子版本号
+*  @param[inout]  pMainVersion,主版本号
+*  @param[inout]  pSubVersion,子版本号
 *  @return      成功返回0，否则为失败的错误代码      
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetSDKVersion(PARAM_OUT int *pMainVersion, PARAM_OUT int *pSubVersion);
@@ -115,8 +120,8 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetSDKLogToFile(PARAM_IN BOOL bEnable);
 *  @param[in]   wDevPort    : 设备端口，默认6001 
 *  @param[in]   pUserName   : 用户名，admin 
 *  @param[in]   pPassword   : 用户密码, 
-*  @param[out]  pDevBaseInfo: 设备基本信息.登录成功才有意义
-*  @param[out]  pErrNo      : 返回登录错误码,当函数返回成功时,该参数的值无意义.
+*  @param[inout]  pDevBaseInfo: 设备基本信息.登录成功才有意义
+*  @param[inout]  pErrNo      : 返回登录错误码,当函数返回成功时,该参数的值无意义.
 *  @param[in]   nWaitTimeSec: 登录超时的时间,单位为毫秒 
 *  @return      USER_HANDLE,失败返回DVO_INVALID_HANDLE -1，成功返回设备ID     
 *  @remarks     设备默认端口为6001，需要和ipc通信时的登录命令，登录成功之后对设备的操作都可以通过此值(设备句柄)对应到相应的设备，
@@ -125,8 +130,8 @@ DVOIPCNETSDK_API USER_HANDLE CALLMETHOD DVO2_NET_Login(PARAM_IN const char* pDev
                                                       PARAM_IN WORD wDevPort,
                                                       PARAM_IN const char* pUserName,
                                                       PARAM_IN const char* pPassword,
-                                                      PARAM_OUT app_net_tcp_sys_logo_info_t* pDevBaseInfo,
-                                                      PARAM_OUT int* pErrNo,
+                                                      PARAM_INOUT app_net_tcp_sys_logo_info_t* pDevBaseInfo,
+                                                      PARAM_INOUT int* pErrNo,
                                                       PARAM_IN  int  nWaitTimeMsecs = 5000
                                                       );
 
@@ -134,11 +139,11 @@ DVOIPCNETSDK_API USER_HANDLE CALLMETHOD DVO2_NET_Login(PARAM_IN const char* pDev
 *  @date         2015/11/24                 :
 *  @brief        登录信息查询               :
 *  @param[in]    lUserID                    :   
-*  @param[out]   info                        :登录信息
+*  @param[inout] info                        :登录信息
 *  @return       true,成功，false,失败
 */
 DVOIPCNETSDK_API BOOL CALLMETHOD DVO2_NET_RES_INFO(PARAM_IN USER_HANDLE lUserID,
-                                                   PARAM_OUT  app_net_tcp_sys_logo_info_t *info);
+                                                   PARAM_INOUT app_net_tcp_sys_logo_info_t *info);
 
 /**
 *  @date        2015/08/12
@@ -264,7 +269,7 @@ typedef void (CALLBACK* fnDVOCallback_RealAVData_T)(PARAM_IN USER_HANDLE  lUserI
 *  @param[in]   hWnd        : 为传入显示预览的窗口句柄,该版本传NULL,只获取码流
 *  @param[in]   funcRealData: 回调函数,用于回调视频数据到上层应用,具体定义参考fnDVOCallback_RealAVData_T
 *  @param[in]   pUser       : 用户数据,为上层传入标识，在视频回调函数中返回给上层
-*  @param[out]  pErrNo      : 返回错误码,当函数返回成功时,该参数的值无意义.
+*  @param[inout]  pErrNo    : 返回错误码,当函数返回成功时,该参数的值无意义.
 *  @return      REAL_HANDLE,失败返回DVO_INVALID_HANDLE -1，成功返回视频会话ID 
 *  @remarks     该接口允许调用多次 ,每一次开启一路视频连接 ，支持ipc存在多个通道时调用的情况。     
 */
@@ -276,7 +281,7 @@ DVOIPCNETSDK_API REAL_HANDLE CALLMETHOD	DVO2_NET_StartRealPlay(PARAM_IN USER_HAN
                                                               PARAM_IN HWND hWnd,
                                                               PARAM_IN fnDVOCallback_RealAVData_T funcRealData,
                                                               PARAM_IN void* pUser,
-                                                              PARAM_OUT int* pErrNo);
+                                                              PARAM_INOUT int* pErrNo);
 
 
 /**
@@ -293,11 +298,11 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_StopRealPlay(PARAM_IN REAL_HANDLE lStre
 *  @date        2015/09/06
 *  @brief       获取每秒的流量统计（字节）
 *  @param[in]   lStreamHandle,DVO2_NET_StartRealPlay成功的返回值 
-*  @param[out]  pFluxBytes,返回码流每秒的流量,单位为字节Byte 
+*  @param[inout]  pFluxBytes,返回码流每秒的流量,单位为字节Byte 
 *  @return      成功返回0，否则为失败的错误代码    
 *  @remarks          
 */
-DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetStatiscFlux(PARAM_IN REAL_HANDLE lStreamHandle, PARAM_OUT UINT64* pFluxBytes);
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetStatiscFlux(PARAM_IN REAL_HANDLE lStreamHandle, PARAM_INOUT UINT64* pFluxBytes);
 
 
 /**
@@ -315,31 +320,31 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_RequestAudioStream(PARAM_IN USER_HANDLE
                                                            ); 
 
 /**
-*  @date        2015/09/06
-*  @brief       开关设备音频流的传输状态
-*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
-*  @param[in]   nChannelID  : 设备通道号，从0开始
-*  @param[out]  pEnable     : 开关传输设备音频流状态 0--停止，1--开启。
-*  @return      成功返回0，否则为失败的错误代码
+*  @date         2015/09/06
+*  @brief        开关设备音频流的传输状态
+*  @param[in]    lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]    nChannelID  : 设备通道号，从0开始
+*  @param[inout] pEnable     : 开关传输设备音频流状态 0--停止，1--开启。
+*  @return       成功返回0，否则为失败的错误代码
 *  @remarks        
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetAudioStreamState(PARAM_IN USER_HANDLE lUserID,
                                                             PARAM_IN int         nChannelID,
-                                                            PARAM_IN int*        pEnable   //bEnable 0 停止，1开启,
+                                                            PARAM_INOUT int*     pEnable   //bEnable 0 停止，1开启,
                                                             ); 
 
 //////////////////////////////////////////////////////////////////////////
 
 /**
-*  @brief       获取设备当前的系统时间
-*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
-*  @param[out]  pDevTime    : 系统时间。
-*  @return      成功返回0，否则为失败的错误代码
+*  @brief        获取设备当前的系统时间
+*  @param[in]    lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[inout] pDevTime    : 系统时间。
+*  @return       成功返回0，否则为失败的错误代码
 *  @remarks        
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevSystime(PARAM_IN USER_HANDLE lUserID,
-                                                      PARAM_OUT app_net_tcp_sys_time_t* pDevTime
-                                                      ); 
+                                                       PARAM_INOUT app_net_tcp_sys_time_t* pDevTime
+                                                       ); 
 
 /**
 *  @brief       设置设备当前的系统时间
@@ -359,22 +364,22 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevSystime(PARAM_IN USER_HANDLE lUse
 *  @param[in]   dwCommand       : 设备配置命令.参见配置命令,EDVO_DEVICE_PARAMETER_TYPE 
 *  @param[in]   lpInBuffer      : 输出参数的缓冲指针 
 *  @param[in]   nInBufferSize   : 输出参数的缓冲长度(以字节为单位) 
-*  @param[out]  lpOutBuffer     : 接受数据缓冲指针 
-*  @param[in]   nOutBufferSize  : 接收数据缓冲长度(以字节为单位) 
-*  @param[out]  lpBytesReturned : 实际收到数据的长度 
+*  @param[inout] lpOutBuffer     : 接受数据缓冲指针 
+*  @param[in]    nOutBufferSize  : 接收数据缓冲长度(以字节为单位) 
+*  @param[inout] lpBytesReturned : 实际收到数据的长度 
 *  @param[in]   nWaitTimeMsecs  : 等待超时时间 
 *  @return      成功返回0，否则为失败的错误代码
 *  @pre         
 *  @remarks     不同dwCommand(wCmdMain | (wCmdSub<<16) )，lpOutBuffer对应的结构体将会不同，具体见EDVO_DEVICE_PARAMETER_TYPE     
 */
 DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevConfig(PARAM_IN  USER_HANDLE lUserID,
-                                                     PARAM_IN  DWORD   dwCommand,
-                                                     PARAM_IN  LPVOID  lpInBuffer,  
-                                                     PARAM_IN  int     nInBufferSize,
-                                                     PARAM_OUT LPVOID  lpOutBuffer,  
-                                                     PARAM_IN  int     nOutBufferSize,
-                                                     PARAM_OUT int*    pBytesReturned,  
-                                                     PARAM_IN  int     nWaitTimeMsecs=1000);
+                                                     PARAM_IN  DWORD    dwCommand,
+                                                     PARAM_IN  LPVOID   lpInBuffer,  
+                                                     PARAM_IN  int      nInBufferSize,
+                                                     PARAM_INOUT LPVOID lpOutBuffer,  
+                                                     PARAM_IN  int      nOutBufferSize,
+                                                     PARAM_INOUT int*   pBytesReturned,  
+                                                     PARAM_IN  int      nWaitTimeMsecs=1500);
 
 /**
 *  @date        2015/08/18
@@ -392,8 +397,31 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevConfig(PARAM_IN  USER_HANDLE lUse
                                                      PARAM_IN  DWORD   dwCommand, 
                                                      PARAM_OUT LPVOID  lpInBuffer,  
                                                      PARAM_OUT int     nInBufferSize,  
-                                                     PARAM_IN  int     nWaitTimeMsecs=1000);
+                                                     PARAM_IN  int     nWaitTimeMsecs=1500);
 
+/**
+*  @brief       设备的配置信息扩展接口，需返回数据的通信(设置) 
+*  @param[in]   lUserID         : 设备登陆句柄 
+*  @param[in]   dwCommand       : 设备配置命令.参见配置命令,EDVO_DEVICE_PARAMETER_TYPE 
+*  @param[in]   lpInBuffer      : 输出参数的缓冲指针 
+*  @param[in]   nInBufferSize   : 输出参数的缓冲长度(以字节为单位) 
+*  @param[inout] lpOutBuffer     : 接受数据缓冲指针 
+*  @param[in]    nOutBufferSize  : 接收数据缓冲长度(以字节为单位) 
+*  @param[inout] lpBytesReturned : 实际收到数据的长度 
+*  @param[in]   nWaitTimeMsecs  : 等待超时时间 
+*  @return      成功返回0，否则为失败的错误代码
+*  @pre         
+*  @remarks     不同dwCommand(wCmdMain | (wCmdSub<<16) )，lpOutBuffer对应的结构体将会不同，具体见EDVO_DEVICE_PARAMETER_TYPE. 
+*               既可用于设置，也可用于获取
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_DevConfig(PARAM_IN  USER_HANDLE lUserID,
+                                                   PARAM_IN  DWORD    dwCommand,
+                                                   PARAM_IN  LPVOID   lpInBuffer,  
+                                                   PARAM_IN  int      nInBufferSize,
+                                                   PARAM_INOUT LPVOID lpOutBuffer,  
+                                                   PARAM_IN  int      nOutBufferSize,
+                                                   PARAM_INOUT int*   pBytesReturned,
+                                                   PARAM_IN  int      nWaitTimeMsecs=1500);
 
 /*
 *  @date         2016/01/08
@@ -402,7 +430,7 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevConfig(PARAM_IN  USER_HANDLE lUse
 *  @param[in]    pModeInfo                  : 相机功能
 *  @return       成功返回0，否则为失败的错误代码
 */
-DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetFuncMode(USER_HANDLE lUserID, app_net_tcp_func_model_t* pModeInfo);
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetFuncMode(PARAM_IN USER_HANDLE lUserID, PARAM_IN app_net_tcp_func_model_t* pModeInfo);
 
 /*
 *  @date         2016/01/08
@@ -411,7 +439,55 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetFuncMode(USER_HANDLE lUserID, app_ne
 *  @param[inout] pModeInfo                  :相机功能
 *  @return       成功返回0，否则为失败的错误代码
 */
-DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetFuncMode(USER_HANDLE lUserID, app_net_tcp_func_model_t* pModeInfo);
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetFuncMode(PARAM_IN USER_HANDLE lUserID, PARAM_INOUT app_net_tcp_func_model_t* pModeInfo);
+
+/**
+*  @brief       获取自定义区域OSD参数
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   pOsdChn     : 查询条件
+*  @param[inout]  pCustomOSD : 设备自定义区域OSD参数。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks        
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevCustomOSD(PARAM_IN USER_HANDLE lUserID,
+                                                         PARAM_IN app_net_tcp_custom_osd_zone_chn_t* pOsdChn,
+                                                         PARAM_INOUT app_net_tcp_custom_osd_zone_para_t* pCustomOSD
+                                                         ); 
+
+/**
+*  @brief       设置自定义区域OSD参数
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   pCustomOSD  : 设备自定义区域OSD参数。
+*  @param[inout] pCustomOSDAck : OSD返回值
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks        
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevCustomOSD(PARAM_IN USER_HANDLE lUserID,
+                                                         PARAM_IN app_net_tcp_custom_osd_zone_cfg_t* pCustomOSD,
+                                                         PARAM_INOUT app_net_tcp_custom_osd_zone_cfg_ack_t* pCustomOSDAck
+                                                         ); 
+
+/**
+*  @brief       设置自定义OSD每行的文本
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   pCustomOSD  : 设备自定义区域OSD每行的文本参数。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks        
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevCustomOSDLineData(PARAM_IN USER_HANDLE lUserID,
+                                                                 PARAM_IN app_net_tcp_custom_osd_line_data_t* pCustomOSDLineData
+                                                                 );
+
+/**
+*  @brief       批量设置多行OSD文本 
+*  @param[in]   lUserID     : 设备登陆句柄 ，DVO2_NET_Login成功的返回值
+*  @param[in]   pCustomOSD  : 设备自定义区域多行OSD的文本参数。
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     批量设置多行OSD文本   
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevCustomOSDLineArray(PARAM_IN USER_HANDLE lUserID,
+                                                                  PARAM_IN app_net_tcp_custom_osd_line_data_array_t* pCustomOSDLineArray
+                                                                  );
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -130,7 +130,18 @@ enum DVO_CALLBACK
 #define		DVO_Error_AudioFailed			(-22)	///< 音频播放初始化失败(播放设备未就绪)
 #define		DVO_Error_DxError				(-23)	///< DirectX 错误
 #define		DVO_Error_PlayerIsNotPaused		(-24)	///< 播放器尚未暂停
+#define		DVO_Error_VideoThreadStartFailed (-25)	///< 播放线程启动失败
+#define		DVO_Error_VideoThreadAbnormalExit (-26)	///< 播放线程异常退出
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
+
+#define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
+#define		DVOPLAYER_NOTRECVIFRAME			0		/// 未收到有效的I帧
+#define		DVOPLAYER_INITD3DFAILED			1		/// D3D初始化失败
+#define		DVOPLAYER_INITDECODERFAILED		2		/// 解码器初始化失败
+#define		DVOPLAYER_UNKNOWNSTREAM			3		/// 无法识别的码流
+#define		DVOPLAYER_UNSURPPORTEDSTREAM	4		/// 不支持的视频编码格式
+#define		DVOPLAYER_INVALIDCODER			5		/// 无效的视频编码格式
+
 
 /// @brief 播放器即时信息
 struct PlayerInfo

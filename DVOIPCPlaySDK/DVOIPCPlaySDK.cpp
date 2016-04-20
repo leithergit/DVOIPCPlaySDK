@@ -24,6 +24,11 @@ shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = nullptr;/*= make_shared<CDSo
 int	CDvoPlayer::m_nGloabalCount = 0;
 CriticalSectionPtr CDvoPlayer::m_pCSGlobalCount = make_shared<CriticalSectionWrap>();
 #endif
+
+#ifdef _DEBUG
+extern CRITICAL_SECTION g_csPlayerHandles;
+extern UINT	g_nPlayerHandles;
+#endif
 //shared_ptr<CDSound> CDvoPlayer::m_pDsPlayer = make_shared<CDSound>(nullptr);
 //shared_ptr<CSimpleWnd> CDvoPlayer::m_pWndDxInit = make_shared<CSimpleWnd>();	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 
@@ -105,12 +110,21 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStream
 	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd,nullptr,szLogFile);
 	if (!pPlayer)
 		return nullptr;
+	if (szLogFile)
+		TraceMsgA("%s %s.\n", __FUNCTION__, szLogFile);
 	if (szStreamHeader && nHeaderSize)
 	{
 		pPlayer->SetMaxFrameCache(nMaxFramesCache);
 		int nDvoError = pPlayer->SetStreamHeader((CHAR *)szStreamHeader, nHeaderSize);
 		if (nDvoError == DVO_Succeed)
+		{
+#if _DEBUG
+			EnterCriticalSection(&g_csPlayerHandles);
+			g_nPlayerHandles++;
+			LeaveCriticalSection(&g_csPlayerHandles);
+#endif
 			return pPlayer;
+		}
 		else
 		{
 			SetLastError(nDvoError);
@@ -119,34 +133,51 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStream
 		}
 	}
 	else
+	{
+#if _DEBUG
+		EnterCriticalSection(&g_csPlayerHandles);
+		g_nPlayerHandles++;
+		LeaveCriticalSection(&g_csPlayerHandles);
+#endif
 		return pPlayer;
+	}
 }
 
 /// @brief			关闭播放句柄
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bRefresh		关闭播放器时，是否刷新画面
 ///	-# true			刷新画面以背景色填充
-///	-# false		不刷新画面,保留最后一帧的图像
+///	-# false			不刷新画面,保留最后一帧的图像
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			关闭播放句柄会导致播放进度完全终止，相关内存全部被释放,要再度播放必须重新打开文件或流数据
 DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh = true*/)
 {
+	TraceFunction();
 	if (!hPlayHandle)
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	//pPlayer->SetRefresh(bRefresh);
-	delete pPlayer;
+#ifdef _DEBUG
+	if (strlen(pPlayer->m_szLogFileName) > 0)
+		TraceMsgA("%s %s.\n", __FUNCTION__, pPlayer->m_szLogFileName);
+	DxTraceMsg("%s DvoPlayer Object:%d.\n", __FUNCTION__, pPlayer->m_nObjIndex);
+	EnterCriticalSection(&g_csPlayerHandles);
+	g_nPlayerHandles--;
+	LeaveCriticalSection(&g_csPlayerHandles);
+#endif
+	EnterCriticalSection(&g_csListPlayertoFree);
+	g_listPlayertoFree.push_back(hPlayHandle);
+	LeaveCriticalSection(&g_csListPlayertoFree);
 	return 0;
 }
 
 /// @brief			开启运行日志
-/// @param			szLogFile		日志文件名
+/// @param			szLogFile		日志文件名,此参数为NULL时，则关闭日志
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-/// @remark			该函数为开关型函数,默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
+/// @remark			默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
 DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile)
 {
 	if (!hPlayHandle)

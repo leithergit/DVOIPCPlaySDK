@@ -137,6 +137,9 @@ public:
 	int nPlayerCount;
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
+	shared_ptr<byte>pYuvBuffer = nullptr;
+	int nYuvBufferSize = 0;
+	
 	HWND		hWndView;
 	int			nItem;
 	void*		pThis;
@@ -410,6 +413,7 @@ public:
 	CVideoFrame *m_pVideoWndFrame = nullptr;
 	CGlliteryStatic m_wndStatus;
 	double	m_dfLastUpdate;
+	bool	m_bRefreshPlayer = true;
 	bool SaveSetting();
 	bool LoadSetting();
 	static CFile *m_pVldReport;
@@ -448,6 +452,7 @@ public:
 	UINT m_nOriMonitorIndex = 0;
 	FullScreenWnd m_FullScreen;
 	void *m_hIOCP = nullptr;
+	bool m_bClickPlayerSlide = false;
 	shared_ptr<CDirectDraw> m_pDDraw = nullptr;
 	shared_ptr<ImageSpace> m_pYUVImage = nullptr;
 	bool m_bEnableVCA = false;
@@ -490,8 +495,11 @@ public:
 		pThis->m_pYUVImage->pBuffer[0] = (PBYTE)pY;
 		pThis->m_pYUVImage->pBuffer[1] = (PBYTE)pU;
 		pThis->m_pYUVImage->pBuffer[2] = (PBYTE)pV;
+		//g_pVca->ProcessYuv(pY, pU, pV, nStrideY, nStrideUV, nWidth, nHeight);
+
 		pThis->m_pDDraw->Draw(*pThis->m_pYUVImage,true);
 		// todo:把YUV数据整合为YV12数据，并交给VCA引擎进行分析，把分析交给VCA Render渲染，再把渲染结果还到pY,pU,pV当中
+
 	}
 
 	afx_msg LRESULT OnTroggleFullScreen(WPARAM W, LPARAM L)
@@ -671,4 +679,6 @@ public:
 	afx_msg void OnBnClickedButtonSeeknextframe();
 	afx_msg void OnBnClickedCheckEnablelog();
 	afx_msg void OnBnClickedCheckEnablevca();
+	afx_msg void OnNMReleasedcaptureSliderPlayer(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnBnClickedCheckRefreshplayer();
 };

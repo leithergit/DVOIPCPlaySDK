@@ -442,12 +442,12 @@ public:
 		}
 		for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
 		{
-			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
+			if ((m_pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) &&
 				(m_nVideoIndex < 0))
 			{
 				m_nVideoIndex = i;
 			}
-			if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
+			if ((m_pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) &&
 				(m_nAudioIndex < 0))
 			{
 				m_nAudioIndex = i;
@@ -460,16 +460,24 @@ public:
 			return false;
 		}
 
-		m_nCodecId = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
+		m_nCodecId = m_pFormatCtx->streams[m_nVideoIndex]->codecpar->codec_id;
 		AVCodec*  pAvCodec = avcodec_find_decoder(m_nCodecId);
 		if (pAvCodec == NULL)
 		{
 			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
-			assert(false);
+			//assert(false);
 			return false;
 		}
-		m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
-
+		//avcodec_parameters_to_context(AVCodecContext* codec, AVCodecParameters const* par)
+		m_pAVCtx = avcodec_alloc_context3(pAvCodec);
+		if (!m_pAVCtx)
+			avcodec_parameters_to_context(m_pAVCtx, m_pFormatCtx->streams[m_nVideoIndex]->codecpar);
+		else
+		{
+			DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
+			return false;
+		}
+		//m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codecpar;
 		return 0;
 	}
 	void CancelProbe()
@@ -489,50 +497,88 @@ public:
 		m_pFormatCtx->pb = nullptr;
 	}
 
+
+	void SetDecodeThreads(int nThreads = 1)
+	{
+		m_nDecodeThreadCount = nThreads;
+	}
 	// 初始解码器
 	// 注意：不可与LoadFile函数同时调用，二者只能选一
-	bool InitDecoder(bool bEnableHaccel = false)
+	// 当nCodec不为AV_CODEC_ID_NONE时，nWidth和nHeight不可为0
+	bool InitDecoder(AVCodecID nCodec = AV_CODEC_ID_NONE, int nWidth = 0,int nHeight = 0,bool bEnableHaccel = false)
 	{
-		if (!m_pFormatCtx)
-		{
-			DxTraceMsg("%s Please probe the codec of the stream first.\n", __FUNCTION__);
-			assert(false);
-			return false;
-		}
 		AVCodecID nCodecID = AV_CODEC_ID_NONE;
 		AVCodec*  pAvCodec = nullptr;
-		if (m_nVideoIndex == -1)
+		if (nCodec != AV_CODEC_ID_NONE && nWidth && nHeight)
 		{
-			for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
-			{
-				if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
-					(m_nVideoIndex < 0))
-				{
-					m_nVideoIndex = i;
-				}
-				if ((m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
-					(m_nAudioIndex < 0))
-				{
-					m_nAudioIndex = i;
-				}
-			}
-
-			if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
-			{
-				DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
-				return false;
-			}
-		
-			nCodecID = m_pFormatCtx->streams[m_nVideoIndex]->codec->codec_id;
-			pAvCodec = avcodec_find_decoder(nCodecID);
-			if (pAvCodec == NULL)
+			pAvCodec = avcodec_find_decoder(nCodec);
+			if (!pAvCodec)
 			{
 				DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
-				assert(false);
+				//assert(false);
 				return false;
 			}
-			m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
+			m_pAVCtx = avcodec_alloc_context3(pAvCodec);
+			if (!m_pAVCtx)
+			{
+				DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
+				return false;
+			}
+			m_pAVCtx->flags = 0;
+// 			m_pAVCtx->time_base.num = 1; //这两行：一秒钟25帧
+// 			m_pAVCtx->time_base.den = fps; // 25;
+			//142*6=852
+			m_pAVCtx->bit_rate = 0; //初始化为0
+			m_pAVCtx->frame_number = 1; //每包一个视频帧
+			m_pAVCtx->codec_type = AVMEDIA_TYPE_VIDEO;// CODEC_TYPE_VIDEO;
+			m_pAVCtx->width = nWidth; //这两行：视频的宽度和高度
+			m_pAVCtx->height = nHeight;
 		}
+		else
+		{
+			
+			if (m_nVideoIndex == -1)
+			{
+				for (UINT i = 0; i < m_pFormatCtx->nb_streams; i++)
+				{
+					if ((m_pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) &&
+						(m_nVideoIndex < 0))
+					{
+						m_nVideoIndex = i;
+					}
+					if ((m_pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) &&
+						(m_nAudioIndex < 0))
+					{
+						m_nAudioIndex = i;
+					}
+				}
+
+				if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
+				{
+					DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
+					//assert(false);
+					return false;
+				}
+		
+				nCodecID = m_pFormatCtx->streams[m_nVideoIndex]->codecpar->codec_id;
+				pAvCodec = avcodec_find_decoder(nCodecID);
+				if (pAvCodec == NULL)
+				{
+					DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+					//assert(false);
+					return false;
+				}
+				m_pAVCtx = avcodec_alloc_context3(pAvCodec);
+				if (!m_pAVCtx)
+					avcodec_parameters_to_context(m_pAVCtx, m_pFormatCtx->streams[m_nVideoIndex]->codecpar);
+				else
+				{
+					DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
+					return false;
+				}
+			}
+		}
+		
 
 		UINT nAdapter = D3DADAPTER_DEFAULT;
 // 		HRESULT hr = InitD3D(nAdapter);
@@ -549,6 +595,7 @@ public:
 			if (FAILED(hr))
 			{
 				DxTraceMsg("D3D Initialization failed with hr: %X\n", hr);
+				//assert(false);
 				return false;
 			}
 			// 检查是否支持硬解码
@@ -570,14 +617,20 @@ public:
 			if (InitFFmpegDecoder(bEnableHaccel) == 0)
 				return true;
 			else
+			{
+				//assert(false);
 				return false;
+			}
 		}
 		else
 		{
 			if (InitHisiliconDecoder() == IHW265D_OK)
 				return true;
 			else
+			{
+				//assert(false);
 				return false;
+			}
 		}
 		m_bInInit = TRUE;
 		
@@ -589,21 +642,27 @@ private:
 	{
 		if (!m_pAVCtx)
 		{
-			assert(false);
+			//assert(false);
 			return -1;
 		}
 
 		int nAvError = 0;
 		char szAvError[1024] = { 0 };		
-		
-		// Setup threading
-		// Thread Count. 0 = auto detect
-		int thread_count = av_cpu_count() * 3 / 2;
-		m_pAVCtx->thread_count = max(1, min(thread_count, AVCODEC_MAXHREADS));
-		if (m_pAVCtx->codec_id == AV_CODEC_ID_MPEG4)
+				
+		if (m_nDecodeThreadCount == 0)
 		{
-			m_pAVCtx->thread_count = 1;
+			// Setup threading
+			// Thread Count. 0 = auto detect
+			int thread_count = av_cpu_count() * 3 / 2;
+			m_pAVCtx->thread_count = max(1, min(thread_count, AVCODEC_MAXHREADS));
+			if (m_pAVCtx->codec_id == AV_CODEC_ID_MPEG4)
+			{
+				m_pAVCtx->thread_count = 1;
+			}
 		}
+		else
+			m_pAVCtx->thread_count = m_nDecodeThreadCount;
+		
 		m_pFrame = av_frame_alloc();
 		if (bEnableHaccel)
 			AdditionaDecoderInit();
@@ -611,6 +670,7 @@ private:
 		if (m_pAVCodec == NULL)
 		{
 			DxTraceMsg("%s avcodec_find_decoder Failed.\n", __FUNCTION__);
+			//assert(false);
 			return -1;
 		}
 		nAvError = avcodec_open2(m_pAVCtx, m_pAVCodec, nullptr);
@@ -624,6 +684,7 @@ private:
 			av_strerror(nAvError, szAvError, 1024);
 			DxTraceMsg("%s codec failed to avcodec_open2:\n", __FUNCTION__, szAvError);
 			DestroyDecoder();
+			//assert(false);
 			return -1;
 		}
 		return 0;
@@ -652,7 +713,7 @@ private:
 	{
 		if (!m_pAVCtx)
 		{
-			assert(false);
+			//assert(false);
 			return -1;
 		}
 		INT32 iRet = 0;
@@ -735,14 +796,27 @@ public:
 		m_nVideoIndex = -1;
 		int i = 0;
 		for (i = 0; i < m_pFormatCtx->nb_streams; i++)
-			if (m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+			if (m_pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 			{
 				m_nVideoIndex = i;
 				break;
 			}
 
-		m_pAVCtx = m_pFormatCtx->streams[m_nVideoIndex]->codec;
 		m_pAVCodec = avcodec_find_decoder(m_pAVCtx->codec_id);
+		if (!m_pAVCodec)
+		{
+			DxTraceMsg("%s avcodec_find_decoder failed.\n", __FUNCTION__);
+			return false;
+		}
+
+		m_pAVCtx = avcodec_alloc_context3(m_pAVCodec);
+		if (!m_pAVCtx)
+			avcodec_parameters_to_context(m_pAVCtx, m_pFormatCtx->streams[m_nVideoIndex]->codecpar);
+		else
+		{
+			DxTraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
+			return false;
+		}
 		
 		if (bEnableHaccel)
 		{
@@ -913,6 +987,7 @@ public:
 	GUID				m_guidDecoderDevice = GUID_NULL;
 	int					m_DisplayDelay = DXVA2_QUEUE_SURFACES;
 	AVCodecContext      *m_pAVCtx = nullptr;
+	int					m_nDecodeThreadCount = 0;
 	AVFormatContext		*m_pFormatCtx = nullptr;
 	AVIOContext			*m_pIoContext = nullptr;
 	AvQueue				*m_pAvQueue = nullptr;

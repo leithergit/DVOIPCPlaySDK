@@ -455,7 +455,7 @@ HRESULT CVideoDecoder::InitD3D(UINT &nAdapter)
 	if (!m_hD3D9)
 	{
 		DxTraceMsg("%s Failed load D3d9.dll.\n", __FUNCTION__);
-		assert(false);
+		//assert(false);
 		return E_FAIL;
 	}
 	
@@ -463,7 +463,7 @@ HRESULT CVideoDecoder::InitD3D(UINT &nAdapter)
 	if (!m_pDirect3DCreate9Ex)
 	{
 		DxTraceMsg("%s Can't locate the Procedure \"Direct3DCreate9Ex\".\n", __FUNCTION__);
-		assert(false);
+		//assert(false);
 		return E_FAIL;
 	}
 	HRESULT hr = S_OK;

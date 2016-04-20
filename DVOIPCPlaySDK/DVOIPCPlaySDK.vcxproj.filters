@@ -108,6 +108,9 @@
     <ClInclude Include="VideoDecoder\VideoDecoder.h">
       <Filter>VideoDecoder</Filter>
     </ClInclude>
+    <ClInclude Include="DirectDraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -142,6 +145,9 @@
     </ClCompile>
     <ClCompile Include="VideoDecoder\VideoDecoder.cpp">
       <Filter>VideoDecoder</Filter>
+    </ClCompile>
+    <ClCompile Include="Autolock.cpp">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

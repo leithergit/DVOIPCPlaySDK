@@ -12,7 +12,7 @@
 #define new DEBUG_NEW
 #endif
 
-CVca* g_pVca = nullptr;
+//CVca* g_pVca = nullptr;
 enum _SubItem
 {
 	Item_VideoInfo,
@@ -29,6 +29,8 @@ enum _SubItem
 	Item_FileLength,
 };
 
+#define  ID_PLAYEVENT 1024
+#define _PlayInterval 250
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
@@ -62,8 +64,8 @@ END_MESSAGE_MAP()
 
 // CDvoIPCPlayDemoDlg 对话框
 
-#define _Row	2
-#define _Col	2
+#define _Row	1
+#define _Col	1
 
 
 CDvoIPCPlayDemoDlg::CDvoIPCPlayDemoDlg(CWnd* pParent /*=NULL*/)
@@ -107,6 +109,8 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_SEEKNEXTFRAME, &CDvoIPCPlayDemoDlg::OnBnClickedButtonSeeknextframe)
 	ON_BN_CLICKED(IDC_CHECK_ENABLELOG, &CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablelog)
 	ON_BN_CLICKED(IDC_CHECK_ENABLEVCA, &CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablevca)
+	ON_NOTIFY(NM_RELEASEDCAPTURE, IDC_SLIDER_PLAYER, &CDvoIPCPlayDemoDlg::OnNMReleasedcaptureSliderPlayer)
+	ON_BN_CLICKED(IDC_CHECK_REFRESHPLAYER, &CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer)
 END_MESSAGE_MAP()
 
 
@@ -220,7 +224,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		IDC_SLIDER_CHROMA,
 		IDC_SLIDER_PICSCALE,
 		IDC_SLIDER_VOLUME,
-		IDC_SLIDER_PLAYER };
+		IDC_SLIDER_PLAYER};
 	// 设置滑动块的取舍范围
 	for (int i = 0; i < sizeof(nSliderIDArray) / sizeof(UINT); i++)
 	{
@@ -228,7 +232,6 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 		SendDlgItemMessage(nSliderIDArray[i],TBM_SETRANGEMIN, bRedraw, 0);
 		SendDlgItemMessage(nSliderIDArray[i], TBM_SETRANGEMAX, bRedraw, 100);
 	}
-
 	SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_SETPOS, TRUE, 80);
 
 	InitializeCriticalSection(&m_csListStream);
@@ -241,6 +244,7 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	//int nStatus = VLDSetReportHook(VLD_RPTHOOK_INSTALL, VLD_REPORT);
 	SetDlgItemInt(IDC_EDIT_ROW, _Row);
 	SetDlgItemInt(IDC_EDIT_COL, _Col);
+	CheckDlgButton(IDC_CHECK_REFRESHPLAYER, BST_CHECKED);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -518,16 +522,18 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonDisconnect()
 	}
 }
 
+
 void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 {
 	if (m_pPlayContext)
 	{
 		bool bEnableWnd = false;
+		int nStream = 0;
 		CWaitCursor Wait;
 		if (m_pPlayContext->hStream == -1)
 		//if (m_pPlayContext->pClient)
 		{
-			int nStream = SendDlgItemMessage(IDC_COMBO_STREAM, CB_GETCURSEL);
+			nStream = SendDlgItemMessage(IDC_COMBO_STREAM, CB_GETCURSEL);
 // 			MSG_HEAD MsgHead;
 // 			ZeroMemory(&MsgHead, sizeof(MSG_HEAD));
 // 			MsgHead.Magic1[0] = 0xF5;
@@ -618,13 +624,95 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 			bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 			bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
 			int nVolume = SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_GETPOS);
-			
-			//for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
-			int i = 0;
+			app_net_tcp_enc_info_t stResult = { 0 };
+
+			app_net_tcp_com_schn_t req = { 0 };
+			req.chn = 0;
+			req.schn = nStream;
+
+			DVO_MEDIAINFO MediaHeader;
+
+			for (int k = 0; k< 3; k++)
+			{
+				int nReBytes = 0;
+				int  nRet = DVO2_NET_GetDevConfig(m_pPlayContext->hUser, DVO_DEV_CMD_STREAM_VIDEO_ENC_GET, &req, sizeof(app_net_tcp_com_schn_t), &stResult, sizeof(app_net_tcp_enc_info_t), &nReBytes);
+				if (RET_SUCCESS == nRet)
+				{
+					enum APP_NET_TCP_COM_VIDEO_MODE
+					{
+						APP_NET_TCP_COM_VIDEO_MODE_352_288 = 0,
+						APP_NET_TCP_COM_VIDEO_MODE_704_576,
+						APP_NET_TCP_COM_VIDEO_MODE_1280_720,
+						APP_NET_TCP_COM_VIDEO_MODE_1920_1080,
+						APP_NET_TCP_COM_VIDEO_MODE_1280_960,
+						APP_NET_TCP_COM_VIDEO_MODE_1024_768,
+						APP_NET_TCP_COM_VIDEO_MODE_176_144 = 0xFF,
+						APP_NET_TCP_COM_VIDEO_MODE_MAX,
+					}; //视频编码尺寸。
+					MediaHeader.nVideoCodec = (DVO_CODEC)stResult.enc_type;
+					switch (stResult.fmt.enc_mode)
+					{
+					case APP_NET_TCP_COM_VIDEO_MODE_352_288:
+					{
+						MediaHeader.nVideoWidth = 352;
+						MediaHeader.nVideoHeight = 288;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_704_576:
+					{
+						MediaHeader.nVideoWidth = 704;
+						MediaHeader.nVideoHeight = 576;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_1280_720:
+					{
+						MediaHeader.nVideoWidth = 1280;
+						MediaHeader.nVideoHeight = 720;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_1920_1080:
+					{
+						MediaHeader.nVideoWidth = 1920;
+						MediaHeader.nVideoHeight = 1080;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_1280_960:
+					{
+						MediaHeader.nVideoWidth = 1280;
+						MediaHeader.nVideoHeight = 960;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_1024_768:
+					{
+						MediaHeader.nVideoWidth = 1024;
+						MediaHeader.nVideoHeight = 768;
+						break;
+					}
+					case	APP_NET_TCP_COM_VIDEO_MODE_176_144:
+					{
+						MediaHeader.nVideoWidth = 176;
+						MediaHeader.nVideoHeight = 144;
+						break;
+					}
+					break;
+					default:
+					{
+						AfxMessageBox("无效的视频尺寸信息", MB_OK | MB_ICONSTOP);
+						return;
+						break;
+					}
+					}
+					break;
+				}
+			}
+			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			//int i = 0;
 			{
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
-				bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);				
-				m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, 0,128, bEnableRunlog?"dvoipcplaysdk":nullptr);
+				bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);		
+				m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pVideoWndFrame->GetPanelWnd(i), (byte *)&MediaHeader, sizeof(MediaHeader), 128, bEnableRunlog ? "dvoipcplaysdk" : nullptr);
+				//m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pPlayContext->hWndView, nullptr, sizeof(MediaHeader), 0, bEnableRunlog ? "dvoipcplaysdk" : nullptr);
+
 				m_pVideoWndFrame->SetPanelParam(i, m_pPlayContext.get());
 				if (!m_pPlayContext->hPlayer[i])
 				{
@@ -810,7 +898,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				bool bEnableLog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);
 				if (bIsStreamPlay != BST_CHECKED)
 				{
-					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get(),bEnableLog?"dvoipcplaysdk":nullptr);
+					//m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get(),bEnableLog?"dvoipcplaysdk":nullptr);
+					m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath, nullptr, m_pPlayContext.get(), bEnableLog ? "dvoipcplaysdk" : nullptr);
 					if (!m_pPlayContext->hPlayer[0])
 					{
 						_stprintf_s(szText, 1024, _T("无法打开%s文件."), strFilePath);
@@ -842,7 +931,9 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 						m_wndStatus.SetAlarmGllitery();
 						m_pPlayContext.reset();
 						return;
-					}				
+					}
+					SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, 0);
+					SetTimer(ID_PLAYEVENT,_PlayInterval, nullptr);
 				}
 				else
 				{
@@ -978,6 +1069,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 	}
 	else if (m_pPlayContext->hPlayer[0])
 	{
+		KillTimer(ID_PLAYEVENT);
 		if (bIsStreamPlay == BST_CHECKED)
 		{
 			m_bThreadStream = false;
@@ -1206,9 +1298,11 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 				}
 		}
 	}
-	if (pContext->pThis)
+	if (pContext->pThis )
 	{
 		CDvoIPCPlayDemoDlg *pDlg = (CDvoIPCPlayDemoDlg *)pContext->pThis;
+		if (!pDlg->m_bRefreshPlayer)
+			return;
 		if (TimeSpanEx(pDlg->m_dfLastUpdate) < 0.200f)
 			return;
 		pDlg->m_dfLastUpdate = GetExactTime();
@@ -1250,7 +1344,7 @@ LRESULT CDvoIPCPlayDemoDlg::OnUpdatePlayInfo(WPARAM w, LPARAM l)
 		if (fpi->nVideoCodec >= CODEC_UNKNOWN && fpi->nVideoCodec <= CODEC_AAC)
 			_stprintf_s(m_szListText[Item_VideoInfo].szItemText, 256, _T("%s(%dx%d)"), szCodecString[fpi->nVideoCodec + 1], fpi->nVideoWidth, fpi->nVideoHeight);
 		else
-			_stprintf_s(m_szListText[Item_VideoInfo].szItemText, 256, _T("M/A"), szCodecString[fpi->nVideoCodec + 1]);
+			_stprintf_s(m_szListText[Item_VideoInfo].szItemText, 256, _T("N/A"), szCodecString[fpi->nVideoCodec + 1]);
 
 		if (fpi->nAudioCodec >= CODEC_UNKNOWN && fpi->nAudioCodec <= CODEC_AAC)
 			_tcscpy(m_szListText[Item_ACodecType].szItemText, szCodecString[fpi->nAudioCodec + 1]);
@@ -1347,7 +1441,6 @@ void CDvoIPCPlayDemoDlg::OnNMClickListConnection(NMHDR *pNMHDR, LRESULT *pResult
 	*pResult = 0;
 }
 
-
 void CDvoIPCPlayDemoDlg::OnNMCustomdrawListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	NMLVCUSTOMDRAW *pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pNMHDR);
@@ -1374,7 +1467,6 @@ void CDvoIPCPlayDemoDlg::OnNMCustomdrawListStreaminfo(NMHDR *pNMHDR, LRESULT *pR
 	}
 }
 
-
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnableaudio()
 {
 	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
@@ -1387,7 +1479,6 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnableaudio()
 		}
 	}
 }
-
 
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 {
@@ -1440,22 +1531,40 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 		break;
 	case IDC_SLIDER_PLAYER:
 	{
-		int nTotalFrames = 0;
-		PlayerInfo pi;	
-		UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
-		if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
+		switch (nSBCode)
 		{
-			int nSeekFrame = pi.nTotalFrames*nPos / 100;
-			bool bUpdate = true;
-			if (bIsStreamPlay)
+		case SB_PAGEDOWN:
+		case SB_PAGEUP:
+		case SB_THUMBTRACK:
+			KillTimer(ID_PLAYEVENT);
+			break;
+		case SB_THUMBPOSITION:
+		case SB_ENDSCROLL:
+		{
+			int nPos = SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_GETPOS);
+			TraceMsgA("%s Player Slide Pos = %d.\n", __FUNCTION__, nPos);
+			int nTotalFrames = 0;
+			PlayerInfo pi;
+			UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
+			if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
 			{
-				dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
-				CAutoLock lock(&m_csListStream);
-				m_listStream.clear();
-				bUpdate = false;		// 流播放无法通过这种方式刷新画面
+				int nSeekFrame = pi.nTotalFrames*nPos / 100;
+				bool bUpdate = true;
+				if (bIsStreamPlay)
+				{
+					dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
+					CAutoLock lock(&m_csListStream);
+					m_listStream.clear();
+					bUpdate = false;		// 流播放无法通过这种方式刷新画面
+				}
+				dvoplay_SeekFrame(m_pPlayContext->hPlayer[0], nSeekFrame, bUpdate);
 			}
-			
-			dvoplay_SeekFrame(m_pPlayContext->hPlayer[0], nSeekFrame, bUpdate);
+			m_bClickPlayerSlide = true;
+			SetTimer(ID_PLAYEVENT, _PlayInterval, NULL);
+		}
+			break;
+		default:
+			break;
 		}
 	}
 		break;
@@ -1628,8 +1737,68 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPause()
 	}
 }
 
+
 void CDvoIPCPlayDemoDlg::OnTimer(UINT_PTR nIDEvent)
 {
+	if (nIDEvent == ID_PLAYEVENT &&
+		m_pPlayContext->hPlayer[0] && m_bRefreshPlayer)
+	{
+		PlayerInfo pi;
+		PlayerInfo *fpi = &pi;
+		int nError = dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0] ,& pi);
+		if (nError != DVO_Error_FileNotExist)
+		{
+			int nSlidePos = 0;
+			if (fpi->nTotalFrames > 0)
+				nSlidePos = (int)(100 * (double)fpi->nCurFrameID / fpi->nTotalFrames);
+			if (m_bClickPlayerSlide)
+			{
+				TraceMsgA("%s New Player Slider Pos = %d.\n", __FUNCTION__, nSlidePos);
+				m_bClickPlayerSlide = false;
+			}
+			SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);
+		}
+
+		time_t T1 = fpi->tCurFrameTime / 1000;
+		int nFloat = fpi->tCurFrameTime - T1 * 1000;
+		int nHour = T1 / 3600;
+		int nMinute = (T1 - nHour * 3600) / 60;
+		int nSecond = T1 % 60;
+		TCHAR szPlayText[64] = { 0 };
+		_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d.%03d"), nHour, nMinute, nSecond, nFloat);
+		SetDlgItemText(IDC_EDIT_PLAYTIME, szPlayText);
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nCurFrameID);
+		SetDlgItemText(IDC_EDIT_PLAYFRAME, szPlayText);
+
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nCacheSize);
+		SetDlgItemText(IDC_EDIT_PLAYCACHE, szPlayText);
+
+		_stprintf_s(szPlayText, 64, _T("%d"), fpi->nPlayFPS);
+		SetDlgItemText(IDC_EDIT_FPS, szPlayText);
+		m_dfLastUpdate = GetExactTime();
+
+		if (fpi->nVideoCodec >= CODEC_UNKNOWN && fpi->nVideoCodec <= CODEC_AAC)
+			_stprintf_s(m_szListText[Item_VideoInfo].szItemText, 256, _T("%s(%dx%d)"), szCodecString[fpi->nVideoCodec + 1], fpi->nVideoWidth, fpi->nVideoHeight);
+		else
+			_stprintf_s(m_szListText[Item_VideoInfo].szItemText, 256, _T("M/A"), szCodecString[fpi->nVideoCodec + 1]);
+
+		if (fpi->nAudioCodec >= CODEC_UNKNOWN && fpi->nAudioCodec <= CODEC_AAC)
+			_tcscpy(m_szListText[Item_ACodecType].szItemText, szCodecString[fpi->nAudioCodec + 1]);
+		else
+			_tcscpy(m_szListText[Item_ACodecType].szItemText, _T("N/A"));
+		_stprintf_s(m_szListText[Item_VFrameCache].szItemText, 64, _T("%d"), fpi->nCacheSize);
+		_stprintf_s(m_szListText[Item_AFrameCache].szItemText, 64, _T("%d"), fpi->nCacheSize2);
+
+		if (fpi->tTimeEplased > 0)
+		{
+			CTimeSpan tSpan(fpi->tTimeEplased / 1000);
+			_stprintf_s(m_szListText[Item_PlayedTime].szItemText, 64, _T("%02d:%02d:%02d"), tSpan.GetHours(), tSpan.GetMinutes(), tSpan.GetSeconds());
+		}
+		else
+			_tcscpy_s(m_szListText[Item_PlayedTime].szItemText, 64, _T("00:00:00"));
+		m_wndStreamInfo.Invalidate();
+
+	}
 	CDialogEx::OnTimer(nIDEvent);
 }
 
@@ -1764,13 +1933,17 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablelog()
 	}
 }
 
-
+#include "DialogVcaload.h"
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablevca()
 {
 	if (IsDlgButtonChecked(IDC_CHECK_ENABLEVCA) == BST_CHECKED)
 	{
-		m_bEnableVCA = true;
-		dvoplay_SetCallBack(m_pPlayContext->hPlayer[0], YUVFilter, YUVFilterProc, this);
+		CDialogVCALoad Dlg;
+		if (Dlg.DoModal() == IDOK)
+		{
+			m_bEnableVCA = true;
+			dvoplay_SetCallBack(m_pPlayContext->hPlayer[0], YUVFilter, CDvoIPCPlayDemoDlg::YUVFilterProc, this);
+		}
 	}
 	else
 	{
@@ -1778,4 +1951,17 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablevca()
 		m_pDDraw = nullptr;
 		m_pYUVImage = nullptr;
 	}
+}
+
+
+void CDvoIPCPlayDemoDlg::OnNMReleasedcaptureSliderPlayer(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	//TraceMsgA(_T("Code = %d\thWndFrom = %08X\tidFrom = %d.\n"), pNMHDR->code, pNMHDR->hwndFrom, pNMHDR->idFrom);
+	*pResult = 0;
+}
+
+
+void CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer()
+{
+	m_bRefreshPlayer = IsDlgButtonChecked(IDC_CHECK_REFRESHPLAYER);
 }

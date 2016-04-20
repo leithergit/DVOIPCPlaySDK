@@ -50,7 +50,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>E:\ffmpeg\static\include;..\dvoipcnetsdk;..\faad2-2.7\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;D:\boost_1_59;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -58,14 +58,14 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>e:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>LIBCMTD.lib LIBCMT.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx
-copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx</Command>
+      <Command>@echo off
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -75,24 +75,25 @@ copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;C:\ffmpeg\static\include;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;E:\FFMPEG\static\include;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;C:\MinGW\lib;C:\MinGW\lib\gcc\mingw32\4.8.1;C:\ffmpeg\static\lib;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;E:\MinGW\lib;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\FFMPEG\static\lib;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
+      <OptimizeReferences>false</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx
-copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx</Command>
+      <Command>@echo off
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -103,6 +104,7 @@ copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx</Command>
     <ClInclude Include="AudioCodec\g726.h" />
     <ClInclude Include="AudioDecoder.h" />
     <ClInclude Include="AutoLock.h" />
+    <ClInclude Include="DirectDraw.h" />
     <ClInclude Include="DSoundPlayer.hpp" />
     <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk.h" />
     <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk_def.h" />
@@ -129,6 +131,7 @@ copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx</Command>
   <ItemGroup>
     <ClCompile Include="AudioCodec\g711.cpp" />
     <ClCompile Include="AudioCodec\g726.cpp" />
+    <ClCompile Include="Autolock.cpp" />
     <ClCompile Include="dllmain.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

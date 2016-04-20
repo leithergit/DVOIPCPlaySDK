@@ -36,6 +36,7 @@
 #include "DSoundPlayer.hpp"
 #include "AudioDecoder.h"
 #include "Runlog.h"
+#include "DirectDraw.h"
 
 #ifdef _DEBUG
 #define _New	new
@@ -212,7 +213,8 @@ struct StreamFrame
 	StreamFrame(IN byte *pFrame, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime )
 	{
 		nSize = sizeof(DVOFrameHeaderEx) + nFrameLength + 1;
-		pInputData = _New byte[nSize ];
+		pInputData = (byte *)_aligned_malloc(nSize, 16);
+		//pInputData = _New byte[nSize ];
 		if (!pInputData)
 		{
 			assert(false);
@@ -275,7 +277,8 @@ struct StreamFrame
 	{
 		if (pInputData)
 		{
-			delete[]pInputData;
+			_aligned_free(pInputData);
+			//delete[]pInputData;
 		}
 #ifdef _DEBUG
 		//OutputMsg("%s pInputData = %08X.\n", __FUNCTION__, (long)pInputData);
@@ -365,9 +368,14 @@ struct _OutputTime
 		// 自动初始化所有DWORD型变量，即使后续增加变量也不用再作改动
 		DWORD *pThis = (DWORD *)this;
 		for (int i = 0; i < sizeof(_OutputTime) / 4; i++)
-			pThis[i] = timeGetTime();;
+			pThis[i] = timeGetTime();
+		nInputStream = 0;
 	}
 };
+
+extern volatile bool g_bThread_ClosePlayer/* = false*/;
+extern list<DVO_PLAYHANDLE > g_listPlayertoFree;
+extern CRITICAL_SECTION  g_csListPlayertoFree;
 class CDvoPlayer
 {
 public:
@@ -376,13 +384,17 @@ private:
 	list<StreamFramePtr>::iterator ItLoop;
 	list<StreamFramePtr>m_listAudioCache;///< 流播放帧缓冲
 	list<StreamFramePtr>m_listVideoCache;///< 流播放帧缓冲
-	CRITICAL_SECTION	m_csVideoCache;
-	CRITICAL_SECTION	m_csAudioCache;	
+	MYCRITICAL_SECTION	m_csVideoCache;
+	MYCRITICAL_SECTION	m_csAudioCache;	
 	int					m_nMaxFrameCache;///< 最大视频缓冲数量,默认值125
-#ifdef _DEBUG		///< 当m_FrameCache中的视频帧数量超过m_nMaxFrameCache时，便无法再继续输入流数据
+		///< 当m_FrameCache中的视频帧数量超过m_nMaxFrameCache时，便无法再继续输入流数
+public:
+	CHAR		m_szLogFileName[512];
+#ifdef _DEBUG
 	static CriticalSectionPtr m_pCSGlobalCount;
-	static int	m_nGloabalCount;		///< 当前进程中CDvoPlayer对象总数
 	int			m_nObjIndex;			///< 当前对象的计数
+	static int	m_nGloabalCount;		///< 当前进程中CDvoPlayer对象总数
+private:
 	DWORD		m_nLifeTime;			///< 当前对象存在时间
 	_OutputTime	m_OuputTime;
 #endif
@@ -404,7 +416,7 @@ private:
 	CDSoundBuffer* m_pDsBuffer;
 	DxSurfaceInitInfo	m_DxInitInfo;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
-	CRITICAL_SECTION m_csDxSurface;
+	MYCRITICAL_SECTION m_csDxSurface;
 	shared_ptr<CVideoDecoder>m_pDecodec;
 	//static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
@@ -450,7 +462,7 @@ private:
 	UINT		m_nParserBufferSize;	///< 数据解析缓冲区尺寸
 	DWORD		m_nParserDataLength;	///< 数据解析缓冲区中的有效数据长度
 	UINT		m_nParserOffset;		///< 数据解析缓冲区尺寸当前已经解析的偏移
-	CRITICAL_SECTION m_csParser;		
+	MYCRITICAL_SECTION m_csParser;		
 	//volatile bool m_bThreadFileAbstractRun;
 	bool		m_bPause;				///< 是否处于暂停状态
 	byte		*m_pYUV;				///< YVU捕捉专用内存
@@ -467,7 +479,7 @@ private:	// 文件播放相关变量
 	char		*m_pszFileName;			///< 正在播放的文件名,该字段仅在文件播放时间有效
 	FileFrameInfo	*m_pFrameOffsetTable;///< 视频帧ID对应文件偏移表
 	volatile LONGLONG m_nSeekOffset;	///< 读文件的偏移
-	CRITICAL_SECTION	m_csSeekOffset;
+	MYCRITICAL_SECTION	m_csSeekOffset;
 	float		m_fPlayRate;			///< 当前的播放的倍率,大于1时为加速播放,小于1时为减速播放，不能为0或小于0
 	int			m_nSDKVersion;			///< 生成录像文件的SDK版本	
 	int			m_nMaxFrameSize;		///< 最大I帧的大小，以字节为单位,默认值256K
@@ -492,7 +504,7 @@ private:
 	void OutputMsg(char *pFormat, ...)
 	{
 		int nBuff;
-		CHAR szBuffer[0x7fff];
+		CHAR szBuffer[4096];
 		va_list args;
 		va_start(args, pFormat);		
 		nBuff = _vsnprintf(szBuffer, __countof(szBuffer), pFormat, args);
@@ -511,21 +523,21 @@ private:
 	CDvoPlayer()
 	{
 		ZeroMemory(&m_csVideoCache, sizeof(CDvoPlayer) - offsetof(CDvoPlayer, m_csVideoCache));
-		InitializeCriticalSection(&m_csVideoCache);
-		InitializeCriticalSection(&m_csAudioCache);
-		InitializeCriticalSection(&m_csParser);
-		InitializeCriticalSection(&m_csDxSurface);
+		MyInitializeCriticalSection(&m_csVideoCache);
+		MyInitializeCriticalSection(&m_csAudioCache);
+		MyInitializeCriticalSection(&m_csParser);
+		MyInitializeCriticalSection(&m_csDxSurface);
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
 	LONGLONG GetSeekOffset()
 	{
-		CAutoLock lock(&m_csSeekOffset);
+		CAutoLock lock(&m_csSeekOffset, false,__FILE__, __FUNCTION__, __LINE__);
 		return m_nSeekOffset;
 	}
 	void SetSeekOffset(LONGLONG nSeekOffset)
 	{
-		CAutoLock lock(&m_csSeekOffset);
+		CAutoLock lock(&m_csSeekOffset, false, __FILE__, __FUNCTION__, __LINE__);
 		m_nSeekOffset = nSeekOffset;
 	}
 	// 超大文件寻址
@@ -676,19 +688,25 @@ private:
 		}
 		char *szStatus = "Succeed";
 #endif
-		CAutoLock lock(&m_csDxSurface);
+		CAutoLock lock(&m_csDxSurface, false,__FILE__, __FUNCTION__, __LINE__);
 		if (m_bFitWindow)
 		{
+			DWORD dwTNow = timeGetTime();
 			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr);
+			DWORD dwTimeSpan = timeGetTime() - dwTNow;
+			if (dwTimeSpan > 200)
+			{
+				DxTraceMsg("%s %d(%s) Render Time = %d.\n", __FILE__, __LINE__, __FUNCTION__, dwTimeSpan);
+			}
 #ifdef _DEBUG
 			
 			if (!bFlag)
 				szStatus = "Failed";
-			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
-			{
-				OutputMsg("%s \tObject:%d\tRender Succeed\n", __FUNCTION__, m_nObjIndex);
-				m_OuputTime.nRender = timeGetTime();
-			}
+// 			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
+// 			{
+// 				OutputMsg("%s \tObject:%d\tRender Succeed\n", __FUNCTION__, m_nObjIndex);
+// 				m_OuputTime.nRender = timeGetTime();
+// 			}
 #endif
 		}
 		else
@@ -737,11 +755,11 @@ private:
 			//OutputMsg("%s \tObject:%d m_nLifeTime = %d.\n", __FUNCTION__, m_nObjIndex, m_nLifeTime);
 			if (!bFlag)
 				szStatus = "Failed";
-			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
-			{
-				OutputMsg("%s \tObject:%d. Render Succeed\n", __FUNCTION__, m_nObjIndex);
-				m_OuputTime.nRender = timeGetTime();
-			}
+// 			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
+// 			{
+// 				OutputMsg("%s \tObject:%d. Render Succeed\n", __FUNCTION__, m_nObjIndex);
+// 				m_OuputTime.nRender = timeGetTime();
+// 			}
 #endif
 			//OutputMsg("%s Width = %d\tHeight = %d.\n", __FUNCTION__, (rtRender.right - rtRender.left), (rtRender.bottom - rtRender.top));
 		}
@@ -791,6 +809,7 @@ public:
 		m_nObjIndex = m_nGloabalCount++;
 		m_pCSGlobalCount->Unlock();
 		m_nLifeTime = timeGetTime();
+		
 // 		m_OuputTime.nDecode = m_nLifeTime;
 // 		m_OuputTime.nInputStream = m_nLifeTime;
 // 		m_OuputTime.nRender = m_nLifeTime;
@@ -798,7 +817,11 @@ public:
 		OutputMsg("%s \tObject:%d m_nLifeTime = %d.\n", __FUNCTION__, m_nObjIndex, m_nLifeTime);
 #endif 
 		if (szLogFile)
+		{
+			strcpy(m_szLogFileName, szLogFile);
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
+		}
+		
 #ifdef _DEBUG
 		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 #endif
@@ -818,7 +841,8 @@ public:
 		m_nFileFPS		 = 25;				// FPS的默认值为25
 		m_fPlayRate		 = 1;
 		m_fPlayInterval	 = 40.0f;
-		m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
+		//m_nVideoCodec	 = CODEC_H264;		// 视频默认使用H.264编码
+		m_nVideoCodec = CODEC_UNKNOWN;
 		m_nAudioCodec	 = CODEC_G711U;		// 音频默认使用G711U编码
 #ifdef _DEBUG
 		m_nMaxFrameCache = 200;				// 默认最大视频缓冲数量为200
@@ -891,6 +915,13 @@ public:
 			}
 		}
 		*/
+		if (m_pParserBuffer)
+		{
+			delete[]m_pParserBuffer;
+#ifdef _DEBUG
+			m_pParserBuffer = nullptr;
+#endif
+		}
 		if (m_pDsBuffer)
 		{
 			m_pDsPlayer->DestroyDsoundBuffer(m_pDsBuffer);
@@ -912,10 +943,10 @@ public:
 		{
 			CloseHandle(m_hDvoFile);
 		}
-		DeleteCriticalSection(&m_csVideoCache);
-		DeleteCriticalSection(&m_csAudioCache);
-		DeleteCriticalSection(&m_csSeekOffset);
-		DeleteCriticalSection(&m_csParser);
+		MyDeleteCriticalSection(&m_csVideoCache);
+		MyDeleteCriticalSection(&m_csAudioCache);
+		MyDeleteCriticalSection(&m_csSeekOffset);
+		MyDeleteCriticalSection(&m_csParser);
 #ifdef _DEBUG
 		OutputMsg("%s \tFinish Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 		OutputMsg("%s \tObject:%d Exist Time = %u(ms).\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
@@ -958,10 +989,24 @@ public:
 				break;
 			case DVO_IPC_SDK_VERSION_2015_10_20:
 			case DVO_IPC_SDK_VERSION_2015_12_16:
+			{
+				m_nVideoCodec = m_pMediaHeader->nVideoCodec;
+				m_nAudioCodec = m_pMediaHeader->nAudioCodec;
+				if (m_nVideoCodec == CODEC_UNKNOWN)
+				{
+					m_nVideoWidth = 0;
+					m_nVideoHeight = 0;
+				}
+				else
+				{
+					m_nVideoWidth = m_pMediaHeader->nVideoWidth;
+					m_nVideoHeight = m_pMediaHeader->nVideoHeight;
+				}
 				if (m_pMediaHeader->nFps == 0)
 					m_nFileFPS = 25;
 				else
 					m_nFileFPS = m_pMediaHeader->nFps;
+			}
 				break;
 			default:
 				return DVO_Error_InvalidSDKVersion;
@@ -993,13 +1038,13 @@ public:
 
 	void ClearFrameCache()
 	{
-		EnterCriticalSection(&m_csVideoCache);
+		_MyEnterCriticalSection(&m_csVideoCache);
 		m_listVideoCache.clear();
-		LeaveCriticalSection(&m_csVideoCache);
+		_MyLeaveCriticalSection(&m_csVideoCache);
 
-		EnterCriticalSection(&m_csAudioCache);
+		_MyEnterCriticalSection(&m_csAudioCache);
 		m_listAudioCache.clear();
-		LeaveCriticalSection(&m_csAudioCache);
+		_MyLeaveCriticalSection(&m_csAudioCache);
 	}
 		
 	/// @brief			开始播放
@@ -1053,7 +1098,15 @@ public:
 		{
 			// 启动流播放线程
 			m_bThreadPlayVideoRun = true;			
-			m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+			//m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+			m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+			if (!m_hThreadPlayVideo)
+			{
+#ifdef _DEBUG
+				OutputMsg("%s \tObject:%d ThreadPlayVideo Start failed:%d.\n", __FUNCTION__, m_nObjIndex, GetLastError());
+#endif
+				return DVO_Error_VideoThreadStartFailed;
+			}
 			
 			EnableAudio(bEnaleAudio);
 		}
@@ -1063,7 +1116,7 @@ public:
 	/// @brief 复位播放窗口
 	bool Reset(HWND hWnd = nullptr, int nWidth = 0, int nHeight = 0)
 	{
-		CAutoLock lock(&m_csDxSurface);
+		CAutoLock lock(&m_csDxSurface, false, __FILE__, __FUNCTION__, __LINE__);
 		if (m_pDxSurface)
 		{
 			if (!hWnd)
@@ -1164,7 +1217,7 @@ public:
 			{
 // 				if (!m_hThreadPlayVideo)
 // 					return DVO_Error_VideoThreadNotRun;
-				CAutoLock lock(&m_csVideoCache);
+				CAutoLock lock(&m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
 				if (m_listVideoCache.size() >= m_nMaxFrameCache)
 					return DVO_Error_FrameCacheIsFulled;
 				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize,m_nFileFrameInterval);
@@ -1184,7 +1237,7 @@ public:
 					break;
 				if (m_fPlayRate != 1.0f)
 					break;
-				CAutoLock lock(&m_csAudioCache);
+				CAutoLock lock(&m_csAudioCache, false, __FILE__, __FUNCTION__, __LINE__);
 				if (m_listAudioCache.size() >= m_nMaxFrameCache)
 					return DVO_Error_FrameCacheIsFulled;
 				StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize, m_nFileFrameInterval/2);
@@ -1212,14 +1265,30 @@ public:
 	///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停播放
 	int InputStream(IN byte *pFrameData, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime)
 	{
+		DeclareRunTime();
 #ifdef _DEBUG
-		if ((timeGetTime() - m_OuputTime.nInputStream) >= 5000)
+		if (m_OuputTime.nInputStream == 0 ||
+			(timeGetTime() - m_OuputTime.nInputStream) >= 5000)
 		{
 			OutputMsg("%s \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 			m_OuputTime.nInputStream = timeGetTime();
 		}
 #endif
+		if (!m_hThreadPlayVideo)
+		{
+#ifdef _DEBUG
+			OutputMsg("%s \tObject:%d Video decode thread not run.\n", __FUNCTION__, m_nObjIndex);
+#endif
+			return DVO_Error_VideoThreadNotRun;
+		}
+		DWORD dwThreadCode = 0;
+		GetExitCodeThread(m_hThreadPlayVideo, &dwThreadCode);
+		if (dwThreadCode != STILL_ACTIVE)		// 线程已退出
+		{
+			return DVO_Error_VideoThreadAbnormalExit;
+		}
 		m_bIpcStream = true;
+		SaveRunTime();
 		switch (nFrameType)
 		{
 			case 0:									// 海思I帧号为0，这是固件的一个BUG，有待修正
@@ -1228,13 +1297,26 @@ public:
 			case APP_NET_TCP_COM_DST_P_FRAME:       // P帧。
 			case APP_NET_TCP_COM_DST_B_FRAME:       // B帧。
 			{
-				CAutoLock lock(&m_csVideoCache);
-				if (m_listVideoCache.size() >= m_nMaxFrameCache)
-					return DVO_Error_FrameCacheIsFulled;
+				SaveRunTime();
 				StreamFramePtr pStream = make_shared<StreamFrame>(pFrameData, nFrameType, nFrameLength, nFrameNum, nFrameTime);
+				CAutoLock lock(&m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
+				SaveRunTime();
+				if (m_listVideoCache.size() >= m_nMaxFrameCache)
+				{
+#ifdef _DEBUG
+					OutputMsg("%s \tObject:%d Video Frame cache is Fulled.\n", __FUNCTION__, m_nObjIndex);
+#endif
+					return DVO_Error_FrameCacheIsFulled;
+				}	
 				if (!pStream)
+				{
+#ifdef _DEBUG
+					OutputMsg("%s \tObject:%d InsufficentMemory when alloc memory for video frame.\n", __FUNCTION__, m_nObjIndex);
+#endif
 					return DVO_Error_InsufficentMemory;
+				}
 				m_listVideoCache.push_back(pStream);
+				SaveRunTime();
 			}
 				break;
 			case APP_NET_TCP_COM_DST_711_ALAW:      // 711 A律编码帧
@@ -1248,10 +1330,10 @@ public:
 				StreamFramePtr pStream = make_shared<StreamFrame>(pFrameData, nFrameType, nFrameLength, nFrameNum, nFrameTime);
 				if (!pStream)
 					return DVO_Error_InsufficentMemory;
-				::EnterCriticalSection(&m_csAudioCache);
+				::_MyEnterCriticalSection(&m_csAudioCache);
 				m_nAudioFrames++;
 				m_listAudioCache.push_back(pStream);
-				::LeaveCriticalSection(&m_csAudioCache);
+				::_MyLeaveCriticalSection(&m_csAudioCache);
 			}
 				break;
 			default:
@@ -1266,35 +1348,48 @@ public:
 	void StopPlay()
 	{
 #ifdef _DEBUG
+		TraceFunction();
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
 		m_bThreadParserRun = false;
 		m_bThreadPlayVideoRun = false;
 		m_bThreadPlayAudioRun = false;
+		HANDLE hArray[4] = { 0 };
+		int nHandles = 0;
+		
 		m_bPause = false;
 		if (m_hThreadParser)
+			hArray[nHandles++] = m_hThreadParser;
+		if (m_hThreadPlayVideo)
+			hArray[nHandles++] = m_hThreadPlayVideo;
+		if (m_hThreadPlayAudio)
 		{
-			WaitForSingleObject(m_hThreadParser, INFINITE);			
+			hArray[nHandles++] = m_hThreadPlayAudio;
+			ResumeThread(m_hThreadPlayAudio);
+		}
+		
+		WaitForMultipleObjects(nHandles, hArray, true, INFINITE);
+		if (m_hThreadParser)
+		{
 			CloseHandle(m_hThreadParser);
 			m_hThreadParser = nullptr;
 			OutputMsg("%s ThreadParser has exit.\n", __FUNCTION__);
 		}
 		if (m_hThreadPlayVideo)
 		{
-			WaitForSingleObject(m_hThreadPlayVideo, INFINITE);
 			CloseHandle(m_hThreadPlayVideo);
 			m_hThreadPlayVideo = nullptr;
-			OutputMsg("%s ThreadPlayVideo has exit.\n", __FUNCTION__);
+#ifdef _DEBUG
+			OutputMsg("%s ThreadPlayVideo Object:%d has exit.\n", __FUNCTION__,m_nObjIndex);
+#endif
+			
 		}
 		if (m_hThreadPlayAudio)
 		{
-			ResumeThread(m_hThreadPlayAudio);
-			WaitForSingleObject(m_hThreadPlayAudio, INFINITE);
 			CloseHandle(m_hThreadPlayAudio);
 			m_hThreadPlayAudio = nullptr;
 			OutputMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
 		}
-		
 		EnableAudio(false);
 		if (m_pFrameOffsetTable)
 			delete []m_pFrameOffsetTable;
@@ -1383,13 +1478,13 @@ public:
 			pPlayInfo->tTimeEplased	 = (time_t)(1000 * (GetExactTime() - m_dfTimesStart));
 			pPlayInfo->nFPS			 = m_nFileFPS;
 			pPlayInfo->nPlayFPS		 = m_nPlayFPS;
-			EnterCriticalSection(&m_csVideoCache);
+			_MyEnterCriticalSection(&m_csVideoCache);
 			pPlayInfo->nCacheSize = m_listVideoCache.size();
-			LeaveCriticalSection(&m_csVideoCache);
+			_MyLeaveCriticalSection(&m_csVideoCache);
 
-			EnterCriticalSection(&m_csAudioCache);
+			_MyEnterCriticalSection(&m_csAudioCache);
 			pPlayInfo->nCacheSize2 = m_listAudioCache.size();
-			LeaveCriticalSection(&m_csAudioCache);
+			_MyLeaveCriticalSection(&m_csAudioCache);
 			
 			if (m_pszFileName &&
 				::PathFileExistsA(m_pszFileName))
@@ -1406,7 +1501,7 @@ public:
 				pPlayInfo->tTotalTime = 0;
 			pPlayInfo->nCurFrameID = m_nCurVideoFrame;
 			pPlayInfo->nTotalFrames = m_nTotalFrames;
-			pPlayInfo->tCurFrameTime = m_nCurVideoFrame*m_fPlayInterval/*(m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000*/;
+			pPlayInfo->tCurFrameTime = m_nCurVideoFrame*1000/m_nFileFPS/*(m_tCurFrameTimeStamp - m_pFrameOffsetTable[0].tTimeStamp) / 1000*/;
 			
 			return DVO_Succeed;
 		}
@@ -1502,15 +1597,15 @@ public:
 		if (nFrameID < 0 || nFrameID > m_nTotalFrames)
 			return DVO_Error_InvalidFrame;	
 
-		EnterCriticalSection(&m_csVideoCache);
+		_MyEnterCriticalSection(&m_csVideoCache);
 		m_listVideoCache.clear();
 		ItLoop = m_listVideoCache.begin();
 		m_nFrameOffset = 0;
-		LeaveCriticalSection(&m_csVideoCache);
+		_MyLeaveCriticalSection(&m_csVideoCache);
 
-		EnterCriticalSection(&m_csAudioCache);
+		_MyEnterCriticalSection(&m_csAudioCache);
 		m_listAudioCache.clear();
-		LeaveCriticalSection(&m_csAudioCache);
+		_MyLeaveCriticalSection(&m_csAudioCache);
 		
 		// 从文件摘要中，取得文件偏移信息
 		// 查找最近的I帧
@@ -1535,12 +1630,13 @@ public:
 			m_nFrametoRead = nForward;
 		else
 			m_nFrametoRead = nBackWord;
+		m_nCurVideoFrame = m_nFrametoRead;
 		TraceMsgA("%s Seek to Frame %d\tFrameTime = %I64d\n", __FUNCTION__, m_nFrametoRead, m_pFrameOffsetTable[m_nFrametoRead].tTimeStamp/1000);
 		if (m_hThreadParser)
 			SetSeekOffset(m_pFrameOffsetTable[m_nFrametoRead].nOffset);
 		else
 		{// 只用于单纯的解析文件时移动文件指针
-			CAutoLock lock(&m_csParser);
+			CAutoLock lock(&m_csParser, false, __FILE__, __FUNCTION__, __LINE__);
 			m_nParserOffset = 0;
 			m_nParserDataLength = 0;
 			LONGLONG nOffset = m_pFrameOffsetTable[m_nFrametoRead].nOffset;
@@ -1581,6 +1677,7 @@ public:
 			AVFrame *pAvFrame = av_frame_alloc();
 			shared_ptr<AVFrame>AvFramePtr(pAvFrame, av_free);
 			av_init_packet(pAvPacket);
+			m_nCurVideoFrame = Frame(pBuffer)->nFrameID;
 			pAvPacket->size = Frame(pBuffer)->nLength;
 			pAvPacket->data = pBuffer + sizeof(DVOFrameHeaderEx);
 			int nGotPicture = 0;
@@ -1599,6 +1696,7 @@ public:
 			}
 			return DVO_Succeed;
 		}
+
 		return DVO_Succeed;
 	}
 	
@@ -1652,7 +1750,7 @@ public:
 
 		DWORD nBytesRead = 0;
 		FrameParser Parser;
-		CAutoLock lock(&m_csParser);
+		CAutoLock lock(&m_csParser, false, __FILE__, __FUNCTION__, __LINE__);
 		byte *pFrameBuffer = &m_pParserBuffer[m_nParserOffset];
 		if (!ParserFrame(&pFrameBuffer, m_nParserDataLength, &Parser))
 		{
@@ -1690,14 +1788,14 @@ public:
 			if (!m_hDvoFile || !m_pFrameOffsetTable)
 				return DVO_Error_NotFilePlayer;
 
-			EnterCriticalSection(&m_csVideoCache);
+			_MyEnterCriticalSection(&m_csVideoCache);
 			m_listVideoCache.clear();			
 			m_nFrameOffset = 0;
-			LeaveCriticalSection(&m_csVideoCache);
+			_MyLeaveCriticalSection(&m_csVideoCache);
 
-			EnterCriticalSection(&m_csAudioCache);
+			_MyEnterCriticalSection(&m_csAudioCache);
 			m_listAudioCache.clear();
-			LeaveCriticalSection(&m_csAudioCache);
+			_MyLeaveCriticalSection(&m_csAudioCache);
 
 			// 读取一帧,并予以解码,显示
 			DWORD nBufferSize = m_pFrameOffsetTable[m_nCurVideoFrame].nFrameSize;
@@ -1776,7 +1874,7 @@ public:
 				{
 					m_pDsPlayer = nullptr;
 					m_bEnableAudio = false;
-					assert(false);
+					//assert(false);
 					return DVO_Error_AudioFailed;
 				}
 			}
@@ -1788,7 +1886,8 @@ public:
 				return DVO_Error_AudioFailed;
 			}
 			m_bThreadPlayAudioRun = true;
-			m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+			//m_hThreadPlayAudio = CreateThread(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+			m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
 			m_pDsBuffer->StartPlay();
 
 			m_dfLastTimeAudioPlay = 0.0f;
@@ -1922,10 +2021,10 @@ public:
 		{
 			pFrameParser->pHeaderEx = (DVOFrameHeaderEx *)(*ppBuffer);
 			bool bIFrame = false;
-			if (IsDVOVideoFrame(pFrameParser->pHeaderEx, bIFrame))
-				OutputMsg("Frame ID:%d\tType = Video:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
-			else
-				OutputMsg("Frame ID:%d\tType = Audio:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
+// 			if (IsDVOVideoFrame(pFrameParser->pHeaderEx, bIFrame))
+// 				OutputMsg("Frame ID:%d\tType = Video:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
+// 			else
+// 				OutputMsg("Frame ID:%d\tType = Audio:%d.\n", pFrameParser->pHeaderEx->nFrameID, pFrameParser->pHeaderEx->nType);
 			pFrameParser->nFrameSize = FrameSize(*ppBuffer);
 			pFrameParser->pLawFrame = *ppBuffer + sizeof(DVOFrameHeaderEx);
 			pFrameParser->nLawFrameSize = Frame(*ppBuffer)->nLength;
@@ -1965,13 +2064,13 @@ public:
 			if (nSeekOffset = pThis->GetSeekOffset())	// 是否需要移动文件指针,若nSeekOffset不为0，则需要移动文件指针
 			{
 				pThis->OutputMsg("Detect SeekFrame Operation.\n");
-				EnterCriticalSection(&pThis->m_csVideoCache);
+				_MyEnterCriticalSection(&pThis->m_csVideoCache);
 				pThis->m_listVideoCache.clear();				
-				LeaveCriticalSection(&pThis->m_csVideoCache);
+				_MyLeaveCriticalSection(&pThis->m_csVideoCache);
 
-				EnterCriticalSection(&pThis->m_csAudioCache);
+				_MyEnterCriticalSection(&pThis->m_csAudioCache);
 				pThis->m_listAudioCache.clear();
-				LeaveCriticalSection(&pThis->m_csAudioCache);
+				_MyLeaveCriticalSection(&pThis->m_csAudioCache);
 
 				pThis->SetSeekOffset(0);
 				nDataLength = 0;
@@ -2090,9 +2189,9 @@ public:
 		}
 		pDecodec->CancelProbe();		
 		m_bProbeMode = false;
-		::EnterCriticalSection(&m_csAudioCache);
+		::_MyEnterCriticalSection(&m_csAudioCache);
 		m_listVideoCache.clear();		
-		::LeaveCriticalSection(&m_csAudioCache);
+		::_MyLeaveCriticalSection(&m_csAudioCache);
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE)
 		{
 			OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
@@ -2539,7 +2638,7 @@ public:
 		int nReturnVal = buf_size;
 		int nRemainedLength = 0;
 		pAvQueue->pAvBuffer = buf;
-		CAutoLock lock(&pThis->m_csVideoCache);	
+		CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
 		if (pThis->m_listVideoCache.size() == 0)
 			return 0;
 #ifdef _DEBUG
@@ -2610,79 +2709,182 @@ public:
 		}
 		return nReturnVal;
 	}
-
-	static DWORD WINAPI ThreadPlayVideo(void *p)
+	bool InitD3D()
+	{
+		// 初始显示组件
+		// 使用线程内CDxSurface对象显示图象
+		if (m_pDxSurface)		// D3D设备尚未初始化
+		{
+			DxSurfaceInitInfo &InitInfo = m_DxInitInfo;
+			InitInfo.nSize = sizeof(DxSurfaceInitInfo);
+			InitInfo.nFrameWidth = m_nVideoWidth;
+			InitInfo.nFrameHeight = m_nVideoHeight;
+			if (m_bEnableHaccel)
+				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
+			else
+				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				//InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
+			InitInfo.bWindowed = TRUE;
+			//if (!pWndDxInit->GetSafeHwnd())
+			InitInfo.hPresentWnd = m_hWnd;
+			//else
+			//	InitInfo.hPresentWnd = pWndDxInit->GetSafeHwnd();
+			m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
+			if (!m_pDxSurface->InitD3D(InitInfo.hPresentWnd,
+				InitInfo.nFrameWidth,
+				InitInfo.nFrameHeight,
+				InitInfo.bWindowed,
+				InitInfo.nD3DFormat))
+			{
+				OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
+#ifdef _DEBUG
+				OutputMsg("%s \tObject:%d DxSurface failed,Line %d Time = %d.\n", __FUNCTION__, m_nObjIndex, __LINE__, timeGetTime() - m_nLifeTime);
+#endif
+				return false;
+			}
+			return true;
+		}
+		else
+			return false;
+	}
+	/// @brief			实现指时时长的延时
+	/// @param [in]		dwDelay		延时时长，单位为ms
+	/// @param [in]		bStopFlag	处理停止的标志,为false时，则停止延时
+	/// @param [in]		nSleepGranularity	延时时Sleep的粒度,粒度越小，中止延时越迅速，同时也更耗CPU，反之亦然
+	static void Delay(DWORD dwDelay, volatile bool &bStopFlag, WORD nSleepGranularity = 20)
+	{
+		DWORD dwTotal = 0;
+		while (bStopFlag && dwTotal < dwDelay)
+		{
+			Sleep(nSleepGranularity);
+			dwTotal += nSleepGranularity;
+		}
+	}
+	static UINT __stdcall ThreadPlayVideo(void *p)
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
 #ifdef _DEBUG
-		pThis->OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
+		pThis->OutputMsg("%s \tObject:%d Enter ThreadPlayVideo m_nLifeTime = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
 #endif
 		int nAvError = 0;
 		char szAvError[1024] = { 0 };
+#ifdef _DEBUG
+		sprintf_s(szAvError, 1024, "Object:%d.\n", pThis->m_nObjIndex);
+		TraceFunction1(szAvError);
+#endif
 		if (!pThis->m_hWnd)
 		{
 			pThis->OutputMsg("%s Please assign a Window.\n", __FUNCTION__);
-			assert(false);
+			//assert(false);
 			return 0;
 		}	
 		shared_ptr<CVideoDecoder>pDecodec = make_shared<CVideoDecoder>();
 		if (!pDecodec)
 		{
 			pThis->OutputMsg("%s Failed in allocing memory for Decoder.\n", __FUNCTION__);
-			assert(false);
+			//assert(false);
 			return 0;
 		}
+		pDecodec->SetDecodeThreads(1);		// 使用单线程解码
+		int nRetry = 0;
 		// 等待I帧
-		double tFirst = GetExactTime();
-#ifdef _DEBUG
-		double dfTimeout = 8.0f;
-#else
-		double dfTimeout = 2.0f;		// 等待I帧时间
-#endif
-		while (true)
+		long tFirst = timeGetTime();
+//#ifdef _DEBUG
+		DWORD dfTimeout = 60000;
+// #else
+// 		DWORD dfTimeout = 4000;		// 等待I帧时间
+// #endif
+		if (pThis->m_nVideoCodec == CODEC_UNKNOWN)		/// 码流未知则尝试探测码
 		{
-			if ((TimeSpanEx(tFirst)) < dfTimeout)
+			while (true)
 			{
-				Sleep(10);
-				CAutoLock lock(&pThis->m_csVideoCache);
-				if (find_if(pThis->m_listVideoCache.begin(), pThis->m_listVideoCache.end(), StreamFrame::IsIFrame) != pThis->m_listVideoCache.end())
-					break;
+				if ((timeGetTime() - tFirst) < dfTimeout)
+				{
+					Sleep(5);
+					CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
+					if (find_if(pThis->m_listVideoCache.begin(), pThis->m_listVideoCache.end(), StreamFrame::IsIFrame) != pThis->m_listVideoCache.end())
+						break;
+				}
+				else
+				{
+#ifdef _DEBUG
+					pThis->OutputMsg("%s Warning!!!\nNot receive an I frame in %d second.m_listVideoCache.size() = %d.\n", __FUNCTION__, (int)dfTimeout / 1000, pThis->m_listVideoCache.size());
+					pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
+					if (pThis->m_hWnd)
+						::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_NOTRECVIFRAME, 0);
+					return 0;
+				}
 			}
-			else
+			// 探测码流类型
+			pThis->ItLoop = pThis->m_listVideoCache.begin();
+			pThis->m_bProbeMode = true;
+			if (pDecodec->ProbeStream(pThis,ReadAvData, pThis->m_nMaxFrameSize) != 0)
 			{
-				pThis->OutputMsg("%s Warning!!!\nNot receive an I frame in %d second.m_listVideoCache.size() = %d.\n", __FUNCTION__, (int)dfTimeout,pThis->m_listVideoCache.size());
+				pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
+	#ifdef _DEBUG
+				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+	#endif
+				if (pThis->m_hWnd)
+					::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_UNKNOWNSTREAM, 0);
+				return 0;
+			}
+			pDecodec->CancelProbe();
+			pThis->OutputMsg("%s Discard %d Non-I-Frames in Probe mode.\n", __FUNCTION__, pThis->m_nDisardFrames);
+			pThis->m_bProbeMode = false;
+			if (!pDecodec->InitDecoder(AV_CODEC_ID_NONE,0,0,pThis->m_bEnableHaccel))
+			{
+				pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
 #ifdef _DEBUG
 				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
-				//assert(false);
+				if (pThis->m_hWnd)
+					::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
 				return 0;
 			}
 		}
-		// 探测码流类型
-		pThis->ItLoop = pThis->m_listVideoCache.begin();
-		pThis->m_bProbeMode = true;
-		if (pDecodec->ProbeStream(pThis,ReadAvData, pThis->m_nMaxFrameSize) != 0)
+		else
 		{
-			pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
+			AVCodecID nCodec = AV_CODEC_ID_NONE;
+			switch (pThis->m_nVideoCodec)
+			{
+			case CODEC_H264:
+				nCodec = AV_CODEC_ID_H264;
+				break;
+			case CODEC_H265:
+				nCodec = AV_CODEC_ID_H265;
+				break;
+			default:
+			{
+				if (pThis->m_hWnd)
+					::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_UNSURPPORTEDSTREAM, 0);
+				return 0;
+				break;
+			}
+			}
+			
+			while (pThis->m_bThreadPlayVideoRun )
+			{
+				if (!pDecodec->InitDecoder(nCodec, pThis->m_nVideoWidth, pThis->m_nVideoHeight, pThis->m_bEnableHaccel))
+				{
+					pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
 #ifdef _DEBUG
-			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+					pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
-			//assert(false);
-			return 0;
+					nRetry++;
+					if (nRetry >= 3)
+					{
+						if (pThis->m_hWnd)
+							::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
+						return 0;
+					}
+					Delay(2500,pThis->m_bThreadPlayVideoRun);
+				}
+				else
+					break;
+			}
 		}
-		pDecodec->CancelProbe();
-		pThis->OutputMsg("%s Discard %d Non-I-Frames in Probe mode.\n", __FUNCTION__, pThis->m_nDisardFrames);
-		pThis->m_bProbeMode = false;
-
-		if (!pDecodec->InitDecoder(pThis->m_bEnableHaccel))
-		{
-			pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
-#ifdef _DEBUG
-			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
-#endif
-			//assert(false);
-			return 0;
-		}
+		
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE )
 		{
 			pThis->OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
@@ -2690,6 +2892,8 @@ public:
 			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 			//assert(false);
+			if (pThis->m_hWnd)
+				::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INVALIDCODER, 0);
 			return 0;
 		}
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_H264)
@@ -2706,60 +2910,43 @@ public:
 		{
 			pThis->m_nVideoCodec = CODEC_UNKNOWN;
 			pThis->OutputMsg("%s Unsupported Video Codec.\n", __FUNCTION__);
-			//assert(false);
+			if (pThis->m_hWnd)
+				::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE,DVOPLAYER_UNSURPPORTEDSTREAM, 0);
 			return 0;
 		}
 		pThis->m_nVideoWidth = pDecodec->m_pAVCtx->width;
 		pThis->m_nVideoHeight = pDecodec->m_pAVCtx->height;
 		//shared_ptr<CSimpleWnd>pWndDxInit = make_shared<CSimpleWnd>(pThis->m_nVideoWidth, pThis->m_nVideoHeight);	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
-		
-		// 初始显示组件
-		// 使用线程内CDxSurface对象显示图象
-		if (pThis->m_pDxSurface)		// D3D设备尚未初始化
+		nRetry = 0;
+		while (pThis->m_bThreadPlayVideoRun)
 		{
-			DxSurfaceInitInfo &InitInfo = pThis->m_DxInitInfo;
-			InitInfo.nSize = sizeof(DxSurfaceInitInfo);
-			InitInfo.nFrameWidth = pDecodec->m_pAVCtx->width;
-			InitInfo.nFrameHeight = pDecodec->m_pAVCtx->height;
-			if (pThis->m_bEnableHaccel)
-				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
-			else
-				//InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
-				InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
-			InitInfo.bWindowed = TRUE;
-			//if (!pWndDxInit->GetSafeHwnd())
-				InitInfo.hPresentWnd = pThis->m_hWnd;
-    		//else
-    		//	InitInfo.hPresentWnd = pWndDxInit->GetSafeHwnd();
-				
-			pThis->m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
-			if (!pThis->m_pDxSurface->InitD3D(InitInfo.hPresentWnd,
-				InitInfo.nFrameWidth,
-				InitInfo.nFrameHeight,
-				InitInfo.bWindowed,
-				InitInfo.nD3DFormat))
+			if (!pThis->InitD3D())
 			{
-				pThis->OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
-#ifdef _DEBUG
-				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
-#endif
-				//assert(false);
-				return 0;
+				nRetry++;
+				Delay(2500, pThis->m_bThreadPlayVideoRun);
+				if (nRetry >= 3)
+				{
+					if (pThis->m_hWnd)
+						::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
+					return 0;
+				}
 			}
-			RECT rtWindow;
-			GetWindowRect(pThis->m_hWnd, &rtWindow);
-			pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
-#ifdef _DEBUG
-			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
-#endif
+			else
+				break;
 		}
 
+		RECT rtWindow;
+		GetWindowRect(pThis->m_hWnd, &rtWindow);
+		pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
+#ifdef _DEBUG
+		pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+#endif
 		pThis->m_pDecodec = pDecodec;
 		pThis->ItLoop = pThis->m_listVideoCache.begin();
 		// 恢复音频线程
-		::EnterCriticalSection(&pThis->m_csAudioCache);
+		::_MyEnterCriticalSection(&pThis->m_csAudioCache);
 		pThis->m_listAudioCache.clear();
-		::LeaveCriticalSection(&pThis->m_csAudioCache);
+		::_MyLeaveCriticalSection(&pThis->m_csAudioCache);
 		if (pThis->m_hThreadPlayAudio)
 			ResumeThread(pThis->m_hThreadPlayAudio);
 
@@ -2789,9 +2976,10 @@ public:
 		double dfT2 = GetExactTime();
 		av_init_packet(pAvPacket);
 #ifdef _DEBUG 
-		EnterCriticalSection(&pThis->m_csVideoCache);
+		_MyEnterCriticalSection(&pThis->m_csVideoCache);
 		pThis->OutputMsg("%s Size of Video cache = %d .\n", __FUNCTION__, pThis->m_listVideoCache.size());
-		LeaveCriticalSection(&pThis->m_csVideoCache);
+		_MyLeaveCriticalSection(&pThis->m_csVideoCache);
+		pThis->OutputMsg("%s \tObject:%d Start Decoding.\n", __FUNCTION__,pThis->m_nObjIndex);
 #endif
 #ifdef _DEBUG
 		int TPlayArray[100] = { 0 };
@@ -2801,7 +2989,8 @@ public:
 #endif
 		int nIFrameTime = 0;
 		int nFramesAfterIFrame = 0;		// 相对I帧的编号,I帧后的第一帧为1，第二帧为2依此类推
-		int nSkipFrames = 0;		
+		int nSkipFrames = 0;
+		bool bDxInited = false;
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -2809,6 +2998,7 @@ public:
 				Sleep(100);
 				continue;
 			}
+			
 			if (!pThis->m_bIpcStream)
 			{// 文件或流媒体播放，可调节播放速度
 				fTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
@@ -2818,7 +3008,7 @@ public:
 					//if (pThis->m_nPlayInterval < nRefreshInvertal)	//播放间隔小于显示器刷新间隔，即播速度快于显示器刷新速度,则需要跳帧
 					// 查找时间上最匹配的帧,并删除不匹配的非I帧
 					int nSkipFrames = 0;
-					CAutoLock lock(&pThis->m_csVideoCache);
+					CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
 					for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 					{
 						time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
@@ -2843,7 +3033,7 @@ public:
 					}
 // 					else
 // 					{
-// 						CAutoLock lock(&pThis->m_csVideoCache);
+// 						CAutoLock lock(&pThis->m_csVideoCache,false,__FILE__,__FUNCTION__,__LINE__);
 // 						if (pThis->m_listVideoCache.size() > 0)
 // 						{
 // 							FramePtr = pThis->m_listVideoCache.front();
@@ -2874,21 +3064,30 @@ public:
 			else
 			{// IPC 码流，则直接播放
 				bool bPopFrame = false;
-				::EnterCriticalSection(&pThis->m_csVideoCache);
 #ifdef _DEBUG
-				if ((timeGetTime() - pThis->m_OuputTime.nQueueSize) > 5000)
-				{
-					pThis->OutputMsg("%s \tObject:%d VideoCache Size = %d\n", __FUNCTION__, pThis->m_nObjIndex, pThis->m_listVideoCache.size());
-					pThis->m_OuputTime.nQueueSize = timeGetTime();
-				}
+				DWORD dwNow = timeGetTime();
 #endif
+				::_MyEnterCriticalSection(&pThis->m_csVideoCache);
+// #ifdef _DEBUG
+// 				if ((timeGetTime() - pThis->m_OuputTime.nQueueSize) > 5000)
+// 				{
+// 					pThis->OutputMsg("%s \tObject:%d VideoCache Size = %d\n", __FUNCTION__, pThis->m_nObjIndex, pThis->m_listVideoCache.size());
+// 					pThis->m_OuputTime.nQueueSize = timeGetTime();
+// 				}
+// #endif
 				if (pThis->m_listVideoCache.size() > 0)
 				{
 					FramePtr = pThis->m_listVideoCache.front();
 					pThis->m_listVideoCache.pop_front();
 					bPopFrame = true;
 				}
-				::LeaveCriticalSection(&pThis->m_csVideoCache);
+				::_MyLeaveCriticalSection(&pThis->m_csVideoCache);
+#ifdef _DEBUG
+				if ((timeGetTime() - dwNow) > 50)
+				{
+					pThis->OutputMsg("Lock @File:%s:%d,locktime = %d.\n", __FUNCTION__, __LINE__, timeGetTime() - dwNow);
+				}
+#endif
 				if (!bPopFrame)
 				{
 					Sleep(10);
@@ -2952,13 +3151,13 @@ public:
 // 			}
 // 			dfT1 = GetExactTime();
 // 			nFrames++;
-// 			::EnterCriticalSection(&pThis->m_csVideoCache);
+// 			::_MyEnterCriticalSection(&pThis->m_csVideoCache);
 // 			if (pThis->m_listVideoCache.size() > 0)
 // 			{
 // 				FramePtr = pThis->m_listVideoCache.front();
 // 				pThis->m_listVideoCache.pop_front();
 // 			}
-// 			::LeaveCriticalSection(&pThis->m_csVideoCache);
+// 			::_MyLeaveCriticalSection(&pThis->m_csVideoCache);
 // 			
 // 			pAvPacket->data = (uint8_t *)FramePtr->Framedata();
 // 			pAvPacket->size = FramePtr->FrameHeader()->nLength;
@@ -2975,13 +3174,13 @@ public:
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
 				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)GetExactTime() * 1000);
- 				if (pThis->m_pDxSurface)
- 					pThis->RenderFrame(pAvFrame);
+  				if (pThis->m_pDxSurface)
+  					pThis->RenderFrame(pAvFrame);
  				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)GetExactTime()*1000);
  				if (pThis->m_pFilePlayCallBack)
  					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);
- 				av_frame_unref(pAvFrame);
  			}
+			av_frame_unref(pAvFrame);
 #ifdef _DEBUG
 // 			SYSTEMTIME sysTime;
 // 			GetSystemTime(&sysTime);
@@ -3007,7 +3206,7 @@ public:
 		}
 		return 0;
 	}
-	static DWORD WINAPI ThreadPlayAudio(void *p)
+	static UINT __stdcall ThreadPlayAudio(void *p)
 	{
 		CDvoPlayer *pThis = (CDvoPlayer *)p;
 		int nAudioFrameInterval = pThis->m_fPlayInterval / 2;
@@ -3030,7 +3229,7 @@ public:
 		{
 			if (!FramePtr)
 			{
-				CAutoLock lock(&pThis->m_csAudioCache);
+				CAutoLock lock(&pThis->m_csAudioCache, false, __FILE__, __FUNCTION__, __LINE__);
 				if (pThis->m_listAudioCache.size() > 0)
 				{
 					FramePtr = pThis->m_listAudioCache.front();
@@ -3102,9 +3301,9 @@ public:
 		{
 			if (pThis->m_bPause)
 			{
-				::EnterCriticalSection(&pThis->m_csAudioCache);
+				::_MyEnterCriticalSection(&pThis->m_csAudioCache);
 				pThis->m_listAudioCache.clear();
-				::LeaveCriticalSection(&pThis->m_csAudioCache);
+				::_MyLeaveCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_pDsBuffer->IsPlaying())
 					pThis->m_pDsBuffer->StopPlay();
 				Sleep(100);
@@ -3116,10 +3315,10 @@ public:
 			{// 只有正常倍率才播放声音
 				if (pThis->m_pDsBuffer->IsPlaying())
 					pThis->m_pDsBuffer->StopPlay();
-				::EnterCriticalSection(&pThis->m_csAudioCache);
+				::_MyEnterCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_listAudioCache.size() > 0)	
 					pThis->m_listAudioCache.pop_front();
-				::LeaveCriticalSection(&pThis->m_csAudioCache);
+				::_MyLeaveCriticalSection(&pThis->m_csAudioCache);
 				Sleep(5);
 				continue;
 			}
@@ -3130,14 +3329,14 @@ public:
 				pThis->m_pDsBuffer->StartPlay();
 				
 			bool bPopFrame = false;
-			::EnterCriticalSection(&pThis->m_csAudioCache);
+			::_MyEnterCriticalSection(&pThis->m_csAudioCache);
 			if (pThis->m_listAudioCache.size() > 0)
 			{
 				FramePtr = pThis->m_listAudioCache.front();
 				pThis->m_listAudioCache.pop_front();
 				bPopFrame = true;
 			}
-			::LeaveCriticalSection(&pThis->m_csAudioCache);
+			::_MyLeaveCriticalSection(&pThis->m_csAudioCache);
 			if (!bPopFrame)
 			{
 				Sleep(10);

@@ -29,7 +29,7 @@ static char THIS_FILE[]=__FILE__;
 
 #define _DatetimeLen	8
 #define _ExtNameLen		4
-#define _LogBuffLength	1024*64
+#define _LogBuffLength	1024*4
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -144,6 +144,7 @@ CRunlogA::CRunlogA()
 			m_bCanlog = false;
 		else					
 			GetLocalTime(&m_systimeCreate);
+		m_pLogBuffer = shared_ptr<CHAR>(new CHAR[_LogBuffLength]);
 		
 	}
 	catch (std::exception &e)
@@ -192,6 +193,7 @@ CRunlogA::CRunlogA(LPCSTR lpszFileName)
 			m_bCanlog = false;
 		else
 			GetLocalTime(&m_systimeCreate);
+		m_pLogBuffer = shared_ptr<CHAR>(new CHAR[_LogBuffLength]);
 		
 	}
 	catch (std::exception &e)
@@ -233,7 +235,7 @@ CRunlogW::CRunlogW()
 			m_bCanlog = false;
 		else
 			GetLocalTime(&m_systimeCreate);
-
+		m_pLogBuffer = shared_ptr<WCHAR>(new WCHAR[_LogBuffLength]);
 	}
 	catch (std::exception &e)
 	{
@@ -280,6 +282,7 @@ CRunlogW::CRunlogW(LPCWSTR lpszFileName)
 			m_bCanlog = false;
 		else
 			GetLocalTime(&m_systimeCreate);
+		m_pLogBuffer = shared_ptr<WCHAR>(new WCHAR[_LogBuffLength]);
 
 	}
 	catch (std::exception &e)
@@ -302,7 +305,8 @@ void CRunlogA::RunlogBin(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator
 		{
 			//检查当前的文件是否当前日期产生
 			CHAR	szDataTime[32] = {0};
-			CHAR	szBuffer[_LogBuffLength] = {0};
+			::EnterCriticalSection(&m_RunlogSection);
+			CHAR	*szBuffer = m_pLogBuffer.get();
 			_strtime((char *)szBuffer);			
 			int nDatetimeLen = strlen((char *)szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
@@ -311,12 +315,9 @@ void CRunlogA::RunlogBin(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator
 			CHAR chSeperator1;
 			strcat((char *)szBuffer,(char *)szTitle);
 			chSeperator1 = chSeperator;
-
 			int nBuffLen = strlen((char *)szBuffer);
 			Hex2AscStringA(pBinBuff,nLen,(CHAR *)&szBuffer[nBuffLen],_LogBuffLength - nBuffLen,chSeperator1);
-			
 			DWORD dwWritten = 0;
-			::EnterCriticalSection(&m_RunlogSection);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			WriteFile(m_hLogFile,szBuffer,strlen((char *)szBuffer),&dwWritten,NULL);
 
@@ -352,14 +353,14 @@ void CRunlogA::Runlog(LPCSTR pFormat, ...)
 			CheckDateTime();
 			va_list args;
 			va_start(args, pFormat);
-			CHAR szBuffer[_LogBuffLength] = {0};	
+			::EnterCriticalSection(&m_RunlogSection);
+			CHAR *szBuffer = m_pLogBuffer.get();
 			int nDatetimeLen = 0;			
 			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
 			DWORD dwWritten = 0;	
-			::EnterCriticalSection(&m_RunlogSection);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);			
 			WriteFile(m_hLogFile,szBuffer,strlen(szBuffer),&dwWritten,NULL);
 			FlushFileBuffers(m_hLogFile);
@@ -391,14 +392,15 @@ void CRunlogA::RunlogHuge(byte *szHugeData,int nDataLen,LPCSTR pFormat,...)
 			CheckDateTime();	
 			va_list args;
 			va_start(args, pFormat);
-			CHAR szBuffer[_LogBuffLength] = {0};	
+			::EnterCriticalSection(&m_RunlogSection);
+			CHAR *szBuffer = m_pLogBuffer.get();	
 			int nDatetimeLen = 0;
 			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
 			szBuffer[nDatetimeLen ++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen , pFormat, args);
 			DWORD dwWritten = 0;			
-			::EnterCriticalSection(&m_RunlogSection);
+			
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			BOOL bWrite = WriteFile(m_hLogFile,szBuffer,strlen(szBuffer),&dwWritten,NULL);
 			//SetFilePointer(m_hLogFile,0,NULL,FILE_END);
@@ -430,14 +432,15 @@ void CRunlogA::Runlogv(LPCSTR pFormat, va_list args)
 		{
 			//检查当前的文件是否当前日期产生
 			CheckDateTime();
-			CHAR szBuffer[_LogBuffLength] = {0};		
+			::EnterCriticalSection(&m_RunlogSection);
+			CHAR *szBuffer = m_pLogBuffer.get();
 			int nDatetimeLen = 0;
 			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
 			DWORD dwWritten = 0;	
-			::EnterCriticalSection(&m_RunlogSection);
+			
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);			
 			WriteFile(m_hLogFile,szBuffer,strlen(szBuffer),&dwWritten,NULL);
 			FlushFileBuffers(m_hLogFile);
@@ -464,8 +467,9 @@ void CRunlogA::RunlogHugev(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
 	{
 		try
 		{
-			CheckDateTime();			
-			CHAR szBuffer[_LogBuffLength] = {0};	
+			CheckDateTime();
+			::EnterCriticalSection(&m_RunlogSection);
+			CHAR *szBuffer = m_pLogBuffer.get();
 			int nDatetimeLen = 0;
 			int nHugeTextLen = 0;
 			byte *pHugeTextA = NULL;
@@ -475,7 +479,7 @@ void CRunlogA::RunlogHugev(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
 			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
 			DWORD dwWritten = 0;			
-			::EnterCriticalSection(&m_RunlogSection);
+			
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			WriteFile(m_hLogFile,szBuffer,strlen((LPSTR)szBuffer),&dwWritten,NULL);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
@@ -508,7 +512,8 @@ void CRunlogW::Runlog(LPCWSTR pFormat, ...)
 			va_list args;
 			va_start(args, pFormat);			
 			int nDatetimeLen = 0;
-			WCHAR szBufferW[_LogBuffLength] = {0};	
+			::EnterCriticalSection(&m_RunlogSection);
+			WCHAR *szBufferW = m_pLogBuffer.get();
 			_wstrtime(szBufferW);
 			nDatetimeLen = wcslen(szBufferW);
 			szBufferW[nDatetimeLen++] = _T(' ');
@@ -517,7 +522,6 @@ void CRunlogW::Runlog(LPCWSTR pFormat, ...)
 			int nBufferLen = 0;
 			stdshared_ptr<char> pBufferA = W2AString(szBufferW,nBufferLen);	
 
-			::EnterCriticalSection(&m_RunlogSection);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);			
 			WriteFile(m_hLogFile,pBufferA.get(),nBufferLen,&dwWritten,NULL);
 			FlushFileBuffers(m_hLogFile);
@@ -549,7 +553,8 @@ void CRunlogW::RunlogBin(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperat
 		{
 			//检查当前的文件是否当前日期产生
 			WCHAR	szDataTime[32] = {0};
-			WCHAR	szBuffer[_LogBuffLength] = {0};
+			::EnterCriticalSection(&m_RunlogSection);
+			WCHAR	*szBuffer = m_pLogBuffer.get();
 			_wstrtime((WCHAR*)szBuffer);			
 			int nDatetimeLen = wcslen((WCHAR*)szBuffer);
 			szBuffer[nDatetimeLen++] = L' ';
@@ -557,12 +562,10 @@ void CRunlogW::RunlogBin(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperat
 			WCHAR szSeperator[4] = {0};			
 			wcscat((WCHAR *)szBuffer,(WCHAR*)szTitle);		
 			int nBuffLen = wcslen((WCHAR*)szBuffer);
-			Hex2AscStringW(pBinBuff,nLen,(WCHAR *)&szBuffer[nBuffLen],_LogBuffLength - nBuffLen,chSeperator);
-						
+			Hex2AscStringW(pBinBuff,nLen,(WCHAR *)&szBuffer[nBuffLen],_LogBuffLength - nBuffLen,chSeperator);	
 			stdshared_ptr<char> pBufferA = W2AString(szBuffer,nBuffLen);
-			
 			DWORD dwWritten = 0;
-			::EnterCriticalSection(&m_RunlogSection);
+			
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			WriteFile(m_hLogFile,pBufferA.get(),nBuffLen,&dwWritten,NULL);
 			char *szLine = "\r\n";		// 回车换行			
@@ -594,20 +597,17 @@ void CRunlogW::RunlogHuge(byte *szHugeData,int nDataLen,LPCWSTR pFormat,...)
 			//检查当前的文件是否当前日期产生
 			CheckDateTime();	
 			va_list args;
-			va_start(args, pFormat);			
-
-			WCHAR szBuffer[_LogBuffLength] = {0};
+			va_start(args, pFormat);	
+			::EnterCriticalSection(&m_RunlogSection);
+			WCHAR *szBuffer = m_pLogBuffer.get();
 			_wstrtime(szBuffer);
 			int nDatetimeLen = wcslen(szBuffer);
 			szBuffer[nDatetimeLen ++] = L' ';
 			szBuffer[nDatetimeLen] = L'\0';
 			_vsnwprintf((WCHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
-
 			int nBufferLen = 0;
 			stdshared_ptr<char> pBufferA = W2AString(szBuffer,nBufferLen);
-
 			DWORD dwWritten = 0;			
-			::EnterCriticalSection(&m_RunlogSection);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			BOOL bWrite = WriteFile(m_hLogFile,pBufferA.get(),nBufferLen,&dwWritten,NULL);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
@@ -639,17 +639,16 @@ void CRunlogW::Runlogv(LPCWSTR pFormat, va_list args)
 		{
 			//检查当前的文件是否当前日期产生
 			CheckDateTime();			
-			int nDatetimeLen = 0;			
-			WCHAR szBuffer[_LogBuffLength] = {0};	
+			int nDatetimeLen = 0;
+			::EnterCriticalSection(&m_RunlogSection);			
+			WCHAR *szBuffer = m_pLogBuffer.get();
 			_wstrtime(szBuffer);
 			nDatetimeLen = wcslen(szBuffer);
 			szBuffer[nDatetimeLen++] = _T(' ');
 			_vsnwprintf((WCHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
-
 			int nBufferLen = 0;
 			stdshared_ptr<char> pBufferA = W2AString(szBuffer,nBufferLen);
-	
-			::EnterCriticalSection(&m_RunlogSection);
+		
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			DWORD dwWritten = 0;	
 			WriteFile(m_hLogFile,pBufferA.get(),nBufferLen,&dwWritten,NULL);
@@ -679,8 +678,8 @@ void CRunlogW::RunlogHugev(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args
 		{
 			CheckDateTime();						
 			int nDatetimeLen = 0;
-			
-			WCHAR szBuffer[_LogBuffLength] = {0};	
+			::EnterCriticalSection(&m_RunlogSection);
+			WCHAR *szBuffer = m_pLogBuffer.get();
 			_wstrtime(szBuffer);
 			nDatetimeLen = wcslen(szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
@@ -692,7 +691,7 @@ void CRunlogW::RunlogHugev(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args
 			stdshared_ptr<char> pHugeTextA = W2AString(szHugeText,nHugeTextLen);			
 			
 			DWORD dwWritten = 0;			
-			::EnterCriticalSection(&m_RunlogSection);
+			
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
 			WriteFile(m_hLogFile,pBufferA.get(),strlen((LPSTR)szBuffer),&dwWritten,NULL);
 			SetFilePointer(m_hLogFile,0,NULL,FILE_END);
@@ -719,23 +718,16 @@ CRunlogA::~CRunlogA()
 	}
 	if (m_bCanlog)
 	{
-		__try
-		{
-			::EnterCriticalSection(&m_RunlogSection);
-			FlushFileBuffers(m_hLogFile);
-			if (CloseHandle(m_hLogFile))
-			{	
-				m_hLogFile = NULL;
-				m_bCanlog = false;
-			}
-			::LeaveCriticalSection(&m_RunlogSection);
-			::DeleteCriticalSection(&m_RunlogSection);
-		}		
-		__except(1)
-		{
+		::EnterCriticalSection(&m_RunlogSection);
+		FlushFileBuffers(m_hLogFile);
+		if (CloseHandle(m_hLogFile))
+		{	
 			m_hLogFile = NULL;
 			m_bCanlog = false;
 		}
+		::LeaveCriticalSection(&m_RunlogSection);
+		::DeleteCriticalSection(&m_RunlogSection);
+		
 	}
 }
 CRunlogW::~CRunlogW()
@@ -746,8 +738,8 @@ CRunlogW::~CRunlogW()
 	}
 	if (m_bCanlog)
 	{
-		__try
-		{
+// 		__try
+// 		{
 			::EnterCriticalSection(&m_RunlogSection);
 			FlushFileBuffers(m_hLogFile);
 			if (CloseHandle(m_hLogFile))
@@ -757,11 +749,11 @@ CRunlogW::~CRunlogW()
 			}
 			::LeaveCriticalSection(&m_RunlogSection);
 			::DeleteCriticalSection(&m_RunlogSection);
-		}
-		__except (1)
-		{
-			m_hLogFile = NULL;
-			m_bCanlog = false;
-		}
+// 		}
+// 		__except (1)
+// 		{
+// 			m_hLogFile = NULL;
+// 			m_bCanlog = false;
+// 		}
 	}
 }
