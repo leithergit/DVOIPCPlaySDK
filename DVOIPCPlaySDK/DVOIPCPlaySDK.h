@@ -146,6 +146,21 @@ enum DVO_CALLBACK
 /// @brief 播放器即时信息
 struct PlayerInfo
 {
+<<<<<<< HEAD
+	USHORT		nWidth;			///< 视频图像宽度
+	USHORT		nHeight;		///< 视频图像高度
+	DVO_CODEC	nVideoCodec;	///< 视频编码类型,参见@see DVO_CODEC
+	DVO_CODEC	nAudioCodec;	///< 音频编码类型,参见@see DVO_CODEC,若无音频，则此字段无意义
+	UINT		nTotalFrames;	///< 文件中视频总帧数,若为IPC播放，则此参数无意义
+	time_t		tTotalTime;		///< 文件总时长(单位:毫秒),若为IPC播放,则此参数无意义
+	UINT		nCurFrameID;	///< 当前播放视频的帧ID
+	time_t		tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒),若为IPC播放，则此参数无意义
+	time_t		tTimeEplased;	///< 已播放时间
+	USHORT		nFileFPS;		///< 文件中视频的原始帧率,若为IPC播放,则此参数无意义
+	USHORT		nPlayFPS;		///< 当前播放的帧率,若为IPC播放,则此参数无意义
+	UINT		nCacheSize;		///< 播放器缓存中的未播放帧的数量
+	float		fPlayRate;		///< 当前播放速度,若为IPC播放,则此参数无意义
+=======
 	DVO_CODEC	nVideoCodec;
 	DVO_CODEC	nAudioCodec;
 	USHORT		nVideoWidth;
@@ -161,6 +176,7 @@ struct PlayerInfo
 	WORD		nCacheSize;		///< 播放缓存
 	WORD		nCacheSize2;	///< 音频缓存
 	float		fPlayRate;		///< 播放速率,只有文件播放时才有效
+>>>>>>> 4d39983f208fc74f23e6ac94caa04ee71e7df72b
 	UINT		nReserver[4];
 };
 ///	@def	DVO_PLAYHANDLE
@@ -433,6 +449,8 @@ DVOIPCPLAYSDK_API int  dvoplay_GetFrame(IN DVO_PLAYHANDLE hPlayHandle, OUT byte 
 /// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 DVOIPCPLAYSDK_API int  dvoplay_SetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, IN UINT nMaxFrameSize = 256*1024);
 
+<<<<<<< HEAD
+=======
 /// @brief			取得文件播放时,支持的最大视频帧的尺寸,默认最大的视频的尺寸为256K,当视频帧
 /// 大于256K时,可能会造文件读取文件错误,因此需要设置视频帧的大小,在dvoplay_Start前调用才有效
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
@@ -442,6 +460,7 @@ DVOIPCPLAYSDK_API int  dvoplay_SetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, IN
 /// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 DVOIPCPLAYSDK_API int  dvoplay_GetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, INOUT UINT &nMaxFrameSize);
 
+>>>>>>> 4d39983f208fc74f23e6ac94caa04ee71e7df72b
 /// @brief			开/关音频播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnable			是否播放音频
@@ -458,6 +477,8 @@ DVOIPCPLAYSDK_API int  dvoplay_EnableAudio(IN DVO_PLAYHANDLE hPlayHandle,bool bE
 /// @remark			该功能一般用于播放结束后，刷新窗口，把画面置为黑色
 DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle);
 
+<<<<<<< HEAD
+=======
 /// @brief			获取已放时间,单位毫秒
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @retval			0	操作成功
@@ -472,6 +493,7 @@ DVOIPCPLAYSDK_API int  dvoplay_GetTimeEplased(IN DVO_PLAYHANDLE hPlayHandle, LON
 DVOIPCPLAYSDK_API int dvoplay_SetCallBack(IN DVO_PLAYHANDLE hPlayHandle, DVO_CALLBACK nCallBackType, IN void *pUserCallBack, IN void *pUserPtr);
 
 
+>>>>>>> 4d39983f208fc74f23e6ac94caa04ee71e7df72b
 /// @brief			设置外部绘制回调接口
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
