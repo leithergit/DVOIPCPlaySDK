@@ -100,13 +100,20 @@ enum PlayRate
 /// @brief 文件播放即时信息
 struct FilePlayInfo
 {
-	UINT	nTotalFrames;	///< 视频总帧数
-	time_t	tTotalTime;		///< 文件总时长(单位:毫秒)
-	UINT	nCurFrameID;	///< 当前播放视频的帧ID
-	time_t	tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒)
-	USHORT  nFileFPS;		///< 文件中视频的原始帧率
-	USHORT  nPlayFPS;		///< 当前播放的帧率
-	UINT	nReserver[4];
+	USHORT		nWidth;			///< 视频图像宽度
+	USHORT		nHeight;		///< 视频图像高度
+	DVO_CODEC	nVideoCodec;	///< 视频编码类型,参见@see DVO_CODEC
+	DVO_CODEC	nAudioCodec;	///< 音频编码类型,参见@see DVO_CODEC,若无音频，则此字段无意义
+	UINT		nTotalFrames;	///< 文件中视频总帧数,若为IPC播放，则此参数无意义
+	time_t		tTotalTime;		///< 文件总时长(单位:毫秒),若为IPC播放,则此参数无意义
+	UINT		nCurFrameID;	///< 当前播放视频的帧ID
+	time_t		tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒),若为IPC播放，则此参数无意义
+	time_t		tTimeEplased;	///< 已播放时间
+	USHORT		nFileFPS;		///< 文件中视频的原始帧率,若为IPC播放,则此参数无意义
+	USHORT		nPlayFPS;		///< 当前播放的帧率,若为IPC播放,则此参数无意义
+	UINT		nCacheSize;		///< 播放器缓存中的未播放帧的数量
+	float		fPlayRate;		///< 当前播放速度,若为IPC播放,则此参数无意义
+	UINT		nReserver[4];
 };
 ///	@def	DVO_PLAYHANDLE
 ///	@brief	DVO文件播放句柄
@@ -269,28 +276,6 @@ DVOIPCPLAYSDK_API int  dvoplay_GetHaccelStatus(IN DVO_PLAYHANDLE hPlayHandle, OU
 /// @retval			false		不支持指定视频编码的硬解码
 DVOIPCPLAYSDK_API bool  dvoplay_IsSupportHaccel(IN DVO_CODEC nCodec);
 
-/// @brief			返回流播放时，当前播放队列中的视频帧的数量
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-/// @remark			播放流数据时，相应的帧数据其实并未立即播放，而是被放了播放队列中，应该根据dvoplay_PlayStream
-///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停播放
-DVOIPCPLAYSDK_API int dvoplay_GetCacheSize(IN DVO_PLAYHANDLE hPlayHandle,int &nCacheCount);
-
-/// @brief			取得文件播放的视频帧率
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nFPS			返回文件中视频的帧率
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetFps(IN DVO_PLAYHANDLE hPlayHandle,OUT int &nFPS);
-
-/// @brief			取得文件中包括的有效视频帧总数量
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nFrames			返回文件中视频的总帧数
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetFrames(IN DVO_PLAYHANDLE hPlayHandle,OUT int &nFrames);
-
 /// @brief			取得当前播放视频的帧信息
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [out]	nFrameID		返回当前播放视频的帧ID
@@ -359,13 +344,6 @@ DVOIPCPLAYSDK_API int  dvoplay_SeekFrame(IN DVO_PLAYHANDLE hPlayHandle, IN int n
 /// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 DVOIPCPLAYSDK_API int  dvoplay_SeekTime(IN DVO_PLAYHANDLE hPlayHandle, IN double nTimeSet);
 
-/// @brief			播放下一帧
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-/// @remark			该函数仅适用于单帧播放
-DVOIPCPLAYSDK_API int  dvoplay_SeekNextFrame(IN DVO_PLAYHANDLE hPlayHandle);
-
 /// @brief			开/关音频播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnable			是否播放音频
@@ -381,12 +359,6 @@ DVOIPCPLAYSDK_API int  dvoplay_EnableAudio(IN DVO_PLAYHANDLE hPlayHandle,bool bE
 /// @retval			-1	输入参数无效
 /// @remark			该功能一般用于播放结束后，刷新窗口，把画面置为黑色
 DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle);
-
-/// @brief			获取已放时间,单位毫秒
-/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @retval			0	操作成功
-/// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_GetTimeEplased(IN DVO_PLAYHANDLE hPlayHandle, LONGLONG &nEplaseTime);
 
 /// @brief			设置外部绘制回调接口
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

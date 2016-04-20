@@ -354,8 +354,9 @@ public:
 		UINT nThreadAddr = 0;
 		m_bPlayThreadRun = true;
 		
-		m_hPlayThread = (HANDLE )_beginthreadex(NULL,0,PlayThread,this,0,NULL);
-		//m_hPlayThread = (HANDLE)_beginthreadex(NULL,0,PlayThread,this,NULL,&nThreadAddr);
+		//m_hPlayThread = (HANDLE )_beginthreadex(NULL,0,PlayThread,this,0,NULL);
+		m_hPlayThread = CreateThread(NULL, 0, DSoundPlayThread, this, 0, NULL);
+		
 		return TRUE;
 	}
 
@@ -732,14 +733,15 @@ private:
 	//定义成友元线程函数，以便访问该类私有数据
 	//friend DWORD WINAPI HandleNotificationThread(void* pParam);
 private:
-	
-	static UINT __stdcall PlayThread(void *p)
+ 
+	static DWORD WINAPI DSoundPlayThread(void *p)
 	{
 		CDSoundPlayer *pThis = (CDSoundPlayer *)p;
 		DWORD dwOffset = 0;
 		byte *pBuffer = NULL;
 		DWORD nBufferLength = 0;
 		DWORD dwResult = WAIT_OBJECT_0;
+		bool bPause = false;
 		while(pThis->m_bPlayThreadRun)
 		{
 			if (!pThis->m_dwNotifySize ||
@@ -748,29 +750,25 @@ private:
 				Sleep(25);
 				continue;
 			}
-			
-			if (pThis->GetWaveDataLength() < pThis->m_dwNotifySize)
-			{
-				Sleep(1000/pThis->m_nNotificationsNum);
-				continue;
-			}
+
 			if((dwResult >=WAIT_OBJECT_0) && (dwResult <=WAIT_OBJECT_0 + pThis->m_nNotificationsNum))
 			{
-				if (!pThis->GetBuffer(dwOffset,(void **)&pBuffer,nBufferLength))
+				if (!pThis->GetBuffer(dwOffset, (void **)&pBuffer, nBufferLength))
+				{
+					Sleep(1000 / pThis->m_nNotificationsNum);
 					continue;
-				pThis->GetWaveData(pBuffer,nBufferLength);				
-
-				dwOffset += pThis->m_dwNotifySize;
-				dwOffset %= (pThis->m_dwNotifySize * pThis->m_nNotificationsNum);
+				}
+				
+				if (pThis->GetWaveData(pBuffer, nBufferLength))
+				{
+					dwOffset += pThis->m_dwNotifySize;
+					dwOffset %= (pThis->m_dwNotifySize * pThis->m_nNotificationsNum);
+				}
+				
 				pThis->ReleaseBuffer(pBuffer,nBufferLength);
-				//DsTrace("this is %d of buffer @%08X.\n",dwOffset,pBuffer);
 			}
-			//DsTrace("Wait for Notifications.\n");
+			dwResult = WaitForMultipleObjects (pThis->m_nNotificationsNum, pThis->m_hEventArray, FALSE, INFINITE);		
 			
-			dwResult = WaitForMultipleObjects (pThis->m_nNotificationsNum, pThis->m_hEventArray, FALSE, INFINITE);
-			DWORD dwSpan = GetTickCount() - pThis->m_dwLastTick;
-			//DsTrace("%s TimeSpan = %d.\n",__FUNCTION__,dwSpan);
-			pThis->m_dwLastTick = GetTickCount();
 		}
 		return 0;
 	}
