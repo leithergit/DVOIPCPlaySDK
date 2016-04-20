@@ -71,6 +71,8 @@ struct  AacCodec
 			NeAACDecClose(hAacHandle);
 			hAacHandle = nullptr;
 		}
+		if (pAacBuffer)
+			delete[]pAacBuffer;
 	}
 	/// @brief 音频解码
 	/// pInputFrame一个完整的ADTS(audio data transfer stream)帧,Decode不负责校验pInputFrame是否正确
@@ -187,7 +189,8 @@ public:
 			}
 			
 			m_pG726State = g726_init(m_pG726State, 8000 * nSamplebit);
-		}			
+		}	
+		break;
 		case CODEC_AAC:
 		{
 			m_nAudioCodec = nAudioCodec;

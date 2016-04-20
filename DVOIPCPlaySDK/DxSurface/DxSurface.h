@@ -111,7 +111,7 @@ class CDxSurface;
 class CriticalSectionWrap;
 typedef map<HWND,CDxSurface*> WndSurfaceMap;
 typedef shared_ptr<CriticalSectionWrap>CriticalSectionPtr;
-typedef void (CALLBACK *ExternDrawProc)(HANDLE handle,HDC hDc,RECT rt,LONG nUser);
+typedef void (CALLBACK *ExternDrawProc)(HWND hWnd, HDC hDc, RECT rt, void *pUserPtr);
 class CriticalSectionWrap
 {
 public:
@@ -175,6 +175,7 @@ enum GraphicQulityParameter
 #include <psapi.h>
 #pragma comment(lib,"psapi.lib")
 
+#ifdef _DEBUG
 class CTraceFunction
 {
 	explicit CTraceFunction(){};
@@ -214,6 +215,7 @@ private:
 	CHAR	m_szFile[MAX_PATH];
 	CHAR	m_szFunction[256];
 };
+#endif
 
 
 // 把FFMPEG像素转换为D3DFomrat像素
@@ -481,7 +483,7 @@ protected:
 	HANDLE					m_hEventCopySurface;// 解码数据复制事件
 	// 外部绘制接口，提供外部接口，允许调用方自行绘制图像
 	ExternDrawProc			m_pExternDraw;
-	long					m_nUserPtr;			// 外部调用者自定义指针
+	void*					m_pUserPtr;			// 外部调用者自定义指针
 	
 	bool					m_bFullWnd;			// 是否填满窗口,为True时，则填充整个窗口客户区，否则只按视频比例显示	
 	HWND					m_hFullScreenWindow;// 伪全屏窗口
@@ -590,10 +592,10 @@ public:
 		return m_bSurfaceFullSize;
 	}
 
-	void SetExternDraw(void *pExternDrawProc,long nUserPtr)
+	void SetExternDraw(void *pExternDrawProc,void *pUserPtr)
 	{
 		m_pExternDraw = (ExternDrawProc)pExternDrawProc;
-		m_nUserPtr = nUserPtr;
+		m_pUserPtr = pUserPtr;
 	}
 
 	// 调用外部绘制函数
@@ -635,14 +637,18 @@ public:
 					memcpy(&MotionRect,pRect,sizeof(RECT));
 				else
 				{
-					
 					MotionRect.left		= 0;
 					MotionRect.right		= Desc.Width;
 					MotionRect.top			= 0;
 					MotionRect.bottom		= Desc.Height;
 				}
-				m_pExternDraw(hMotionWnd,hDc,MotionRect,m_nUserPtr);
+				m_pExternDraw(hMotionWnd,hDc,MotionRect,m_pUserPtr);
 				m_pDirect3DSurfaceRender->ReleaseDC(hDc);
+			}
+			else
+			{
+				DxTraceMsg("%s Get DC(Device Context) from DxSurface failed.\r\n", __FUNCTION__);
+				assert(false);
 			}
 		}
 	}
@@ -874,7 +880,6 @@ public:
 				 BOOL bIsWindowed = TRUE,
 				 D3DFORMAT nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 	{
-
 		TraceFunction();
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
@@ -891,8 +896,11 @@ public:
 
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
-		if(FAILED(hr = m_pDirect3D9->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&d3ddm)))
+		if (FAILED(hr = m_pDirect3D9->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
+		{
+			DxTraceMsg("%s GetAdapterDisplayMode Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
 		ZeroMemory(&m_d3dpp, sizeof(D3DPRESENT_PARAMETERS));
 		m_d3dpp.BackBufferFormat		= d3ddm.Format;
@@ -951,25 +959,46 @@ public:
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
 
-		if (FAILED(hr = m_pDirect3D9->CreateDevice(D3DADAPTER_DEFAULT, 
-										  D3DDEVTYPE_HAL, 
-										  m_d3dpp.hDeviceWindow,
-										  vp | 
-										  D3DCREATE_MULTITHREADED | 
-										  D3DCREATE_FPU_PRESERVE, 
-										  &m_d3dpp, 
-										 /* NULL,*/
-										  &m_pDirect3DDevice)))
+		if (FAILED(hr = m_pDirect3D9->CreateDevice(D3DADAPTER_DEFAULT,
+			D3DDEVTYPE_HAL,
+			m_d3dpp.hDeviceWindow,
+			vp |
+			D3DCREATE_MULTITHREADED |
+			D3DCREATE_FPU_PRESERVE,
+			&m_d3dpp,
+			/* NULL,*/
+			&m_pDirect3DDevice)))
+		{
+			DxTraceMsg("%s CreateDevice Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
-		
-		if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth, 
-																		nVideoHeight, 
-																		nD3DFormat, 
-																		D3DPOOL_DEFAULT, 
-																		&m_pDirect3DSurfaceRender, 
-																		NULL)))		
+		D3DPOOL nPoolArray[] = { D3DPOOL_DEFAULT, D3DPOOL_MANAGED ,	D3DPOOL_SYSTEMMEM ,	D3DPOOL_SCRATCH };
+		bSucceed = false;
+		int nPool = 0;
+		while (nPool <= 3)
+		{
+			if (FAILED(hr = m_pDirect3DDevice->CreateOffscreenPlainSurface(nVideoWidth,
+				nVideoHeight,
+				nD3DFormat,
+				nPoolArray[nPool],
+				&m_pDirect3DSurfaceRender,
+				NULL)))
+			{
+				nPool++;
+				continue;
+			}
+			else
+			{
+				bSucceed = true;
+				break;
+			}
+		}
+		if (!bSucceed)
+		{
+			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 		D3DSURFACE_DESC SrcSurfaceDesc;			
 		m_pDirect3DSurfaceRender->GetDesc(&SrcSurfaceDesc);
 		// 保存参数
@@ -1246,7 +1275,7 @@ _Failed:
 
 					if (FAILED(hr))
 					{
-						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
 					// 复制表面时不需针对YUV各分量分别复制，直接复制表面即可，前提是表面的参数必须完全一致
@@ -1262,7 +1291,7 @@ _Failed:
 					hr |= pSurface->UnlockRect();
 					if (FAILED(hr))
 					{
-						DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+						DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
 				}
@@ -1281,7 +1310,7 @@ _Failed:
 				if (FAILED(hr))
 				{
 					m_pDirect3DDevice->EndScene();
-					DxTraceMsg("%s line(%d) IDirect3DDevice9::GetBackBuffer failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DDevice9::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return true;
 				}
 				pBackSurface->GetDesc(&desc);
@@ -1308,10 +1337,11 @@ _Failed:
 				//DxTraceMsg("hr = %08X.\n",hr);
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
- 				if (pAvFrame->format == AV_PIX_FMT_YUV420P &&
+ 				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
+					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
  					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
  				else
@@ -1331,7 +1361,7 @@ _Failed:
 				hr = m_pDirect3DSurfaceRender->UnlockRect();
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
 
@@ -1345,7 +1375,7 @@ _Failed:
 				if (FAILED(hr))
 				{
 					m_pDirect3DDevice->EndScene();
-					DxTraceMsg("%s line(%d) IDirect3DDevice9::GetBackBuffer failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DDevice9::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return true;
 				}	
 				pBackSurface->GetDesc(&Desc);
@@ -1823,8 +1853,28 @@ public:
 		assert(hWnd != NULL);
 		assert(IsWindow(hWnd));
 		assert(nVideoWidth != 0 || nVideoHeight != 0);
-		bool bSucceed = false;
 
+		RECT rt;
+		bool bZoomWnd = false;			// 是否需要扩大窗口,DirectX不能在窗口像素面积为0的窗口上工作
+		GetWindowRect(hWnd, &rt);
+		if ((rt.right - rt.left) == 0)
+		{
+			rt.right = rt.left + nVideoWidth;
+			bZoomWnd = true;
+		}
+		if ((rt.bottom - rt.top) == 0)
+		{
+			rt.bottom = rt.top + nVideoHeight;
+			bZoomWnd = true;
+		}
+
+		if (bZoomWnd)
+			::MoveWindow(hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top,false);
+
+		bool bSucceed = false;
+#ifdef _DEBUG
+		double dfTStart = GetExactTime();		
+#endif
 		D3DCAPS9 caps;
 		m_pDirect3D9Ex->GetDeviceCaps(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,&caps);
 		int vp = 0;
@@ -1832,12 +1882,15 @@ public:
 			vp = D3DCREATE_HARDWARE_VERTEXPROCESSING;
 		else		
 			vp = D3DCREATE_SOFTWARE_VERTEXPROCESSING;
-
+		
 		HRESULT hr = S_OK;		
 		D3DDISPLAYMODE d3ddm;
-		if(FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&d3ddm)))
+		if (FAILED(hr = m_pDirect3D9Ex->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))
+		{
+			DxTraceMsg("%s GetAdapterDisplayMode Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
-
+		}
+		
 		ZeroMemory(&m_d3dpp, sizeof(D3DPRESENT_PARAMETERS));
 		m_d3dpp.BackBufferFormat		= d3ddm.Format;
 		m_d3dpp.BackBufferCount			= 1;
@@ -1857,7 +1910,8 @@ public:
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_STYLE, m_dwStyle);
 			if (m_dwExStyle)
 				SetWindowLong(m_d3dpp.hDeviceWindow, GWL_EXSTYLE, m_dwExStyle);
-			SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
+			if (m_WndPlace.length == sizeof(WINDOWPLACEMENT))
+				SetWindowPlacement(m_d3dpp.hDeviceWindow, &m_WndPlace) ;
 			
 			if (!m_bEnableVsync)
 				m_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
@@ -1895,34 +1949,41 @@ public:
 			m_dwStyle	 &= ~WS_MAXIMIZE & ~WS_MINIMIZE; // remove minimize/maximize style
 			m_hMenu		 = GetMenu( m_d3dpp.hDeviceWindow ) ;
 		}
-
-		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT, 
-														D3DDEVTYPE_HAL, 
-														m_d3dpp.hDeviceWindow,
-														vp | 
-														//D3DCREATE_MULTITHREADED | 
-														D3DCREATE_FPU_PRESERVE, 
-														&m_d3dpp, 
-														NULL,
-														&m_pDirect3DDeviceEx)))
+		
+		if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT,
+			D3DDEVTYPE_HAL,
+			m_d3dpp.hDeviceWindow,
+			vp |
+			//D3DCREATE_MULTITHREADED | 
+			D3DCREATE_FPU_PRESERVE,
+			&m_d3dpp,
+			NULL,
+			&m_pDirect3DDeviceEx)))
+		{
+			
+			DxTraceMsg("%s CreateDeviceEx Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
 
-
-		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth, 
-			nVideoHeight, 
-			nD3DFormat, 
-			D3DPOOL_DEFAULT, 
-			&m_pDirect3DSurfaceRender, 
-			NULL)))	
+		if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(nVideoWidth,
+			nVideoHeight,
+			nD3DFormat,
+			D3DPOOL_DEFAULT,
+			&m_pDirect3DSurfaceRender,
+			NULL)))
+		{
+			DxTraceMsg("%s CreateOffscreenPlainSurface Failed.\nhr=%x", __FUNCTION__, hr);
 			goto _Failed;
+		}
+
 		D3DSURFACE_DESC SrcSurfaceDesc;			
 		m_pDirect3DSurfaceRender->GetDesc(&SrcSurfaceDesc);
 		// 保存参数
 		m_nVideoWidth	 = nVideoWidth;
 		m_nVideoHeight	 = nVideoHeight;
-		m_nD3DFormat = nD3DFormat;		
-		bSucceed = true;
-		m_bInitialized = true;
+		m_nD3DFormat	 = nD3DFormat;		
+		bSucceed		 = true;
+		m_bInitialized	 = true;
 _Failed:
 		if (!bSucceed)
 		{
@@ -1941,9 +2002,9 @@ _Failed:
 			D3DDISPLAYMODEEX	DispMode;
 			DispMode.Size			= sizeof(D3DDISPLAYMODEEX);
 			DispMode.Width			= GetSystemMetrics(SM_CXSCREEN);
-			DispMode.Height		= GetSystemMetrics(SM_CYSCREEN);
+			DispMode.Height			= GetSystemMetrics(SM_CYSCREEN);
 			DispMode.RefreshRate	= m_d3dpp.FullScreen_RefreshRateInHz;
-			DispMode.Format		= m_d3dpp.BackBufferFormat;
+			DispMode.Format			= m_d3dpp.BackBufferFormat;
 			DispMode.ScanLineOrdering= D3DSCANLINEORDERING_PROGRESSIVE;
 			hr = m_pDirect3DDeviceEx->ResetEx(&m_d3dpp,&DispMode);
 		}
@@ -1998,7 +2059,6 @@ _Failed:
 			{
 				DxTraceMsg("%s The device is hung.\n",__FUNCTION__);
 				DxCleanup();
-				assert(hr == S_OK);
 				if (FAILED(hr))
 					return false;
 				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	
@@ -2009,8 +2069,7 @@ _Failed:
 				DxTraceMsg("%s if the device has been removed.\n",__FUNCTION__);
 				DxCleanup();
 				SafeRelease(m_pDirect3D9Ex);
-				HRESULT hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pDirect3D9Ex);
-				assert(hr == S_OK);
+				hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pDirect3D9Ex);
 				if (FAILED(hr))
 					return false;
 				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	
@@ -2172,7 +2231,7 @@ _Failed:
 					hr |= m_pDirect3DSurfaceRender->LockRect(&DstRect, NULL, D3DLOCK_DONOTWAIT);
 					if (FAILED(hr))
 					{
-						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
 					gpu_memcpy(DstRect.pBits, SrcRect.pBits, SrcRect.Pitch*SrcSurfaceDesc.Height);
@@ -2188,7 +2247,7 @@ _Failed:
 					//DxTraceMsg("hr = %08X.\n", hr);
 					if (FAILED(hr))
 					{
-						DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+						DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
 				}
@@ -2208,7 +2267,7 @@ _Failed:
 				if (FAILED(hr))
 				{
 					m_pDirect3DDeviceEx->EndScene();
-					DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return true;
 				}
 				pBackSurface->GetDesc(&desc);
@@ -2229,10 +2288,11 @@ _Failed:
 				hr |= m_pDirect3DSurfaceRender->LockRect(&d3d_rect, NULL, D3DLOCK_DONOTWAIT);
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
-				if (pAvFrame->format == AV_PIX_FMT_YUV420P &&
+				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
+					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
 					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
 				else
@@ -2252,7 +2312,7 @@ _Failed:
 				hr = m_pDirect3DSurfaceRender->UnlockRect();
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
 				// 处理外部分绘制接口
@@ -2265,7 +2325,7 @@ _Failed:
 				if (FAILED(hr))
 				{
 					m_pDirect3DDeviceEx->EndScene();
-					DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08.\n",__FUNCTION__,__LINE__,hr);
+					DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return true;
 				}
 				pBackSurface->GetDesc(&Desc);

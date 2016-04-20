@@ -4,25 +4,30 @@ EXPORTS
 	dvoplay_OpenFileW
 	dvoplay_OpenStream
 	dvoplay_Close
+	EnableLog
 	dvoplay_InputStream
 	dvoplay_InputIPCStream
 	dvoplay_Start
+	dvoplay_Reset
 	dvoplay_Stop
 	dvoplay_Pause
 	dvoplay_EnableHaccel
 	dvoplay_GetHaccelStatus
-	dvoplay_IsSupportHaccel	
-	dvoplay_GetFilePlayInfo
+	dvoplay_IsSupportHaccel
+	dvoplay_GetPlayerInfo
 	dvoplay_SnapShotA
 	dvoplay_SnapShotW
 	dvoplay_SetVolume
 	dvoplay_GetVolume
-	dvoplay_GetRate
 	dvoplay_SetRate
+	dvoplay_SeekNextFrame
 	dvoplay_SeekFrame
 	dvoplay_SeekTime
+	;dvoplay_SeekNextFrame
+	dvoplay_GetFrame
 	dvoplay_EnableAudio
 	dvoplay_Refresh
+	dvoplay_SetCallBack
 	dvoplay_SetExternDrawCallBack
 	dvoplay_SetYUVCapture
 	dvoplay_SetYUVCaptureEx
@@ -30,3 +35,6 @@ EXPORTS
 	dvoplay_FitWindow
 	dvoplay_BuildMediaHeader
 	dvoplay_BuildFrameHeader
+	dvoplay_GetMaxFrameSize
+	dvoplay_SetMaxFrameSize
+	dvoplay_ClearCache

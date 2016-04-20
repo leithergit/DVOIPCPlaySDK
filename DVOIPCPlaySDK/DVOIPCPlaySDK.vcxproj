@@ -63,6 +63,10 @@
       <AdditionalOptions>/NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx
+copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -86,6 +90,10 @@
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
+    <PostBuildEvent>
+      <Command>@echo copy  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx
+copy /y  $(TargetPath) E:\DVO\OCX_2.0\bin\Release\dvoipcnet2ocx</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -130,7 +138,6 @@
       </PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="DVOIPCPlaySDK.cpp" />
-    <ClCompile Include="DvoPayer.cpp" />
     <ClCompile Include="DxSurface\DxSurface.cpp" />
     <ClCompile Include="DxSurface\DxTrace.cpp" />
     <ClCompile Include="Runlog.cpp" />

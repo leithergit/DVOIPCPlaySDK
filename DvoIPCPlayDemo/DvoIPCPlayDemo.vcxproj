@@ -54,12 +54,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;..\VCASDK\src\publib\inc;..\VCASDK\src\inc;..\VCASDK\src\common;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -104,23 +104,32 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h" />
     <ClInclude Include="AutoLock.h" />
+    <ClInclude Include="DialogVCALoad.h" />
+    <ClInclude Include="DirectDraw.h" />
     <ClInclude Include="DvoIPCPlayDemo.h" />
     <ClInclude Include="DvoIPCPlayDemoDlg.h" />
+    <ClInclude Include="FullScreen.h" />
     <ClInclude Include="GlliteryStatic.h" />
+    <ClInclude Include="ipcMsgHead.h" />
     <ClInclude Include="Markup.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SocketClient.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TimeUtility.h" />
     <ClInclude Include="Utility.h" />
+    <ClInclude Include="vca.h" />
     <ClInclude Include="VideoFrame.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DialogVCALoad.cpp" />
     <ClCompile Include="DvoIPCPlayDemo.cpp" />
     <ClCompile Include="DvoIPCPlayDemoDlg.cpp" />
     <ClCompile Include="GlliteryStatic.cpp" />
     <ClCompile Include="Markup.cpp" />
+    <ClCompile Include="SocketClient.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -136,6 +145,8 @@
     <None Include="res\DvoIPCPlayDemo.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="res\arrow-left-double.ico" />
+    <Image Include="res\arrow-right-double.ico" />
     <Image Include="res\DvoIPCPlayDemo.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -29,7 +29,7 @@ static char THIS_FILE[]=__FILE__;
 
 #define _DatetimeLen	8
 #define _ExtNameLen		4
-#define _LogBuffLength	1024*16
+#define _LogBuffLength	1024*64
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -40,24 +40,24 @@ void EnableRunlog(bool bEnable)
 	g_bEnableRunlog = bEnable;
 }
 
-void CRunlog::CheckDateTime()
+void CRunlogA::CheckDateTime()
 {
-	TCHAR	szDataTime[32] = {0};
+	CHAR	szDataTime[32] = {0};
 	SYSTEMTIME tm;
 	GetLocalTime(&tm);
-	_stprintf_s(szDataTime,32,_T("%04d%02d%02d"),tm.wYear,tm.wMonth,tm.wDay);
+	sprintf(szDataTime,("%04d%02d%02d"),tm.wYear,tm.wMonth,tm.wDay);
 	__try
 	{
 		if ((tm.wYear == m_systimeCreate.wYear) && (tm.wMonth == m_systimeCreate.wMonth) && (tm.wDay == m_systimeCreate.wDay))
 			__leave;
 		//重新创建文件
-			int nLen = _tcslen(m_szFileName) - _DatetimeLen - _ExtNameLen;	// 取得原始输入的文件名
-			_tcscpy_s(&m_szFileName[nLen],MAX_PATH - nLen,szDataTime);		
-			_tcscat(m_szFileName,_T(".log"));
+			int nLen = strlen(m_szFileName) - _DatetimeLen - _ExtNameLen;	// 取得原始输入的文件名
+			strcpy(&m_szFileName[nLen],szDataTime);		
+			strcat(m_szFileName,(".log"));
 			::EnterCriticalSection(&m_RunlogSection);
 			CloseHandle(m_hLogFile);
 			m_hLogFile = NULL;
-			m_hLogFile = CreateFile(m_szFileName,
+			m_hLogFile = CreateFileA(m_szFileName,
 				GENERIC_WRITE|GENERIC_READ,
 				FILE_SHARE_READ|FILE_SHARE_WRITE,
 				NULL,
@@ -75,7 +75,42 @@ void CRunlog::CheckDateTime()
 
 	}
 }
-CRunlog::CRunlog()
+void CRunlogW::CheckDateTime()
+{
+	WCHAR	szDataTime[32] = { 0 };
+	SYSTEMTIME tm;
+	GetLocalTime(&tm);
+	swprintf_s(szDataTime, 32, L"%04d%02d%02d", tm.wYear, tm.wMonth, tm.wDay);
+	__try
+	{
+		if ((tm.wYear == m_systimeCreate.wYear) && (tm.wMonth == m_systimeCreate.wMonth) && (tm.wDay == m_systimeCreate.wDay))
+			__leave;
+		//重新创建文件
+		int nLen = wcslen(m_szFileName) - _DatetimeLen - _ExtNameLen;	// 取得原始输入的文件名
+		wcscpy(&m_szFileName[nLen], szDataTime);
+		wcscat(m_szFileName, L".log");
+		::EnterCriticalSection(&m_RunlogSection);
+		CloseHandle(m_hLogFile);
+		m_hLogFile = NULL;
+		m_hLogFile = CreateFileW(m_szFileName,
+			GENERIC_WRITE | GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_ARCHIVE,
+			NULL);
+		::LeaveCriticalSection(&m_RunlogSection);
+		if (m_hLogFile == NULL)
+			m_bCanlog = false;
+		else
+			GetLocalTime(&m_systimeCreate);
+	}
+	__finally
+	{
+
+	}
+}
+CRunlogA::CRunlogA()
 {
 	if (!g_bEnableRunlog)
 	{
@@ -83,22 +118,22 @@ CRunlog::CRunlog()
 	}
 	m_hLogFile = NULL;
 	//TCHAR szFileName[255] = {0};	
-	TCHAR szApppath[MAX_PATH] = {0};
+	CHAR szApppath[MAX_PATH] = {0};
 	m_bCanlog = true;	
 	SYSTEMTIME tm;
 	try
 	{
 		InitializeCriticalSection(&m_RunlogSection);
 		GetLocalTime(&tm);		
-		GetAppPath(szApppath,MAX_PATH);
-		_stprintf_s(m_szFileName,MAX_PATH,_T("%s\\log\\%04d%02d%02d.log"),szApppath,tm.wYear,tm.wMonth,tm.wDay);
-		_tcscat(szApppath,_T("\\log"));
-		if (!PathFileExists(szApppath))
+		GetAppPathA(szApppath,MAX_PATH);
+		sprintf(m_szFileName,("%s\\log\\%04d%02d%02d.log"),szApppath,tm.wYear,tm.wMonth,tm.wDay);
+		strcat(szApppath,("\\log"));
+		if (!PathFileExistsA(szApppath))
 		{
-			CreateDirectory(szApppath, NULL);
+			CreateDirectoryA(szApppath, NULL);
 		}		
 		
-		m_hLogFile = CreateFile(m_szFileName,
+		m_hLogFile = CreateFileA(m_szFileName,
 								GENERIC_WRITE|GENERIC_READ,
 								FILE_SHARE_READ|FILE_SHARE_WRITE,
 								NULL,
@@ -117,8 +152,7 @@ CRunlog::CRunlog()
 		m_hLogFile = NULL;
 	}
 }
-
-CRunlog::CRunlog(LPCTSTR lpszFileName)
+CRunlogA::CRunlogA(LPCSTR lpszFileName)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -126,30 +160,28 @@ CRunlog::CRunlog(LPCTSTR lpszFileName)
 	}
 	m_hLogFile = NULL;
 	m_bCanlog = true;
-//	TCHAR szFileName[255] = {0};
-	TCHAR szApppath[MAX_PATH] = {0};
-	
+	CHAR szApppath[MAX_PATH] = {0};	
 	SYSTEMTIME tm;	
 	try
 	{
 		InitializeCriticalSection(&m_RunlogSection);
 		GetLocalTime(&tm);
-		GetAppPath(szApppath,MAX_PATH);
+		GetAppPathA(szApppath,MAX_PATH);
 		//_tcscpy(szApppath,_T("d:/"));
-		if (_tcsstr(lpszFileName,_T(".log")))
+		if (strstr(lpszFileName,".log"))
 		{
-			TCHAR szTempFileName[MAX_PATH] = {0};
-			memcpy(szTempFileName,lpszFileName,(_tcslen(lpszFileName) - 4)*sizeof(TCHAR));
-			_stprintf_s(m_szFileName,MAX_PATH,_T("%s\\log\\%s%02d%02d%02d.log"),szApppath,szTempFileName,tm.wYear,tm.wMonth,tm.wDay);
+			CHAR szTempFileName[MAX_PATH] = {0};
+			memcpy(szTempFileName,lpszFileName,(strlen(lpszFileName) - 4)*sizeof(TCHAR));
+			sprintf(m_szFileName,"%s\\log\\%s%02d%02d%02d.log",szApppath,szTempFileName,tm.wYear,tm.wMonth,tm.wDay);
 		}
 		else
-			_stprintf_s(m_szFileName,MAX_PATH,_T("%s\\log\\%s%02d%02d%02d.log"),szApppath,lpszFileName,tm.wYear,tm.wMonth,tm.wDay);
-		_tcscat(szApppath,_T("\\log"));
-		if (!PathFileExists(szApppath))
+			sprintf(m_szFileName,"%s\\log\\%s%02d%02d%02d.log",szApppath,lpszFileName,tm.wYear,tm.wMonth,tm.wDay);
+		strcat(szApppath,("\\log"));
+		if (!PathFileExistsA(szApppath))
 		{
-			CreateDirectory(szApppath, NULL);
+			CreateDirectoryA(szApppath, NULL);
 		}
-		m_hLogFile = CreateFile(m_szFileName,
+		m_hLogFile = CreateFileA(m_szFileName,
 								GENERIC_WRITE|GENERIC_READ,
 								FILE_SHARE_READ|FILE_SHARE_WRITE,
 								NULL,
@@ -168,8 +200,95 @@ CRunlog::CRunlog(LPCTSTR lpszFileName)
 		m_hLogFile = NULL;
 	}
 }
+CRunlogW::CRunlogW()
+{
+	if (!g_bEnableRunlog)
+	{
+		return;
+	}
+	m_hLogFile = NULL;
+	WCHAR szApppath[MAX_PATH] = { 0 };
+	m_bCanlog = true;
+	SYSTEMTIME tm;
+	try
+	{
+		InitializeCriticalSection(&m_RunlogSection);
+		GetLocalTime(&tm);
+		GetAppPathW(szApppath, MAX_PATH);
+		swprintf(m_szFileName,  L"%s\\log\\%04d%02d%02d.log", szApppath, tm.wYear, tm.wMonth, tm.wDay);
+		wcscat(szApppath, L"\\log");
+		if (!PathFileExistsW(szApppath))
+		{
+			CreateDirectoryW(szApppath, NULL);
+		}
 
-void CRunlog::RunlogBinA(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator)
+		m_hLogFile = CreateFileW(m_szFileName,
+			GENERIC_WRITE | GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_ARCHIVE,
+			NULL);
+		if (m_hLogFile == NULL)
+			m_bCanlog = false;
+		else
+			GetLocalTime(&m_systimeCreate);
+
+	}
+	catch (std::exception &e)
+	{
+		m_bCanlog = false;
+		m_hLogFile = NULL;
+	}
+}
+CRunlogW::CRunlogW(LPCWSTR lpszFileName)
+{
+	if (!g_bEnableRunlog)
+	{
+		return;
+	}
+	m_hLogFile = NULL;
+	m_bCanlog = true;
+	WCHAR szApppath[MAX_PATH] = { 0 };
+	SYSTEMTIME tm;
+	try
+	{
+		InitializeCriticalSection(&m_RunlogSection);
+		GetLocalTime(&tm);
+		GetAppPathW(szApppath, MAX_PATH);
+		if (wcsstr(lpszFileName, L".log"))
+		{
+			WCHAR szTempFileName[MAX_PATH] = { 0 };
+			memcpy(szTempFileName, lpszFileName, (wcslen(lpszFileName) - 4)*sizeof(WCHAR));
+			swprintf(m_szFileName,  L"%s\\log\\%s%02d%02d%02d.log", szApppath, szTempFileName, tm.wYear, tm.wMonth, tm.wDay);
+		}
+		else
+			swprintf(m_szFileName,  L"%s\\log\\%s%02d%02d%02d.log", szApppath, lpszFileName, tm.wYear, tm.wMonth, tm.wDay);
+		wcscat(szApppath, L"\\log");
+		if (!PathFileExistsW(szApppath))
+		{
+			CreateDirectoryW(szApppath, NULL);
+		}
+		m_hLogFile = CreateFileW(m_szFileName,
+			GENERIC_WRITE | GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_ALWAYS,
+			FILE_ATTRIBUTE_ARCHIVE,
+			NULL);
+		if (m_hLogFile == NULL)
+			m_bCanlog = false;
+		else
+			GetLocalTime(&m_systimeCreate);
+
+	}
+	catch (std::exception &e)
+	{
+		m_bCanlog = false;
+		m_hLogFile = NULL;
+	}
+}
+void CRunlogA::RunlogBin(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -184,13 +303,13 @@ void CRunlog::RunlogBinA(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator
 			//检查当前的文件是否当前日期产生
 			CHAR	szDataTime[32] = {0};
 			CHAR	szBuffer[_LogBuffLength] = {0};
-			_strtime_s((char *)szBuffer,_LogBuffLength);			
+			_strtime((char *)szBuffer);			
 			int nDatetimeLen = strlen((char *)szBuffer);
-			szBuffer[nDatetimeLen++] = _T(' ');
+			szBuffer[nDatetimeLen++] = ' ';
 			CHAR szTitleA[256] = {0};
 			CHAR szSeperatorA[4] = {0};
 			CHAR chSeperator1;
-			strcat_s((char *)szBuffer,_LogBuffLength - nDatetimeLen,(char *)szTitle);
+			strcat((char *)szBuffer,(char *)szTitle);
 			chSeperator1 = chSeperator;
 
 			int nBuffLen = strlen((char *)szBuffer);
@@ -220,8 +339,7 @@ void CRunlog::RunlogBinA(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator
 		}
 	}
 }
-
-void CRunlog::RunlogA(LPCSTR pFormat, ...)
+void CRunlogA::Runlog(LPCSTR pFormat, ...)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -236,9 +354,9 @@ void CRunlog::RunlogA(LPCSTR pFormat, ...)
 			va_start(args, pFormat);
 			CHAR szBuffer[_LogBuffLength] = {0};	
 			int nDatetimeLen = 0;			
-			_strtime_s(szBuffer,_LogBuffLength);
+			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
-			szBuffer[nDatetimeLen++] = _T(' ');
+			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
 			DWORD dwWritten = 0;	
 			::EnterCriticalSection(&m_RunlogSection);
@@ -259,8 +377,7 @@ void CRunlog::RunlogA(LPCSTR pFormat, ...)
 		}
 	}
 }
-
-void CRunlog::RunlogHugeA(byte *szHugeData,int nDataLen,LPCSTR pFormat,...)
+void CRunlogA::RunlogHuge(byte *szHugeData,int nDataLen,LPCSTR pFormat,...)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -276,9 +393,9 @@ void CRunlog::RunlogHugeA(byte *szHugeData,int nDataLen,LPCSTR pFormat,...)
 			va_start(args, pFormat);
 			CHAR szBuffer[_LogBuffLength] = {0};	
 			int nDatetimeLen = 0;
-			_strtime_s(szBuffer,_LogBuffLength);
+			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
-			szBuffer[nDatetimeLen ++] = _T(' ');
+			szBuffer[nDatetimeLen ++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen , pFormat, args);
 			DWORD dwWritten = 0;			
 			::EnterCriticalSection(&m_RunlogSection);
@@ -301,8 +418,7 @@ void CRunlog::RunlogHugeA(byte *szHugeData,int nDataLen,LPCSTR pFormat,...)
 		}
 	}
 }
-
-void CRunlog::RunlogvA(LPCSTR pFormat, va_list args)
+void CRunlogA::Runlogv(LPCSTR pFormat, va_list args)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -316,7 +432,7 @@ void CRunlog::RunlogvA(LPCSTR pFormat, va_list args)
 			CheckDateTime();
 			CHAR szBuffer[_LogBuffLength] = {0};		
 			int nDatetimeLen = 0;
-			_strtime_s(szBuffer,_LogBuffLength);
+			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
@@ -338,7 +454,7 @@ void CRunlog::RunlogvA(LPCSTR pFormat, va_list args)
 		}
 	}
 }
-void CRunlog::RunlogHugevA(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
+void CRunlogA::RunlogHugev(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -354,7 +470,7 @@ void CRunlog::RunlogHugevA(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
 			int nHugeTextLen = 0;
 			byte *pHugeTextA = NULL;
 
-			_strtime_s(szBuffer,_LogBuffLength);
+			_strtime(szBuffer);
 			nDatetimeLen = strlen(szBuffer);
 			szBuffer[nDatetimeLen++] = ' ';
 			vsnprintf((CHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
@@ -378,9 +494,7 @@ void CRunlog::RunlogHugevA(LPCSTR szHugeText,const CHAR *pFormat, va_list args)
 		}
 	}
 }
-
-
-void CRunlog::RunlogW(LPCWSTR pFormat, ...)
+void CRunlogW::Runlog(LPCWSTR pFormat, ...)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -395,7 +509,7 @@ void CRunlog::RunlogW(LPCWSTR pFormat, ...)
 			va_start(args, pFormat);			
 			int nDatetimeLen = 0;
 			WCHAR szBufferW[_LogBuffLength] = {0};	
-			_wstrtime_s(szBufferW,_LogBuffLength);
+			_wstrtime(szBufferW);
 			nDatetimeLen = wcslen(szBufferW);
 			szBufferW[nDatetimeLen++] = _T(' ');
 			_vsnwprintf((WCHAR *)&szBufferW[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
@@ -421,8 +535,7 @@ void CRunlog::RunlogW(LPCWSTR pFormat, ...)
 		}
 	}
 }
-
-void CRunlog::RunlogBinW(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperator)
+void CRunlogW::RunlogBin(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperator)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -437,12 +550,12 @@ void CRunlog::RunlogBinW(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperat
 			//检查当前的文件是否当前日期产生
 			WCHAR	szDataTime[32] = {0};
 			WCHAR	szBuffer[_LogBuffLength] = {0};
-			_wstrtime_s((WCHAR*)szBuffer,_LogBuffLength);			
+			_wstrtime((WCHAR*)szBuffer);			
 			int nDatetimeLen = wcslen((WCHAR*)szBuffer);
 			szBuffer[nDatetimeLen++] = L' ';
 			WCHAR szTitle[256] = {0};
 			WCHAR szSeperator[4] = {0};			
-			wcscat_s((WCHAR *)szBuffer,_LogBuffLength - nDatetimeLen,(WCHAR*)szTitle);		
+			wcscat((WCHAR *)szBuffer,(WCHAR*)szTitle);		
 			int nBuffLen = wcslen((WCHAR*)szBuffer);
 			Hex2AscStringW(pBinBuff,nLen,(WCHAR *)&szBuffer[nBuffLen],_LogBuffLength - nBuffLen,chSeperator);
 						
@@ -468,8 +581,7 @@ void CRunlog::RunlogBinW(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperat
 		}
 	}
 }
-
-void CRunlog::RunlogHugeW(byte *szHugeData,int nDataLen,LPCWSTR pFormat,...)
+void CRunlogW::RunlogHuge(byte *szHugeData,int nDataLen,LPCWSTR pFormat,...)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -485,7 +597,7 @@ void CRunlog::RunlogHugeW(byte *szHugeData,int nDataLen,LPCWSTR pFormat,...)
 			va_start(args, pFormat);			
 
 			WCHAR szBuffer[_LogBuffLength] = {0};
-			_wstrtime_s(szBuffer,_LogBuffLength);
+			_wstrtime(szBuffer);
 			int nDatetimeLen = wcslen(szBuffer);
 			szBuffer[nDatetimeLen ++] = L' ';
 			szBuffer[nDatetimeLen] = L'\0';
@@ -515,8 +627,7 @@ void CRunlog::RunlogHugeW(byte *szHugeData,int nDataLen,LPCWSTR pFormat,...)
 		}
 	}
 }
-
-void CRunlog::RunlogvW(LPCWSTR pFormat, va_list args)
+void CRunlogW::Runlogv(LPCWSTR pFormat, va_list args)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -530,7 +641,7 @@ void CRunlog::RunlogvW(LPCWSTR pFormat, va_list args)
 			CheckDateTime();			
 			int nDatetimeLen = 0;			
 			WCHAR szBuffer[_LogBuffLength] = {0};	
-			_wstrtime_s(szBuffer,_LogBuffLength);
+			_wstrtime(szBuffer);
 			nDatetimeLen = wcslen(szBuffer);
 			szBuffer[nDatetimeLen++] = _T(' ');
 			_vsnwprintf((WCHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
@@ -556,7 +667,7 @@ void CRunlog::RunlogvW(LPCWSTR pFormat, va_list args)
 		}
 	}
 }
-void CRunlog::RunlogHugevW(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args)
+void CRunlogW::RunlogHugev(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args)
 {
 	if (!g_bEnableRunlog)
 	{
@@ -570,9 +681,9 @@ void CRunlog::RunlogHugevW(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args
 			int nDatetimeLen = 0;
 			
 			WCHAR szBuffer[_LogBuffLength] = {0};	
-			_wstrtime_s(szBuffer,_LogBuffLength);
+			_wstrtime(szBuffer);
 			nDatetimeLen = wcslen(szBuffer);
-			szBuffer[nDatetimeLen++] = _T(' ');
+			szBuffer[nDatetimeLen++] = ' ';
 			_vsnwprintf((WCHAR *)&szBuffer[nDatetimeLen], _LogBuffLength - nDatetimeLen, pFormat, args);
 
 			int nBufferLen = 0;
@@ -600,8 +711,7 @@ void CRunlog::RunlogHugevW(LPCWSTR szHugeText,const WCHAR *pFormat, va_list args
 		}
 	}
 }
-
-CRunlog::~CRunlog()
+CRunlogA::~CRunlogA()
 {
 	if (!g_bEnableRunlog)
 	{
@@ -622,6 +732,33 @@ CRunlog::~CRunlog()
 			::DeleteCriticalSection(&m_RunlogSection);
 		}		
 		__except(1)
+		{
+			m_hLogFile = NULL;
+			m_bCanlog = false;
+		}
+	}
+}
+CRunlogW::~CRunlogW()
+{
+	if (!g_bEnableRunlog)
+	{
+		return;
+	}
+	if (m_bCanlog)
+	{
+		__try
+		{
+			::EnterCriticalSection(&m_RunlogSection);
+			FlushFileBuffers(m_hLogFile);
+			if (CloseHandle(m_hLogFile))
+			{
+				m_hLogFile = NULL;
+				m_bCanlog = false;
+			}
+			::LeaveCriticalSection(&m_RunlogSection);
+			::DeleteCriticalSection(&m_RunlogSection);
+		}
+		__except (1)
 		{
 			m_hLogFile = NULL;
 			m_bCanlog = false;

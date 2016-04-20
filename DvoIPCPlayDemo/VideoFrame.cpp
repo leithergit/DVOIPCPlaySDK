@@ -9,6 +9,9 @@
 
 IMPLEMENT_DYNAMIC(CVideoFrame, CWnd)
 
+map<HWND, HWND>CVideoFrame::m_PanelMap;
+CriticalSectionPtr CVideoFrame::m_csPannelMap = make_shared<CriticalSectionWrap>();
+
 CVideoFrame::CVideoFrame()
 {
 	
@@ -24,6 +27,7 @@ BEGIN_MESSAGE_MAP(CVideoFrame, CWnd)
 	ON_WM_PAINT()
 	ON_WM_DESTROY()
 	ON_WM_SIZE()
+	ON_MESSAGE(WM_TROGGLEFULLSCREEN,OnTroggleFullScreen)
 END_MESSAGE_MAP()
 
 // CVideoFrame message handlers
@@ -76,8 +80,18 @@ bool CVideoFrame::AdjustPanels(int nRow, int nCols)
 		return false;
 	if (m_vecPanel.size())
 	{
-		m_vecPanel.clear();
+		m_csPannelMap->Lock();		
+		for (auto it = m_vecPanel.begin(); it != m_vecPanel.end();)
+		{
+			auto itFind = m_PanelMap.find((*it)->hWnd);
+			if (itFind != m_PanelMap.end())
+				m_PanelMap.erase(itFind);
+			it = m_vecPanel.erase(it);
+		}
+		m_csPannelMap->Unlock();
 	}
+	m_nRows = nRow;
+	m_nCols = nCols;
 	for (int nRow = 0; nRow < m_nRows; nRow++)
 	{
 		for (int nCol = 0; nCol < m_nCols; nCol++)
@@ -87,6 +101,7 @@ bool CVideoFrame::AdjustPanels(int nRow, int nCols)
 	}
 	ResizePanel();
 	int nIndex = 0;
+	
 	for (int nRow = 0; nRow < m_nRows; nRow++)
 	{
 		for (int nCol = 0; nCol < m_nCols; nCol++)
@@ -290,4 +305,14 @@ void CVideoFrame::OnSize(UINT nType, int cx, int cy)
 	ResizePanel(cx, cy);
 	for (auto it = m_vecPanel.begin(); it != m_vecPanel.end(); it++)
 		(*it)->UpdateWindow();
+}
+
+LRESULT CVideoFrame::OnTroggleFullScreen(WPARAM W, LPARAM L)
+{
+	HWND hRoot = ::GetAncestor(m_hWnd, GA_ROOT);
+	if (hRoot)
+	{
+		::PostMessage(hRoot, WM_TROGGLEFULLSCREEN, W, L);
+	}
+	return 0;
 }

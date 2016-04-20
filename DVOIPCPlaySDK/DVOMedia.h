@@ -27,7 +27,7 @@ enum FrameType
 	FRAME_G711U		 = 7,
 	FRAME_G726		 = 8,
 	FRAME_AAC		 = 9,
-	Frame_DATA		 = 7
+	Frame_DATA		 = 10
 };
 
 /// @brief 编码类型
@@ -35,8 +35,8 @@ enum DVO_CODEC
 {
 	CODEC_UNKNOWN = -1,
 	CODEC_H264		 = 0x00,
-	CODEC_H265		 = 0x01,
-	CODEC_MJPEG		 = 0x02,
+	CODEC_MJPEG		 = 0x01,
+	CODEC_H265		 = 0x02,
 	CODEC_G711A		 = FRAME_G711A,
 	CODEC_G711U		 = FRAME_G711U,
 	CODEC_G726		 = FRAME_G726,
@@ -85,8 +85,8 @@ struct DVOFrameHeader
 	~DVOFrameHeader()
 	{
 	}
-	long	nLength;				///< 帧数据长度,以字节为单位
-	long	nType;					///< 取值于枚举类型FrameType 
+	long	nLength;				///< 码流数据长度,以字节为单位
+	long	nType;					///< 取值于枚举类型FrameType
 	__int64	nTimestamp;				///< 时间戳,单位微秒
 	long	nFrameTag;				///< DVO_TAG
 	long	nFrameUTCTime;			///< 收到帧的utc时间
@@ -100,8 +100,13 @@ struct DVOFrameHeaderEx:public DVOFrameHeader
 		nFrameTag		 = DVO_TAG;
 		nFrameUTCTime	 = (long)time(NULL);
 	}
-	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数
+	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数,从0开始计数,即第一帧nFrameID为0
+#ifndef _DEBUG
 	unsigned int	nReserver[3];	///< 保留字段,建议置0
+#else
+	unsigned int	nReserver;		///< 保留字段,建议置0
+	double          dfRecvTime;
+#endif
 };
 #pragma pack(pop)
 

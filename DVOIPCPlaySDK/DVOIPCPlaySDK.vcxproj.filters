@@ -140,9 +140,6 @@
     <ClCompile Include="AudioCodec\g726.cpp">
       <Filter>Audio</Filter>
     </ClCompile>
-    <ClCompile Include="DvoPayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="VideoDecoder\VideoDecoder.cpp">
       <Filter>VideoDecoder</Filter>
     </ClCompile>

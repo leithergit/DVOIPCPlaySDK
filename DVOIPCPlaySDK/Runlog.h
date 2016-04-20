@@ -24,49 +24,58 @@
 // #endif	
 
 
-#ifdef _UNICODE
-#define Runlog			RunlogW
-#define Runlogv			RunlogvW
-#define RunlogBin		RunlogBinW
-#define RunlogHuge		RunlogHugeW
-#define RunlogEx		RunlogW
-#else
-#define Runlog			RunlogA
-#define Runlogv			RunlogvA
-#define RunlogBin		RunlogBinA
-#define RunlogHuge		RunlogHugeA
-#define RunlogEx		RunlogA
-#endif
+
 
 void EnableRunlog(bool bEnable=true);
-class  CRunlog  
+class CRunlogA
 {
 public:
-	CRunlog();
-	CRunlog(LPCTSTR lpszFileName);
-	HANDLE m_hLogFile;	
+	CRunlogA();
+	CRunlogA(LPCSTR lpszFileName);
+	HANDLE m_hLogFile;
 	SYSTEMTIME m_tTime;
 	// ANSI版本
-	void RunlogA(LPCSTR pFormat, ...);
+	void Runlog(LPCSTR pFormat, ...);
 	// 删除RunlogEx函数，代之以Runlog宏
 	//void RunlogEx(LPCSTR pFormat, ...);
-	void RunlogBinA(LPCSTR szTitle,byte *pBinBuff,int nLen,CHAR chSeperator = ' ');
-	void RunlogHugeA(byte *szHugeData,int nDateLen,LPCSTR pFormat,...);	
-	void RunlogvA(LPCSTR format, va_list ap);
-	void RunlogHugevA(LPCSTR szHugeText,const CHAR *format, va_list ap);
-	// UNICODE版本
-	void RunlogW(LPCWSTR pFormat, ...);
-	void RunlogBinW(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperator = L' ');
-	void RunlogHugeW(byte *szHugeData,int nDateLen,LPCWSTR pFormat,...);		
-	void RunlogvW(LPCWSTR format, va_list ap);
-	void RunlogHugevW(LPCWSTR szHugeText,const WCHAR *format, va_list ap);
-	virtual ~CRunlog();
+	void RunlogBin(LPCSTR szTitle, byte *pBinBuff, int nLen, CHAR chSeperator = ' ');
+	void RunlogHuge(byte *szHugeData, int nDateLen, LPCSTR pFormat, ...);
+	void Runlogv(LPCSTR format, va_list ap);
+	void RunlogHugev(LPCSTR szHugeText, const CHAR *format, va_list ap);	
+	virtual ~CRunlogA();
 private:
 	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
 	bool m_bCanlog;
-	TCHAR	m_szFileName[MAX_PATH];
+	CHAR	m_szFileName[MAX_PATH];
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };
+class  CRunlogW
+{
+public:
+	CRunlogW();
+	CRunlogW(LPCWSTR lpszFileName);
+	HANDLE m_hLogFile;	
+	SYSTEMTIME m_tTime;
+	// UNICODE版本
+	void Runlog(LPCWSTR pFormat, ...);
+	void RunlogBin(LPCWSTR szTitle,byte *pBinBuff,int nLen,WCHAR chSeperator = L' ');
+	void RunlogHuge(byte *szHugeData,int nDateLen,LPCWSTR pFormat,...);		
+	void Runlogv(LPCWSTR format, va_list ap);
+	void RunlogHugev(LPCWSTR szHugeText,const WCHAR *format, va_list ap);
+	virtual ~CRunlogW();
+private:
+	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
+	bool m_bCanlog;
+	WCHAR	m_szFileName[MAX_PATH];
+	CRITICAL_SECTION m_RunlogSection;
+	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
+};
+
+#ifdef _UNICODE
+typedef		CRunlogA CRunlog;
+#else
+typedef		CRunlogW CRunlog;
+#endif
 
 #endif // !defined(AFX_RUNLOG_H__C589DB41_33FE_4903_A7D7_BCE9F5074877__INCLUDED_)

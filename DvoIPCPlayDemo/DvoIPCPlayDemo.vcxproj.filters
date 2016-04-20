@@ -51,6 +51,27 @@
     <ClInclude Include="GlliteryStatic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FullScreen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ipcMsgHead.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SocketClient.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectDraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogVCALoad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vca.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DvoIPCPlayDemo.cpp">
@@ -77,6 +98,12 @@
     <ClCompile Include="GlliteryStatic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SocketClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogVCALoad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DvoIPCPlayDemo.rc">
@@ -90,6 +117,12 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\DvoIPCPlayDemo.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\arrow-left-double.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\arrow-right-double.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

@@ -11,8 +11,8 @@
 
 #include "targetver.h"
 
-//  #include <vld.h>
-//  #include <vld_def.h>
+// #include <vld.h>
+// #include <vld_def.h>
 #define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // 某些 CString 构造函数将是显式的
 
 // 关闭 MFC 对某些常见但经常可放心忽略的警告消息的隐藏
@@ -35,12 +35,15 @@
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 
 #ifdef _DEBUG
-#pragma comment(lib, "dvoipcnetsdk_d.lib")
+#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk_d.lib")
 #pragma comment(lib, "../Debug/DVOIPCPlaySDK.lib")
 #else
-#pragma comment(lib, "dvoipcnetsdk.lib")
+#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk.lib")
 #pragma comment(lib, "../Release/DVOIPCPlaySDK.lib")
 #endif
+
+#include "../MulMonitor/MultiMonitorAPI.h"
+#pragma comment(lib,"../MulMonitor/MultiMonitorAPI.lib")
 
 #include "Utility.h"
 #include "TimeUtility.h"
@@ -55,7 +58,12 @@ using namespace std::tr1;
 extern HANDLE g_hStdout;
 extern HANDLE g_hStdin;
 
+#include "VCA5CoreLib.h"
+#include "Cap5BoardLibEx.h"
+#include "VCAMetaLib.h"
+#include "vca.h"
 #define Var2Str(var) (#var)
+extern CVca *g_pVca;
 
 // 把协议数据按协议格式明确解析出来，并输出
 void _TraceProtocol(byte *szBuffer, int nBufferLength);

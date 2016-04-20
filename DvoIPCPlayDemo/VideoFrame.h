@@ -2,14 +2,16 @@
 
 #include <assert.h>
 #include <vector>
+#include <map>
 #include <memory>
+#include "AutoLock.h"
 using namespace  std;
 using namespace  std::tr1;
 
 #pragma warning(disable:4244 4018)
 #define		_GRID_LINE_WIDTH	2
 // CVideoFrame
-
+#define WM_TROGGLEFULLSCREEN		WM_USER + 4096
 struct PanelInfo
 {
 	PanelInfo()
@@ -39,14 +41,49 @@ struct PanelInfo
 	void *pCustumData;
 };
 typedef shared_ptr<PanelInfo> PanelInfoPtr;
+
+class CriticalSectionWrap;
+typedef shared_ptr<CriticalSectionWrap>CriticalSectionPtr;
+class CriticalSectionWrap
+{
+public:
+	CriticalSectionWrap()
+	{
+		InitializeCriticalSection(&m_cs);
+	}
+	~CriticalSectionWrap()
+	{
+		DeleteCriticalSection(&m_cs);
+	}
+	inline BOOL TryLock()
+	{
+		return TryEnterCriticalSection(&m_cs);
+	}
+	inline void Lock()
+	{
+		EnterCriticalSection(&m_cs);
+	}
+	void Unlock()
+	{
+		LeaveCriticalSection(&m_cs);
+	}
+	inline CRITICAL_SECTION *Get()
+	{
+		return &m_cs;
+	}
+
+private:
+	CRITICAL_SECTION	m_cs;
+};
+
 class CVideoFrame : public CWnd
 {
 	DECLARE_DYNAMIC(CVideoFrame)
-
 public:
 	CVideoFrame();
 	virtual ~CVideoFrame();
-
+	static map<HWND, HWND> m_PanelMap;
+	static CriticalSectionPtr m_csPannelMap;
 protected:
 	DECLARE_MESSAGE_MAP()
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
@@ -83,18 +120,29 @@ private:
 		RegisterClassEx(&wcex);
 		RECT* pRtWnd = GetPanelRect(nRow, nCol);
 		_TraceMsgA("Rect(%d,%d) = (%d,%d,%d,%d).\n", nRow, nCol, pRtWnd->left, pRtWnd->right, pRtWnd->top, pRtWnd->bottom);
-
-		return ::CreateWindow(szWindowClass,	// 窗口类
-			szWndName,							// 窗口标题 
-			WS_CHILD,							// 窗口风格
-			pRtWnd->left, 						// 窗口左上角X坐标
-			pRtWnd->top, 						// 窗口左上解Y坐标
-			(pRtWnd->right - pRtWnd->left), 	// 窗口宽度
-			(pRtWnd->bottom - pRtWnd->top), 	// 窗口高度
-			m_hWnd, 							// 父窗口句柄
-			NULL,								// 菜单句柄
-			NULL,
-			NULL);
+		HWND hPannel =  ::CreateWindow(szWindowClass,	// 窗口类
+									szWndName,							// 窗口标题 
+									WS_CHILD,							// 窗口风格
+									pRtWnd->left, 						// 窗口左上角X坐标
+									pRtWnd->top, 						// 窗口左上解Y坐标
+									(pRtWnd->right - pRtWnd->left), 	// 窗口宽度
+									(pRtWnd->bottom - pRtWnd->top), 	// 窗口高度
+									m_hWnd, 							// 父窗口句柄
+									NULL,								// 菜单句柄
+									NULL,
+									NULL);
+		if (hPannel)
+		{
+			
+			m_csPannelMap->Lock();
+			auto it = m_PanelMap.find(hPannel);
+			if (it != m_PanelMap.end())
+				m_PanelMap.erase(it);
+			m_PanelMap.insert(pair<HWND, HWND>(hPannel, m_hWnd));
+			m_csPannelMap->Unlock();
+		}
+		return hPannel;
+		
 	}
 public:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
@@ -159,10 +207,10 @@ public:
 	{
 		return m_vecPanel.size();
 	}
-
+	int GetRows(){ return m_nRows; }
+	int GetCols(){ return m_nCols; }
 	bool AdjustPanels(int nRow, int nCols);
 	bool AdjustPanels(int nCount);
-
 
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
 #pragma warning (disable:4996)
@@ -187,6 +235,11 @@ public:
 		HDC hdc;
 		switch (message)
 		{
+		case WM_CREATE:
+		{
+			_TraceMsgA("%08X\tWM_CREATE.\n", hWnd);
+			break;
+		}
 		case WM_SYSKEYDOWN:
 		{
 		}
@@ -214,8 +267,24 @@ public:
 		case WM_LBUTTONDBLCLK:	// 双击恢复监视
 		{
 			_TraceMsgA("%08X\tWM_LBUTTONDBLCLK.\n", hWnd);
+			m_csPannelMap->Lock();
+			auto it = m_PanelMap.find(hWnd);
+			if (it != m_PanelMap.end())			
+				::PostMessage(it->second, WM_TROGGLEFULLSCREEN, (WPARAM)hWnd, lParam);
+			m_csPannelMap->Unlock();
 			return 0;
 		}
+		break;
+		case WM_DESTROY:
+		{
+			_TraceMsgA("%08X\tWM_DESTROY.\n", hWnd);
+// 			m_csPannelMap->Lock();
+// 			auto it = m_PanelMap.find(hWnd);
+// 			if (it != m_PanelMap.end())
+// 				m_PanelMap.erase(it);
+// 			m_csPannelMap->Unlock();
+		}
+		break;
 		default:
 			return ::DefWindowProc(hWnd, message, wParam, lParam);		// 必须要有这一句，不然窗口可能无法创建成功
 		}
@@ -223,6 +292,7 @@ public:
 	}
 	
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg LRESULT OnTroggleFullScreen(WPARAM W, LPARAM L);
 };
 
 
