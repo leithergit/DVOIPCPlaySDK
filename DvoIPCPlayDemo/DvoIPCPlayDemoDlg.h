@@ -379,6 +379,25 @@ struct FullScreenWnd
 		}
 	}
 };
+
+
+enum DockType
+{
+	DockTop = 0,
+	DockBottom,
+	DockLeft,
+	DockRigth,
+	DockCenter	//居中
+};
+struct WndPostionInfo
+{
+	HWND	hWnd;
+	UINT	nID;
+	DockType Dock;			// 停靠类型
+	UINT DockDistance[4];	// 停靠距离
+	RECT rect;				// 原始大小
+};
+
 // CDvoIPCPlayDemoDlg 对话框
 class CDvoIPCPlayDemoDlg : public CDialogEx
 {
@@ -456,6 +475,8 @@ public:
 	shared_ptr<CDirectDraw> m_pDDraw = nullptr;
 	shared_ptr<ImageSpace> m_pYUVImage = nullptr;
 	bool m_bEnableVCA = false;
+	vector<WndPostionInfo> m_vWndPostionInfo;
+	void SaveWndPosition(UINT *nDlgItemIDArray, UINT nItemCount, DockType nDock, RECT rtDialogClientRect);
 	/// @brief		解码后YVU数据回调
 	static void __stdcall YUVFilterProc(DVO_PLAYHANDLE hPlayHandle,
 										const unsigned char* pY,

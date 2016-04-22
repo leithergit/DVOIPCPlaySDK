@@ -220,3 +220,30 @@ private:
 
 extern CThreadSleep ThreadSleep;
 #define GetSleepPricision()	ThreadSleep.GetPrecision();
+
+
+#define  SaveWaitTime()	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__);
+class CWaitTime
+{
+	DWORD dwTimeEnter;
+	char szFile[512];
+	int nLine;
+	char szFunction[256];
+public:
+	CWaitTime(char *szInFile, int nInLine, char *szInFunction)
+	{
+		dwTimeEnter = timeGetTime();
+		strcpy(szFile, szInFile);
+		nLine = nInLine;
+		strcpy(szFunction, szInFunction);
+	}
+	~CWaitTime()
+	{
+		if ((timeGetTime() - dwTimeEnter) > 200)
+		{
+			char szText[1024] = { 0 };
+			sprintf(szText, "Wait Timeout @File:%s %d(%s) WaitTime = %d(ms).\n", szFile, nLine, szFunction, (timeGetTime() - dwTimeEnter));
+			OutputDebugStringA(szText);
+		}
+	}
+};

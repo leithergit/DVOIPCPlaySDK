@@ -78,6 +78,9 @@
     <ClInclude Include="vca.h">
       <Filter>VCA</Filter>
     </ClInclude>
+    <ClInclude Include="Runlog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DvoIPCPlayDemo.cpp">
@@ -108,6 +111,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DialogVCALoad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Runlog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

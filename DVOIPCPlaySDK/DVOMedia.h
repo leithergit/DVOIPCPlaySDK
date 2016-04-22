@@ -5,6 +5,7 @@
 #include <time.h>
 /// DVO录像文件格式
 #define DVO_TAG                 0x44564F4D //"MOVD"
+#define GSJ_TAG					0x48574D49 //"IMWH"
 #define DVO_IPC_SDK_VERSION_2015_09_07     0x62
 #define DVO_IPC_SDK_VERSION_2015_10_20     0x63		///< 版本升级,2015-10-20 因为DVO_MEDIAINFO增加nFps字段,该字段之占用了之前的nCameraType
 													///< 字段的位置,为区别这种差别,以版本号区分之,当版本号为0x62时,若遇到fps为0或1，则强制

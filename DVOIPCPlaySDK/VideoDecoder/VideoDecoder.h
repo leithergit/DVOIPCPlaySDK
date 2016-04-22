@@ -581,7 +581,6 @@ public:
 			}
 		}
 		
-
 		UINT nAdapter = D3DADAPTER_DEFAULT;
 // 		HRESULT hr = InitD3D(nAdapter);
 // 		if (FAILED(hr))
@@ -589,8 +588,7 @@ public:
 // 			DxTraceMsg("%s D3D Initialization failed with hr: %X\n", __FUNCTION__,hr);
 // 			return false;
 // 		}
-		
-		
+				
 		if (bEnableHaccel)
 		{
 			HRESULT hr = InitD3D(nAdapter);

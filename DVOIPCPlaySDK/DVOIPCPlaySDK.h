@@ -154,7 +154,7 @@ struct PlayerInfo
 	BOOL		bAudioEnabled;	///< 是否已开启音频
 	UINT		nTotalFrames;	///< 视频总帧数,只有文件播放时才有效
 	time_t		tTotalTime;		///< 文件总时长(单位:毫秒),只有文件播放时才有效
-	UINT		nCurFrameID;	///< 当前播放视频的帧ID,只有文件播放时才有效
+	UINT		nCurFrameID;	///< 当前播放视频的帧ID,只有文件播放时才有效,nSDKVersion<DVO_IPC_SDK_VERSION_2015_12_16无效
 	time_t		tCurFrameTime;	///< 返回当前播放视频的帧相对起点的时间(单位:毫秒)
 	time_t		tTimeEplased;	///< 已播放时间(单位:毫秒)
 	USHORT		nFPS;			///< 文件或码流中视频的原始帧率
@@ -162,7 +162,8 @@ struct PlayerInfo
 	WORD		nCacheSize;		///< 播放缓存
 	WORD		nCacheSize2;	///< 音频缓存
 	float		fPlayRate;		///< 播放速率,只有文件播放时才有效
-	UINT		nReserver[4];
+	long		nSDKVersion;	///< SDK版本,详细定义参见@see DVO_MEDIAINFO
+	UINT		nReserver[3];
 };
 ///	@def	DVO_PLAYHANDLE
 ///	@brief	DVO文件播放句柄

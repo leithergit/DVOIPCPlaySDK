@@ -3,10 +3,7 @@
 void MyInitializeCriticalSection(MYCRITICAL_SECTION *pCS)
 {
 	::InitializeCriticalSection((CRITICAL_SECTION *)pCS);	
-	ZeroMemory(pCS->szFile, sizeof(pCS->szFile));
-	ZeroMemory(pCS->szFunction, sizeof(pCS->szFunction));
-	pCS->nLine = 0;
-	pCS->dwLockTime = 0;
+	
 }
 BOOL MyTryEnterCriticalSection(MYCRITICAL_SECTION *pCS, const CHAR *szFile/* = nullptr*/, char *szFunction/* =  nullptr*/, int nLine/* = 0*/)
 {
@@ -15,6 +12,7 @@ BOOL MyTryEnterCriticalSection(MYCRITICAL_SECTION *pCS, const CHAR *szFile/* = n
 	BOOL bRet = ::TryEnterCriticalSection((CRITICAL_SECTION *)pCS);
 	if (!bRet)
 		return bRet;
+	EnterCriticalSection(&pCS->cs);
 	pCS->dwLockTime = timeGetTime();
 	if (szFile)
 	{
@@ -23,6 +21,7 @@ BOOL MyTryEnterCriticalSection(MYCRITICAL_SECTION *pCS, const CHAR *szFile/* = n
 	}
 	if (szFunction)
 		strcpy(pCS->szFunction, szFunction);
+	LeaveCriticalSection(&pCS->cs);
 	return bRet;
 }
 
@@ -51,6 +50,7 @@ void MyEnterCriticalSection(MYCRITICAL_SECTION *pCS, const CHAR *szFile/* = null
 			sprintf(szOuput, "Lock Waittime = %d.\n", timeGetTime() - pCS->dwLockTime);
 		OutputDebugStringA(szOuput);
 	}
+	EnterCriticalSection(&pCS->cs);
 	if (szFile)
 	{
 		strcpy(pCS->szFile, szFile);
@@ -58,6 +58,7 @@ void MyEnterCriticalSection(MYCRITICAL_SECTION *pCS, const CHAR *szFile/* = null
 	}
 	if (szFunction)
 		strcpy(pCS->szFunction, szFunction);
+	LeaveCriticalSection(&pCS->cs);
 #endif
 }
 

@@ -270,13 +270,13 @@ public:
 			dwTotalSpan = timeGetTime() - pTimeArray[0]->nTime;
 		if (dwTotalSpan >= _LockOverTime * 2)
 		{
-			OutputMsg("%s %s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
+			OutputMsg("%s @File:%s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
 		}
 		for (int i = 1; i < nSize;i ++)
 		{
 			DWORD dwSpan = pTimeArray[i]->nTime - pTimeArray[i - 1]->nTime;
 			if (dwSpan >= _LockOverTime)
-				OutputMsg("%s %s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
+				OutputMsg("%s @File:%s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
 		}
 	}
 	void SaveLineTime(char *szFile, int nLine)
@@ -620,7 +620,7 @@ public:
 	CDxSurface()
 	{
 		TraceFunction();
-		// 借助于m_nVariable1st变量，避开对虚函数表的初始化
+		// 借助于m_nVtableAddr变量，避开对虚函数表的初始化
 		// 仅适用于微软的Visual C++编译器
 		ZeroMemory(&m_nVtableAddr, sizeof(CDxSurface) - offsetof(CDxSurface,m_nVtableAddr));
 		m_bEnableVsync = true;
@@ -2192,6 +2192,12 @@ _Failed:
 			DxTraceMsg("%s IDirect3DDevice9Ex::ResetEx Failed,hr = %08X.\n",__FUNCTION__,hr);
 			return false;
 		}
+		return true;
+	}
+
+	// D3dDirect9Ex下，该成员不再有效
+	virtual bool RestoreDevice()
+	{
 		return true;
 	}
 	bool HandelDevLost()

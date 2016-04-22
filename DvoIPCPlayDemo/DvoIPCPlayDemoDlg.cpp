@@ -216,7 +216,6 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	m_pVideoWndFrame = new CVideoFrame;
 	m_pVideoWndFrame->Create(1024, rtClient, _Row, _Col, this);
 	BOOL bRedraw = FALSE;
-
 	UINT nSliderIDArray[] = {
 		IDC_SLIDER_SATURATION,
 		IDC_SLIDER_BRIGHTNESS,
@@ -244,10 +243,143 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 	//int nStatus = VLDSetReportHook(VLD_RPTHOOK_INSTALL, VLD_REPORT);
 	SetDlgItemInt(IDC_EDIT_ROW, _Row);
 	SetDlgItemInt(IDC_EDIT_COL, _Col);
+	
 	CheckDlgButton(IDC_CHECK_REFRESHPLAYER, BST_CHECKED);
+	UINT nIDArreayTop[] = {
+		IDC_STATIC_ACCOUNT,
+		IDC_EDIT_ACCOUNT,
+		IDC_STATIC_PWD,
+		IDC_EDIT_PASSWORD,
+		IDC_STATIC_CAMERA,
+		IDC_IPADDRESS,
+		IDC_BUTTON_CONNECT,
+		IDC_BUTTON_DISCONNECT,
+		IDC_STATIC_STREAM,
+		IDC_COMBO_STREAM,
+		IDC_BUTTON_PLAYSTREAM,
+		IDC_BUTTON_RECORD,
+		IDC_STATIC_ROW,
+		IDC_EDIT_ROW,
+		IDC_STATIC_COL,
+		IDC_EDIT_COL,
+		IDC_CHECK_ENABLEVCA,
+		IDC_CHECK_ENABLEHACCEL 
+	};
+	
+
+	UINT nIDArrayRight[] = {
+		IDC_STATIC_STREAMINFO,
+		IDC_CHECK_REFRESHPLAYER,
+		IDC_LIST_STREAMINFO,
+		IDC_STATIC_COLOR,
+		IDC_STATIC_SATURATION,
+		IDC_SLIDER_SATURATION,
+		IDC_EDIT_SURATION,
+		IDC_STATIC_BRIGHTNESS,
+		IDC_SLIDER_BRIGHTNESS,
+		IDC_EDIT_BRIGHTNESS,
+		IDC_STATIC_CONTRAST,
+		IDC_SLIDER_CONTRAST,
+		IDC_EDIT_CONTRAST,
+		IDC_STATIC_CHROMA,
+		IDC_SLIDER_CHROMA,
+		IDC_EDIT_CHROMA,
+		IDC_STATIC_GRAPH,
+		IDC_STATIC_PICSCALE,
+		IDC_COMBO_PICSCALE,
+		IDC_STATIC_ZOOMSCALE,
+		IDC_SLIDER_PICSCALE,
+		IDC_EDIT_PICSCALE,
+		IDC_CHECK_FITWINDOW,
+		IDC_BUTTON_SNAPSHOT,
+		IDC_COMBO_PICTYPE,
+		IDC_BUTTON_TRACECACHE
+	};
+	UINT nIDArrayBottom[] = {
+			IDC_STATIC_FILE,
+			IDC_EDIT_FILEPATH,
+			IDC_BUTTON_PLAYFILE,
+			IDC_BUTTON_PAUSE,
+			IDC_STATIC_SPEED,
+			IDC_STATIC_VIDEOCACHE,
+			IDC_EDIT_PLAYCACHE,
+			IDC_CHECK_STREAMPLAY,
+			IDC_CHECK_ENABLELOG,
+			IDC_STATIC_TOTALTIME,
+			IDC_BUTTON_STOPBACKWORD,
+			IDC_SLIDER_PLAYER,
+			IDC_BUTTON_SEEKNEXTFRAME,
+			IDC_STATIC_CURTIME,
+			IDC_EDIT_PLAYTIME,
+			IDC_STATIC_CURFRAME,
+			IDC_EDIT_PLAYFRAME,
+			IDC_STATIC_CURFPS,
+			IDC_EDIT_FPS,
+			IDC_CHECK_DISABLEAUDIO,
+			IDC_STATIC_VOLUME,
+			IDC_SLIDER_VOLUME,
+			IDC_STATIC_STATUS,
+			IDC_BUTTON_STOPFORWORD,
+			IDC_COMBO_PLAYSPEED
+		};
+	UINT nIDArrayCenter[] = { IDC_STATIC_FRAME };
+
+	RECT rtDialog;
+	GetClientRect(&rtDialog);
+	SaveWndPosition(nIDArreayTop, sizeof(nIDArreayTop) / sizeof(UINT), DockTop, rtDialog);
+	SaveWndPosition(nIDArrayRight, sizeof(nIDArrayRight) / sizeof(UINT), DockRigth, rtDialog);
+	SaveWndPosition(nIDArrayBottom, sizeof(nIDArrayBottom) / sizeof(UINT), DockBottom, rtDialog);
+	SaveWndPosition(nIDArrayCenter, sizeof(nIDArrayCenter) / sizeof(UINT), DockCenter, rtDialog);
+
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
+void CDvoIPCPlayDemoDlg::SaveWndPosition(UINT *nDlgItemIDArray, UINT nItemCount, DockType nDock, RECT rtDialogClientRect)
+{
+	WndPostionInfo wndPos;
+	wndPos.Dock = nDock;
+	for (int i = 0; i < nItemCount; i++)
+	{
+		wndPos.hWnd = GetDlgItem(nDlgItemIDArray[i])->m_hWnd;
+		wndPos.nID = nDlgItemIDArray[i];
+		::GetWindowRect(wndPos.hWnd, &wndPos.rect);
+		ScreenToClient(&wndPos.rect);
+		switch (wndPos.Dock)
+		{
+		default:
+		case DockTop:		// 无须变动
+		{
+			wndPos.DockDistance[0] = wndPos.rect.top - rtDialogClientRect.top;
+			break;
+		}
+		case DockLeft:		// 无须变动
+		{
+			wndPos.DockDistance[0] = wndPos.rect.left - rtDialogClientRect.left;
+			break;
+		}
+		case DockBottom:
+		{
+			wndPos.DockDistance[0] = rtDialogClientRect.bottom - wndPos.rect.bottom;
+			break;
+		}
+		case DockRigth:
+		{
+			wndPos.DockDistance[0] = rtDialogClientRect.right - wndPos.rect.right;
+			break;
+		}
+		case DockCenter:
+		{
+			wndPos.DockDistance[0] = wndPos.rect.left - rtDialogClientRect.left;
+			wndPos.DockDistance[1] = wndPos.rect.top - rtDialogClientRect.top;
+			wndPos.DockDistance[2] = rtDialogClientRect.right - wndPos.rect.right;
+			wndPos.DockDistance[3] = rtDialogClientRect.bottom - wndPos.rect.bottom;
+		}
+			break;
+		}
+		
+		m_vWndPostionInfo.push_back(wndPos);
+	}
+}
 bool CDvoIPCPlayDemoDlg::LoadSetting()
 {
 	TCHAR szPath[MAX_PATH] = { 0 };
@@ -400,22 +532,76 @@ void CDvoIPCPlayDemoDlg::OnSize(UINT nType, int cx, int cy)
 {
 	CDialogEx::OnSize(nType, cx, cy);
 
-	if (GetDlgItem(IDC_STATIC_FRAME)->GetSafeHwnd())
+	if (GetDlgItem(IDC_EDIT_ACCOUNT)->GetSafeHwnd())
 	{
-// 		CRect rtList;
-// 		GetDlgItemRect(IDC_LIST_CONNECTION, rtList);
-// 
-// 		rtList.left = 2;
-// 		rtList.right = cx - 2;
-// 		MoveDlgItem(IDC_LIST_CONNECTION, rtList);
-// 
-// 		CRect rtFrame;
-// 		rtFrame.top = rtList.bottom + 3;
-// 		rtFrame.left = 2;
-// 		rtFrame.right = cx - 2;
-// 		rtFrame.bottom = cy - 2;
-// 		m_pVideoWndFrame->MoveWindow(rtFrame);
-// 		Invalidate();
+		RECT rtDialog;
+		GetClientRect(&rtDialog);
+		for (auto it = m_vWndPostionInfo.begin(); it != m_vWndPostionInfo.end(); it++)
+		{
+			WndPostionInfo wndPos = (*it);
+			RECT rt = wndPos.rect;
+			switch (wndPos.Dock)
+			{
+			default:
+			case DockTop:		// 无须变动
+			case DockLeft:		// 无须变动
+				break;
+			case DockBottom:
+			{
+				if (nType == SIZE_MAXIMIZED)
+				{
+					rt.bottom = rtDialog.bottom - wndPos.DockDistance[0];
+					rt.top = rt.bottom - (wndPos.rect.bottom - wndPos.rect.top);
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+				}
+				else if (nType == SIZE_RESTORED)
+				{
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+				}
+			}
+			break;
+			case DockRigth:
+			{
+				if (nType == SIZE_MAXIMIZED)
+				{
+					rt.right = rtDialog.right - wndPos.DockDistance[0];
+					rt.left = rt.right - (wndPos.rect.right - wndPos.rect.left);
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+				}
+				else if (nType == SIZE_RESTORED)
+				{
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+				}
+				break;
+
+			}
+			case DockCenter:
+			{
+				if (nType == SIZE_MAXIMIZED)
+				{
+					rt.left = rtDialog.left + wndPos.DockDistance[0];
+					rt.top = rtDialog.top + wndPos.DockDistance[1];
+					rt.right = rtDialog.right - wndPos.DockDistance[2];
+					rt.bottom = rtDialog.bottom - wndPos.DockDistance[3];					
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+					if (wndPos.nID == IDC_STATIC_FRAME)
+						m_pVideoWndFrame->MoveWindow(&rt, true);
+				}
+				else if (nType == SIZE_RESTORED)
+				{
+					::MoveWindow(wndPos.hWnd, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, true);
+					if (wndPos.nID == IDC_STATIC_FRAME)
+						m_pVideoWndFrame->MoveWindow(&rt, true);
+				}
+				break;
+			}
+			}
+		}
+		if (m_pPlayContext)
+			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			{
+				dvoplay_Reset(m_pPlayContext->hPlayer[i]);
+			}
 	}
 }
 
@@ -705,8 +891,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 					break;
 				}
 			}
-			//for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
-			int i = 0;
+			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+			//int i = 0;
 			{
 				m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
 				bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);		
@@ -1482,16 +1668,19 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnableaudio()
 
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 {
-	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
+	if (m_pPlayContext )
 	{
-		bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
-		if (dvoplay_FitWindow(m_pPlayContext->hPlayer[0], bFitWindow) != DVO_Succeed)
+		for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
 		{
-			m_wndStatus.SetWindowText(_T("调整视频显示方式失败."));
-			m_wndStatus.SetAlarmGllitery();
-			return;
+			bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
+			if (dvoplay_FitWindow(m_pPlayContext->hPlayer[i], bFitWindow) != DVO_Succeed)
+			{
+				m_wndStatus.SetWindowText(_T("调整视频显示方式失败."));
+				m_wndStatus.SetAlarmGllitery();
+				return;
+			}
+			::InvalidateRect(m_pVideoWndFrame->GetPanelWnd(i), nullptr, true);
 		}
-		::InvalidateRect(m_pPlayContext->hWndView, nullptr, true);
 	}
 }
 
@@ -1531,6 +1720,7 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 		break;
 	case IDC_SLIDER_PLAYER:
 	{
+		DeclareRunTime();
 		switch (nSBCode)
 		{
 		case SB_PAGEDOWN:
@@ -1541,23 +1731,31 @@ void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 		case SB_THUMBPOSITION:
 		case SB_ENDSCROLL:
 		{
+			SaveWaitTime();
+			SaveRunTime();
 			int nPos = SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_GETPOS);
-			TraceMsgA("%s Player Slide Pos = %d.\n", __FUNCTION__, nPos);
+			SaveRunTime();
+			//TraceMsgA("%s Player Slide Pos = %d.\n", __FUNCTION__, nPos);
 			int nTotalFrames = 0;
 			PlayerInfo pi;
 			UINT bIsStreamPlay = IsDlgButtonChecked(IDC_CHECK_STREAMPLAY);
+			SaveRunTime();
 			if (dvoplay_GetPlayerInfo(m_pPlayContext->hPlayer[0], &pi) == DVO_Succeed)
 			{
+				SaveRunTime();
 				int nSeekFrame = pi.nTotalFrames*nPos / 100;
 				bool bUpdate = true;
 				if (bIsStreamPlay)
 				{
 					dvoplay_ClearCache(m_pPlayContext->hPlayerStream);
+					SaveRunTime();
 					CAutoLock lock(&m_csListStream);
 					m_listStream.clear();
 					bUpdate = false;		// 流播放无法通过这种方式刷新画面
 				}
+				SaveRunTime();
 				dvoplay_SeekFrame(m_pPlayContext->hPlayer[0], nSeekFrame, bUpdate);
+				SaveRunTime();
 			}
 			m_bClickPlayerSlide = true;
 			SetTimer(ID_PLAYEVENT, _PlayInterval, NULL);
@@ -1753,7 +1951,7 @@ void CDvoIPCPlayDemoDlg::OnTimer(UINT_PTR nIDEvent)
 				nSlidePos = (int)(100 * (double)fpi->nCurFrameID / fpi->nTotalFrames);
 			if (m_bClickPlayerSlide)
 			{
-				TraceMsgA("%s New Player Slider Pos = %d.\n", __FUNCTION__, nSlidePos);
+				//TraceMsgA("%s New Player Slider Pos = %d.\n", __FUNCTION__, nSlidePos);
 				m_bClickPlayerSlide = false;
 			}
 			SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, nSlidePos);

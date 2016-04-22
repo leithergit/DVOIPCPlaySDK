@@ -264,9 +264,14 @@ public:
 			::EndPaint(hWnd, &ps);
 			break;
 		}
+		case WM_SIZE:
+		{
+			_TraceMsgA("%P\tWM_SIZE.\n", hWnd);
+		}
+		break;
 		case WM_LBUTTONDBLCLK:	// Ë«»÷»Ö¸´¼àÊÓ
 		{
-			_TraceMsgA("%08X\tWM_LBUTTONDBLCLK.\n", hWnd);
+			_TraceMsgA("%P\tWM_LBUTTONDBLCLK.\n", hWnd);
 			m_csPannelMap->Lock();
 			auto it = m_PanelMap.find(hWnd);
 			if (it != m_PanelMap.end())			

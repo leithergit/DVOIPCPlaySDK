@@ -6,6 +6,7 @@
 #include <mmsystem.h>
 #include <thread>
 #include <chrono>
+#include "Runlog.h"
 using namespace std::this_thread;
 using namespace std::chrono;
 #ifdef _UNICODE
@@ -219,3 +220,108 @@ private:
 
 extern CThreadSleep ThreadSleep;
 #define GetSleepPricision()	ThreadSleep.GetPrecision();
+
+#define  _LockOverTime 100
+#define  SaveWaitTime()	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__);
+class CWaitTime
+{
+	DWORD dwTimeEnter;
+	char szFile[512];
+	int nLine;
+	char szFunction[256];
+public:
+	CWaitTime(char *szInFile,int nInLine,char *szInFunction)
+	{
+		dwTimeEnter = timeGetTime();
+		strcpy(szFile, szInFile);
+		nLine = nInLine;
+		strcpy(szFunction, szInFunction);
+	}
+	~CWaitTime()
+	{
+		if ((timeGetTime() - dwTimeEnter) > 200)
+		{
+			char szText[1024] = { 0 };
+			_stprintf(szText, "Wait Timeout @File:%s %d(%s) WaitTime = %d(ms).\n", szFile, nLine, szFunction, (timeGetTime() - dwTimeEnter));
+			OutputDebugString(szText);
+		}
+	}
+};
+
+
+
+struct LineTime
+{
+	CHAR szFile[256];
+	int nLine;
+	DWORD nTime;
+	LineTime(char *pszFile, int nFileLine)
+	{
+		nTime = timeGetTime();
+		strcpy(szFile, pszFile);
+		nLine = nFileLine;
+	}
+};
+#ifdef _DEBUG
+#define SaveRunTime()		LineSave.SaveLineTime(__FILE__,__LINE__);
+#define DeclareRunTime()	CLineRunTime LineSave;
+#else
+#define SaveRunTime()
+#define DeclareRunTime()			
+#endif
+
+#include <vector>
+using namespace  std;
+class CLineRunTime
+{
+public:
+	CLineRunTime(CRunlogA *plog = nullptr)
+	{
+		pRunlog = plog;
+	}
+	~CLineRunTime()
+	{
+		DWORD dwTotalSpan = 0;
+		int nSize = pTimeArray.size();
+		if (nSize < 1)
+			return;
+		else if (nSize < 2)
+			dwTotalSpan = timeGetTime() - pTimeArray[0]->nTime;
+		if (dwTotalSpan >= _LockOverTime * 2)
+		{
+			OutputMsg("@File:%s %s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
+		}
+		for (int i = 1; i < nSize; i++)
+		{
+			DWORD dwSpan = pTimeArray[i]->nTime - pTimeArray[i - 1]->nTime;
+			if (dwSpan >= _LockOverTime)
+				OutputMsg("@File:%s %s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
+		}
+	}
+	void SaveLineTime(char *szFile, int nLine)
+	{
+		shared_ptr<LineTime> pLineTime = make_shared<LineTime>(szFile, nLine);
+		pTimeArray.push_back(pLineTime);
+	}
+#define __countof(array) (sizeof(array)/sizeof(array[0]))
+#pragma warning (disable:4996)
+	void OutputMsg(char *pFormat, ...)
+	{
+		int nBuff;
+		CHAR szBuffer[4096];
+		va_list args;
+		va_start(args, pFormat);
+		nBuff = _vsnprintf(szBuffer, __countof(szBuffer), pFormat, args);
+		//::wvsprintf(szBuffer, pFormat, args);
+		//assert(nBuff >=0);
+#ifdef _DEBUG
+		OutputDebugStringA(szBuffer);
+#endif
+		if (pRunlog)
+			pRunlog->Runlog(szBuffer);
+		va_end(args);
+	}
+public:
+	vector<shared_ptr<LineTime>> pTimeArray;
+	CRunlogA *pRunlog = nullptr;
+};
