@@ -50,21 +50,21 @@ class CAutoLock
 private:
 	CRITICAL_SECTION *m_pCS;
 	bool	m_bAutoDelete;
-	bool	m_bMyCriticalSection;
+	bool	m_bLocked;
 #ifdef _LockOverTime
 	DWORD	m_dwLockTime;
 	CHAR   *m_pszFile;
 	char   *m_pszFunction;
 	int		m_nLockLine;
 #endif
-public:
-	CAutoLock():m_pCS(NULL),m_bAutoDelete(false)
+
+	explicit CAutoLock():m_pCS(NULL),m_bAutoDelete(false)
 	{
 	}
+public:
 	CAutoLock(CRITICAL_SECTION *pCS, bool bAutoDelete = false, const CHAR *szFile = nullptr, char *szFunction = nullptr, int nLine = 0)
 	{
 		assert(pCS != NULL);
-		m_bMyCriticalSection = false;
 		if (pCS)
 		{
 #ifdef _LockOverTime
@@ -81,6 +81,7 @@ public:
 			m_pCS = pCS;
 			m_bAutoDelete = bAutoDelete;
 			::EnterCriticalSection(m_pCS);
+			m_bLocked = true;
 			if (timeGetTime() - m_dwLockTime >= _LockOverTime)
 			{
 				CHAR szOuput[1024] = { 0 };
@@ -94,51 +95,39 @@ public:
 			}
 		}
 	}
-// 	CAutoLock(MYCRITICAL_SECTION *pCS, bool bAutoDelete = false, const CHAR *szFile = nullptr, char *szFunction = nullptr,  int nLine = 0)
-// 	{
-// 		assert(pCS != NULL);
-// 		m_bMyCriticalSection = true;
-// 		if (pCS)
-// 		{
-// 			m_pCS = pCS;
-// 			m_bAutoDelete = bAutoDelete;
-// 			::MyEnterCriticalSection(pCS, szFile,szFunction, nLine);
-// 		}
-// 	}
-	~CAutoLock()
+	void Unlock()
 	{
+		if (!m_bLocked)
+			return;
 		if (m_pCS)
 		{
-// 			if (m_bMyCriticalSection)
-// 			{
-// 				::MyLeaveCriticalSection((MYCRITICAL_SECTION *)m_pCS);
-// 				if (m_bAutoDelete)
-// 					::MyDeleteCriticalSection((MYCRITICAL_SECTION *)m_pCS);
-// 			}
-// 			else
-// 			{
-				::LeaveCriticalSection(m_pCS);			
+			::LeaveCriticalSection(m_pCS);
+			m_bLocked = false;
 #ifdef _OuputLockTime
-				CHAR szOuput[1024] = { 0 };
-				if ((timeGetTime() - m_dwLockTime) > _LockOverTime)
-				{
-					if (m_pszFile)
-					{
-						sprintf(szOuput, "Lock @File:%s:%d(%s),locktime = %d.\n", m_pszFile, m_nLockLine,m_pszFunction, timeGetTime() - m_dwLockTime);
-					}
-					else
-						sprintf(szOuput, "Lock locktime = %d.\n", timeGetTime() - m_dwLockTime);
-					OutputDebugStringA(szOuput);
-				}
+			CHAR szOuput[1024] = { 0 };
+			if ((timeGetTime() - m_dwLockTime) > _LockOverTime)
+			{
 				if (m_pszFile)
-					delete[]m_pszFile;
-				if (m_pszFunction)
-					delete[]m_pszFunction;
+				{
+					sprintf(szOuput, "Lock @File:%s:%d(%s),locktime = %d.\n", m_pszFile, m_nLockLine, m_pszFunction, timeGetTime() - m_dwLockTime);
+				}
+				else
+					sprintf(szOuput, "Lock locktime = %d.\n", timeGetTime() - m_dwLockTime);
+				OutputDebugStringA(szOuput);
+			}
+			if (m_pszFile)
+				delete[]m_pszFile;
+			if (m_pszFunction)
+				delete[]m_pszFunction;
 #endif
-				if (m_bAutoDelete)
-					::DeleteCriticalSection((CRITICAL_SECTION *)m_pCS);
-//			}
+			if (m_bAutoDelete)
+				::DeleteCriticalSection((CRITICAL_SECTION *)m_pCS);
 		}
+	}
+	~CAutoLock()
+	{
+		if (m_bLocked)
+			Unlock();
 	}
 };
 

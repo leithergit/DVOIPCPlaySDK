@@ -2483,6 +2483,9 @@ _Failed:
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
+				assert(Desc.Width == pAvFrame->width);
+				assert(Desc.Height == pAvFrame->height);
+				
 				SaveRunTime();
 				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
 					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
