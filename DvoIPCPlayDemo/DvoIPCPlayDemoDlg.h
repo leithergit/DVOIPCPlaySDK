@@ -11,6 +11,7 @@
 #include "fullscreen.h"
 #include "SocketClient.h"
 #include "DirectDraw.h"
+#include "../tvt/TVTChan_1.h"
 using namespace std;
 using namespace std::tr1;
 
@@ -129,6 +130,7 @@ struct PlayerContext
 public:
 	StreamInfo*	pStreamInfo;
 	USER_HANDLE hUser;
+	
 	REAL_HANDLE hStream;
 	CSocketClient *pClient;
 	volatile bool bThreadRecvIPCStream = false;
@@ -139,6 +141,10 @@ public:
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
 	shared_ptr<byte>pYuvBuffer = nullptr;
 	int nYuvBufferSize = 0;
+	DWORD		nVideoFrames = 0;
+	DWORD		nAudioFrames = 0;
+	double		dfTimeRecv1 = 0.0f;
+	double		dfTimeRecv2 = 0.0f;
 	
 	HWND		hWndView;
 	int			nItem;
@@ -423,6 +429,7 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+	CTVTChan_1	*m_pTVTPlay;
 	CListCtrl	m_wndStreamInfo;
 	CMFCEditBrowseCtrl	m_wndBrowseCtrl;
 	int			m_nListWidth;			// List控件的宽度

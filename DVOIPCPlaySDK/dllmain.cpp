@@ -5,6 +5,7 @@ HANDLE g_hThread_ClosePlayer = nullptr;
 HANDLE g_hEventThreadExit = nullptr;
 volatile bool g_bThread_ClosePlayer/* = false*/;
 list<DVO_PLAYHANDLE > g_listPlayertoFree;
+list<DVO_PLAYHANDLE> g_listPlayer;
 CRITICAL_SECTION  g_csListPlayertoFree;
 #ifdef _DEBUG
 CRITICAL_SECTION g_csPlayerHandles;
@@ -70,7 +71,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 DWORD WINAPI Thread_ClosePlayer(void *)
 {
-	list<DVO_PLAYHANDLE> listPlayer;
+	
 #ifdef _DEBUG
 	DWORD dwTime = timeGetTime();
 #endif
@@ -78,15 +79,15 @@ DWORD WINAPI Thread_ClosePlayer(void *)
 	{
 		EnterCriticalSection(&g_csListPlayertoFree);
 		if (g_listPlayertoFree.size() > 0)
-			listPlayer.swap(g_listPlayertoFree);
+			g_listPlayer.swap(g_listPlayertoFree);
 		LeaveCriticalSection(&g_csListPlayertoFree);
-		if (listPlayer.size() > 0)
+		if (g_listPlayer.size() > 0)
 		{
-			for (auto it = listPlayer.begin(); it != listPlayer.end();)
+			for (auto it = g_listPlayer.begin(); it != g_listPlayer.end();)
 			{
 				CDvoPlayer *pDvoPlayer = (CDvoPlayer *)(*it);
 				delete pDvoPlayer;
-				it = listPlayer.erase(it);
+				it = g_listPlayer.erase(it);
 			}
 		}
 #if _DEBUG

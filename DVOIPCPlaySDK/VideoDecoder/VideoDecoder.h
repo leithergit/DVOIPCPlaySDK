@@ -699,9 +699,9 @@ private:
 				av_free(m_pAVCtx->hwaccel_context);
 				m_pAVCtx->hwaccel_context = nullptr;
 			}
-// 			av_freep(&m_pAVCtx->extradata);
-// 			
 			avcodec_close(m_pAVCtx);
+			if (m_pAVCtx->extradata)
+				av_freep(&m_pAVCtx->extradata);
 			av_freep(&m_pAVCtx);
 		}
 		av_frame_free(&m_pFrame);

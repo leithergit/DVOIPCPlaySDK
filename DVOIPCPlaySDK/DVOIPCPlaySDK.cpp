@@ -743,7 +743,7 @@ DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT i
 		return DVO_Error_BufferSizeNotEnough;
 	
 	// 音频和视频编码的类型必须限定下以下范围内
-	if (nAudioCodec <= CODEC_G711A ||
+	if (nAudioCodec < CODEC_G711A ||
 		nAudioCodec > CODEC_AAC||
 		nVideoCodec < CODEC_H264||
 		nVideoCodec > CODEC_H265)

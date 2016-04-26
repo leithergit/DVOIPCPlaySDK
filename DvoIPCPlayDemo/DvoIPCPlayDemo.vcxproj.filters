@@ -81,6 +81,9 @@
     <ClInclude Include="Runlog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\tvt\TVTChan_1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DvoIPCPlayDemo.cpp">
@@ -114,6 +117,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Runlog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\tvt\TVTChan_1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

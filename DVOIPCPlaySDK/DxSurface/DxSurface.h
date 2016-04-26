@@ -867,6 +867,7 @@ public:
 			}
 		}
 
+		bool bResult = true;
 		// 表面已准备好,可以复制
 		SetEvent(m_hEventCreateSurface);
 		DWORD dwTime = timeGetTime();
@@ -879,10 +880,12 @@ public:
 				return false;
 			}
 		}
+		else
+			bResult = false;
 		DWORD dwTimeSpan = timeGetTime() - dwTime;
 		DxTraceMsg("%s TimeSpan = %dms.\n", __FUNCTION__, dwTimeSpan);
 		ResetEvent(m_hEventCopySurface);
-		return true;
+		return bResult;
 	}
 	
 	// 屏幕抓图，把显示到屏幕上的图象，保存到文件中,此截图得到的有可能不是原始的图像，可能是被拉伸或处理过的图像 
@@ -2135,9 +2138,18 @@ public:
 			NULL,
 			&m_pDirect3DDeviceEx)))
 		{
-			
-			DxTraceMsg("%s CreateDeviceEx Failed.\thr=%x.\n", __FUNCTION__, hr);
-			goto _Failed;
+			vp = D3DCREATE_SOFTWARE_VERTEXPROCESSING;
+			if (FAILED(hr = m_pDirect3D9Ex->CreateDeviceEx(D3DADAPTER_DEFAULT,
+				D3DDEVTYPE_HAL,
+				m_d3dpp.hDeviceWindow,
+				vp,
+				&m_d3dpp,
+				NULL,
+				&m_pDirect3DDeviceEx)))
+			{
+				DxTraceMsg("%s CreateDeviceEx Failed.\thr=%x.\n", __FUNCTION__, hr);
+				goto _Failed;
+			}
 		}
 
 		if (m_pDirect3DSurfaceRender)
@@ -2480,7 +2492,7 @@ _Failed:
 				hr |= m_pDirect3DSurfaceRender->LockRect(&d3d_rect, NULL, D3DLOCK_DONOTWAIT);
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
+					//DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
 				assert(Desc.Width == pAvFrame->width);
@@ -2509,7 +2521,7 @@ _Failed:
 				hr = m_pDirect3DSurfaceRender->UnlockRect();
 				if (FAILED(hr))
 				{
-					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
+					//DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return false;
 				}
 				SaveRunTime();
@@ -2524,7 +2536,7 @@ _Failed:
 				if (FAILED(hr))
 				{
 					m_pDirect3DDeviceEx->EndScene();
-					DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
+					//DxTraceMsg("%s line(%d) IDirect3DDevice9Ex::GetBackBuffer failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 					return true;
 				}
 				pBackSurface->GetDesc(&Desc);
@@ -2535,7 +2547,6 @@ _Failed:
 				SafeRelease(pBackSurface);
 				m_pDirect3DDeviceEx->EndScene();
 				SaveRunTime();
-
 			}
 			break;
 		case AV_PIX_FMT_NONE:

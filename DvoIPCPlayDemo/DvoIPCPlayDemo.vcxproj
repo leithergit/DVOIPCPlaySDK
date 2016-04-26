@@ -105,6 +105,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h" />
+    <ClInclude Include="..\tvt\TVTChan_1.h" />
     <ClInclude Include="AutoLock.h" />
     <ClInclude Include="DialogVCALoad.h" />
     <ClInclude Include="DirectDraw.h" />
@@ -125,6 +126,7 @@
     <ClInclude Include="VideoFrame.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\tvt\TVTChan_1.cpp" />
     <ClCompile Include="DialogVCALoad.cpp" />
     <ClCompile Include="DvoIPCPlayDemo.cpp" />
     <ClCompile Include="DvoIPCPlayDemoDlg.cpp" />
