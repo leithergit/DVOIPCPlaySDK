@@ -161,7 +161,8 @@ public:
 	UINT64		nRecFileLength;
 	TCHAR		szIpAddress[32];
 	TCHAR		szRecFilePath[MAX_PATH];
-	UINT		nTimeStamp[100];
+	__int64		nTimeStamp[100];
+	int			nFirstID = 0;
 	int			nTimeCount;
 
 	CRITICAL_SECTION csRecFile;

@@ -1471,46 +1471,9 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);	
 	time_t tSec = pStreamHeader->sec;
 	time_t tFrame = tSec * 1000 * 1000 + pStreamHeader->usec;
-	
-	switch (pStreamHeader->frame_type)
-	{
-	case 0:
-	case APP_NET_TCP_COM_DST_IDR_FRAME:
-	case APP_NET_TCP_COM_DST_I_FRAME:
-	case APP_NET_TCP_COM_DST_P_FRAME:
-	case APP_NET_TCP_COM_DST_B_FRAME:
-	{
-		pContext->nVideoFrames++;
-		__int64  dfNow1 = (__int64)(GetExactTime()*1000*1000);
-		SYSTEMTIME sysTime;
-		GetSystemTime(&sysTime);
-		unsigned long long tNow;
-		SystemTime2UTC(&sysTime, &tNow);
-		double dfNow = tNow + (double)sysTime.wMilliseconds / 1000;
-		//pContext->nTimeStamp[pContext->nTimeCount++] = dfNow*1000*1000 - tFrame;
+	SYSTEMTIME sysFrame;
+	UTC2SystemTime((UINT64 *)&tSec, &sysFrame);
 		
-// 		if (pContext->nTimeCount >= 100)
-// 		{
-// 			int nSum = 0;
-// 			TraceMsgA("%s Play Delay:\n", __FUNCTION__);			
-// 			for (int i = 0; i < pContext->nTimeCount; i++)
-// 			{
-// 				TraceMsgA("%d\t", (pContext->nTimeStamp[i])/1000);
-// 				nSum += ((pContext->nTimeStamp[i]) / 1000);
-// 
-// 				if ((i + 1) % 20 == 0)
-// 					TraceMsgA("\n");
-// 			}
-// 			TraceMsgA("%s Avg Delay = %d.\n", __FUNCTION__, nSum / 100);
-// 			pContext->nTimeCount = 0;
-// 		}
-	}
-	break;
-	default:
-		break;
-	}
-	
-
 	switch (pStreamHeader->frame_type)
 	{
 	case 0:
@@ -1571,15 +1534,64 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 		//TraceMsgA("%s Audio Frame Length = %d.\n", __FUNCTION__, nFrameLength);
 		break;
 	}
+	switch (pStreamHeader->frame_type)
+	{
+	case 0:
+	case APP_NET_TCP_COM_DST_IDR_FRAME:
+	case APP_NET_TCP_COM_DST_I_FRAME:
+	case APP_NET_TCP_COM_DST_P_FRAME:
+	case APP_NET_TCP_COM_DST_B_FRAME:
+	{
+		pContext->nVideoFrames++;
+		if (pContext->bRecvIFrame)
+		{
+// 			SYSTEMTIME sysTime,sysTimeRef;
+// 			GetSystemTime(&sysTime);
+// 
+// 			unsigned long long tNow,tNow2;
+// 			unsigned long long tRef;
+// 			SystemTime2UTC(&sysTime, &tNow);
+// 			if (pContext->nTimeCount == 0)
+// 				pContext->nFirstID = pStreamHeader->frame_num;
+// 			tNow2 = time(0);
+// 			tNow = (tNow + 8*3600) * 1000 * 1000 + (double)sysTime.wMilliseconds * 1000;
+// 			
+// 			pContext->nTimeStamp[pContext->nTimeCount++] = (tNow -tFrame )/ 1000;
+// 			if (pContext->nTimeCount >= 100)
+// 			{
+// 				UINT64 nSum = 0;
+// 				TraceMsgA("%s Play Delay(%d):\n", __FUNCTION__, pContext->nFirstID);
+// 				for (int i = 0; i < pContext->nTimeCount; i++)
+// 				{
+// 					TraceMsgA("%d\t", (pContext->nTimeStamp[i]) );
+// 					nSum += ((pContext->nTimeStamp[i]) );
+// 
+// 					if ((i + 1) % 20 == 0)
+// 						TraceMsgA("\n");
+// 				}
+// 				TraceMsgA("%s Avg Delay = %d.\n", __FUNCTION__, nSum / 100);
+// 				pContext->nTimeCount = 0;
+// 			}
+		}
+	}
+	break;
+	default:
+		break;
+	}
 	
 	if (TimeSpanEx(pContext->dfTimeRecv1) >20.0f)
 	{
 		TraceMsgA("%s Time = %.3f\tVideoFrames = %d\tAutioFrames = %d.\n", __FUNCTION__, TimeSpanEx(pContext->dfTimeRecv2), pContext->nVideoFrameID, pContext->nAudioFrameID);
 		pContext->dfTimeRecv1 = GetExactTime();
 	}
+	SYSTEMTIME sysTime;
+	GetSystemTime(&sysTime);
+	unsigned long long tNow;
+	SystemTime2UTC(&sysTime, &tNow);
+	tNow = tNow * 1000 * 1000 + (double)sysTime.wMilliseconds * 1000;
 	for (int i = 0; i < pContext->nPlayerCount;i ++)
  	if (pContext->hPlayer[i])
- 		dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tFrame);
+		dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tNow);
 
 	// Ð´ÈëÂ¼ÏñÊý¾Ý
 	if (pContext->pRecFile && pContext->bRecvIFrame)

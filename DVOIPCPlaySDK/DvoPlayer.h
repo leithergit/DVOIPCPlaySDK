@@ -859,11 +859,11 @@ private:
 			
 			if (!bFlag)
 				szStatus = "Failed";
-// 			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
-// 			{
-// 				OutputMsg("%s \tObject:%d\tRender Succeed\n", __FUNCTION__, m_nObjIndex);
-// 				m_OuputTime.nRender = timeGetTime();
-// 			}
+			if (((timeGetTime() - m_OuputTime.nRender) >= 10000 ) && pAvFrame->width >= 640)
+			{
+				OutputMsg("%s \tObject:%d\tRender Succeed\tWidth = %d\n", __FUNCTION__, m_nObjIndex,pAvFrame->width);
+				m_OuputTime.nRender = timeGetTime();
+			}
 #endif
 		}
 		else
@@ -1399,10 +1399,10 @@ public:
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;		
 		
-		if (!m_hWnd || !IsWindow(m_hWnd))
-		{
-			return DVO_Error_InvalidWindow;
-		}
+// 		if (!m_hWnd || !IsWindow(m_hWnd))
+// 		{
+// 			return DVO_Error_InvalidWindow;
+// 		}
 		if (m_pszFileName )
 		{
 			if (m_hDvoFile == INVALID_HANDLE_VALUE)
@@ -1419,25 +1419,25 @@ public:
 		{
 //  		if (!m_pMediaHeader)
 //  			return DVO_Error_NotInputStreamHeader;		// 未设置流播放头
-
 			m_listVideoCache.clear();
 			m_listAudioCache.clear();
 		}
-		if (m_hWnd)
+		
+		// 启动流播放线程
+		m_bThreadPlayVideoRun = true;			
+		//m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+		m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);
+		if (!m_hThreadPlayVideo)
 		{
-			// 启动流播放线程
-			m_bThreadPlayVideoRun = true;			
-			//m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
-			m_hThreadPlayVideo = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayVideo, this, 0, 0);
-			if (!m_hThreadPlayVideo)
-			{
 #ifdef _DEBUG
-				OutputMsg("%s \tObject:%d ThreadPlayVideo Start failed:%d.\n", __FUNCTION__, m_nObjIndex, GetLastError());
+			OutputMsg("%s \tObject:%d ThreadPlayVideo Start failed:%d.\n", __FUNCTION__, m_nObjIndex, GetLastError());
 #endif
-				return DVO_Error_VideoThreadStartFailed;
-			}
-			EnableAudio(bEnaleAudio);
+			return DVO_Error_VideoThreadStartFailed;
 		}
+		if (m_hWnd)
+			EnableAudio(bEnaleAudio);
+		else
+			EnableAudio(false);
 		return DVO_Succeed;
 	}
 
@@ -3453,7 +3453,7 @@ public:
 			assert(false);
 		//shared_ptr<CSimpleWnd>pWndDxInit = make_shared<CSimpleWnd>(pThis->m_nVideoWidth, pThis->m_nVideoHeight);	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 		nRetry = 0;
-		while (pThis->m_bThreadPlayVideoRun)
+		while (pThis->m_bThreadPlayVideoRun && pThis->m_hWnd)
 		{
 			if (!pThis->InitD3D())
 			{
@@ -3469,13 +3469,16 @@ public:
 			else
 				break;
 		}
-
 		RECT rtWindow;
-		GetWindowRect(pThis->m_hWnd, &rtWindow);
-		pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
+		if (pThis->m_hWnd)
+		{
+			GetWindowRect(pThis->m_hWnd, &rtWindow);
+			pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
 #ifdef _DEBUG
-		pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
+			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
+		}
+
 		pThis->m_pDecodec = pDecodec;
 		pThis->ItLoop = pThis->m_listVideoCache.begin();
 // 		恢复音频线程
@@ -3520,7 +3523,8 @@ public:
 		int TPlayArray[100] = { 0 };
 		int nPlayCount = 0;
 		int nFrames = 0;
-		double dfDelayArray[100] = { 0 };
+		int nFirstID = 0;
+		time_t dfDelayArray[100] = { 0 };
 #endif
 		int nIFrameTime = 0;
 		int nFramesAfterIFrame = 0;		// 相对I帧的编号,I帧后的第一帧为1，第二帧为2依此类推
@@ -3533,27 +3537,29 @@ public:
 				Sleep(100);
 				continue;
 			}
-			EnterCriticalSection(&pThis->m_csDxSurface);
-			if (pThis->m_bDxReset)
+			if (pThis->m_hWnd)
 			{
-				HWND hWnd = pThis->m_hDxReset;
-				pThis->m_bDxReset = false;
-				pThis->m_hDxReset = nullptr;
-				
-				if (pThis->m_DxInitInfo.nSize == sizeof(DxSurfaceInitInfo))
+				EnterCriticalSection(&pThis->m_csDxSurface);
+				if (pThis->m_bDxReset)
 				{
-					if (hWnd)
-						pThis->m_hWnd = hWnd;
-					pThis->m_pDxSurface->DxCleanup();
-					pThis->m_pDxSurface->InitD3D(pThis->m_hWnd,
-						pThis->m_DxInitInfo.nFrameWidth,
-						pThis->m_DxInitInfo.nFrameHeight,
-						TRUE,
-						pThis->m_DxInitInfo.nD3DFormat);
+					HWND hWnd = pThis->m_hDxReset;
+					pThis->m_bDxReset = false;
+					pThis->m_hDxReset = nullptr;
+				
+					if (pThis->m_DxInitInfo.nSize == sizeof(DxSurfaceInitInfo))
+					{
+						if (hWnd)
+							pThis->m_hWnd = hWnd;
+						pThis->m_pDxSurface->DxCleanup();
+						pThis->m_pDxSurface->InitD3D(pThis->m_hWnd,
+							pThis->m_DxInitInfo.nFrameWidth,
+							pThis->m_DxInitInfo.nFrameHeight,
+							TRUE,
+							pThis->m_DxInitInfo.nD3DFormat);
+					}
 				}
+				LeaveCriticalSection(&pThis->m_csDxSurface);
 			}
-			LeaveCriticalSection(&pThis->m_csDxSurface);
-			
 			if (!pThis->m_bIpcStream)
 			{// 文件或流媒体播放，可调节播放速度
 				fTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
@@ -3630,27 +3636,6 @@ public:
 				}
 			}
 #ifdef _DEBUG
-// 			SYSTEMTIME sysTime;
-// 			GetSystemTime(&sysTime);
-// 			unsigned long long tNow;
-// 			SystemTime2UTC(&sysTime, &tNow);
-// 			double dfNow = tNow + (double)sysTime.wMilliseconds / 1000;
-// 			dfDelayArray[nPlayCount++] = dfNow * 1000 * 1000 - FramePtr->FrameHeader()->nTimestamp;
-// 			
-// 			if (nPlayCount >= 100)
-// 			{
-// 				OutputMsg("%sPlay Delay:\n", __FUNCTION__);
-// 				double dfSum = 0.0f;
-// 				for (int i = 0; i < nPlayCount; i++)
-// 				{
-// 					OutputMsg("%d\t", (__int64)dfDelayArray[i]/1000);
-// 					dfSum += dfDelayArray[i];
-// 					if ((i + 1) % 10 == 0)
-// 						OutputMsg("\n");
-// 				}
-// 				OutputMsg("Avg Delay = %.3f(ms).\n",dfSum/100);
-// 				nPlayCount = 0;
-// 			}
 			if (pThis->m_bSeekSetDetected)
 			{
 				int nFrameID = FramePtr->FrameHeader()->nFrameID;
@@ -3719,7 +3704,29 @@ public:
 				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)GetExactTime() * 1000);
   				if (pThis->m_pDxSurface)
   					pThis->RenderFrame(pAvFrame);
- 				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)GetExactTime()*1000);
+#ifdef _DEBUG
+// 				SYSTEMTIME sysTime;
+// 				GetSystemTime(&sysTime);
+// 				unsigned long long tNow;
+// 				SystemTime2UTC(&sysTime, &tNow);
+// 				tNow = tNow * 1000 * 1000 + (double)sysTime.wMilliseconds * 1000;
+// 				dfDelayArray[nPlayCount++] = (tNow - FramePtr->FrameHeader()->nTimestamp)/1000;
+// 				if (nPlayCount >= 100)
+// 				{
+// 					TraceMsgA("%s Play Delay(ms):\n", __FUNCTION__);
+// 					time_t dfSum = 0;
+// 					for (int i = 0; i < nPlayCount; i++)
+// 					{
+// 						TraceMsgA("%d\t", (int)dfDelayArray[i]);
+// 						dfSum += dfDelayArray[i];
+// 						if ((i + 1) % 10 == 0)
+// 							TraceMsgA("\n");
+// 					}
+// 					TraceMsgA("Avg Delay = %d(ms).\n", dfSum / 100);
+// 					nPlayCount = 0;
+// 				}
+#endif
+				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)pThis->m_nCurVideoFrame);
  				if (pThis->m_pFilePlayCallBack)
  					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);
  			}
