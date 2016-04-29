@@ -664,10 +664,16 @@ public:
 		}
 		DeleteCriticalSection(&m_csRender);
 		DeleteCriticalSection(&m_csSnapShot);
-		CloseHandle(m_hEventCopySurface);
-		m_hEventCopySurface = NULL;
-		CloseHandle(m_hEventCreateSurface);
-		m_hEventCreateSurface = NULL;
+		if (m_hEventCopySurface)
+		{
+			CloseHandle(m_hEventCopySurface);
+			m_hEventCopySurface = NULL;
+		}
+		if (m_hEventCreateSurface)
+		{
+			CloseHandle(m_hEventCreateSurface);
+			m_hEventCreateSurface = NULL;
+		}
 	}
 
 	// 禁用垂直同步,只有在初始化之前调用,才会有效

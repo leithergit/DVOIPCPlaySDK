@@ -63,9 +63,6 @@
     <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ipcMsgHead.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SocketClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>

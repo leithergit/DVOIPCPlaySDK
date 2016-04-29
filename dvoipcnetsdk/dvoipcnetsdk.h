@@ -379,7 +379,7 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_GetDevConfig(PARAM_IN  USER_HANDLE lUse
                                                      PARAM_INOUT LPVOID lpOutBuffer,  
                                                      PARAM_IN  int      nOutBufferSize,
                                                      PARAM_INOUT int*   pBytesReturned,  
-                                                     PARAM_IN  int      nWaitTimeMsecs=1500);
+                                                     PARAM_IN  int      nWaitTimeMsecs=3000);
 
 /**
 *  @date        2015/08/18
@@ -397,7 +397,7 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevConfig(PARAM_IN  USER_HANDLE lUse
                                                      PARAM_IN  DWORD   dwCommand, 
                                                      PARAM_OUT LPVOID  lpInBuffer,  
                                                      PARAM_OUT int     nInBufferSize,  
-                                                     PARAM_IN  int     nWaitTimeMsecs=1500);
+                                                     PARAM_IN  int     nWaitTimeMsecs=3000);
 
 /**
 *  @brief       设备的配置信息扩展接口，需返回数据的通信(设置) 
@@ -421,7 +421,7 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_DevConfig(PARAM_IN  USER_HANDLE lUserID
                                                    PARAM_INOUT LPVOID lpOutBuffer,  
                                                    PARAM_IN  int      nOutBufferSize,
                                                    PARAM_INOUT int*   pBytesReturned,
-                                                   PARAM_IN  int      nWaitTimeMsecs=1500);
+                                                   PARAM_IN  int      nWaitTimeMsecs=3000);
 
 /*
 *  @date         2016/01/08

@@ -71,10 +71,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 DWORD WINAPI Thread_ClosePlayer(void *)
 {
-	
-#ifdef _DEBUG
+//#ifdef _DEBUG
 	DWORD dwTime = timeGetTime();
-#endif
+//#endif
 	while (g_bThread_ClosePlayer)
 	{
 		EnterCriticalSection(&g_csListPlayertoFree);
@@ -91,13 +90,13 @@ DWORD WINAPI Thread_ClosePlayer(void *)
 			}
 		}
 #if _DEBUG
-		if ((timeGetTime() - dwTime) >= 5000)
+		if ((timeGetTime() - dwTime) >= 30000)
 		{
 			CDvoPlayer::m_pCSGlobalCount->Lock();			
-			//TraceMsgA("%s Count of CDvoPlayer Object = %d.\n", __FUNCTION__, CDvoPlayer::m_nGloabalCount);
+			TraceMsgA("%s Count of CDvoPlayer Object = %d.\n", __FUNCTION__, CDvoPlayer::m_nGloabalCount);
 			CDvoPlayer::m_pCSGlobalCount->Unlock();
 			EnterCriticalSection(&g_csPlayerHandles);
-			//TraceMsgA("%s Count of DVOPlayerHandle  = %d.\n", __FUNCTION__, g_nPlayerHandles);
+			TraceMsgA("%s Count of DVOPlayerHandle  = %d.\n", __FUNCTION__, g_nPlayerHandles);
 			LeaveCriticalSection(&g_csPlayerHandles);
 			dwTime = timeGetTime();
 		}

@@ -113,7 +113,6 @@
     <ClInclude Include="DvoIPCPlayDemoDlg.h" />
     <ClInclude Include="FullScreen.h" />
     <ClInclude Include="GlliteryStatic.h" />
-    <ClInclude Include="ipcMsgHead.h" />
     <ClInclude Include="Markup.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Runlog.h" />

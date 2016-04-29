@@ -12,6 +12,8 @@
 #include "SocketClient.h"
 #include "DirectDraw.h"
 #include "../tvt/TVTChan_1.h"
+#include "../dvoipcnetsdk/ipcMsgHead.h"
+
 using namespace std;
 using namespace std::tr1;
 
@@ -233,53 +235,53 @@ public:
 
 	static	DWORD WINAPI ThreadRecvIPCStream(void *p)
 	{
-		PlayerContext *pThis = (PlayerContext *)p;
-		if (!pThis->pClient)
-			return 0;
-		CSocketClient *pClient = pThis->pClient;
-		MSG_HEAD MsgHeader;
-		DWORD nBytesRecved = 0;
-		int nBufferSize = 64 * 1024;
-		int nDataLength = 0;
-		byte *pBuffer = new byte[nBufferSize];
-
-		while (pThis->bThreadRecvIPCStream)
-		{
-			ZeroMemory(&MsgHeader, sizeof(MSG_HEAD));
-			nBytesRecved = 0;
-			if (pClient->Recv((char *)&MsgHeader, sizeof(MSG_HEAD), nBytesRecved) == 0 &&
-				nBytesRecved == sizeof(MSG_HEAD))
-			{
-				int nPackLen = ntohl(MsgHeader.Pktlen) - sizeof(MSG_HEAD);
-				if (nBufferSize < nPackLen)
-				{
-					delete[]pBuffer;
-					while (nBufferSize < nPackLen)
-						nBufferSize *= 2;
-					pBuffer = new byte[nBufferSize];
-				}
-				nDataLength = 0;
-				while (nDataLength < nPackLen)
-				{
-					if (!pClient->Recv((char *)&pBuffer[nDataLength], nPackLen - nDataLength, nBytesRecved) == 0)
-						break;
-					nDataLength += nBytesRecved;
-				}
-				app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
-				pStreamHeader->chn = ntohl(pStreamHeader->chn);
-				pStreamHeader->stream = ntohl(pStreamHeader->stream);
-				pStreamHeader->frame_type = ntohl(pStreamHeader->frame_type);
-				pStreamHeader->frame_num = ntohl(pStreamHeader->frame_num);
-				pStreamHeader->sec = ntohl(pStreamHeader->sec);
-				pStreamHeader->usec = ntohl(pStreamHeader->usec);
-
-				pThis->pStreamCallBack(-1, -1, 0, (char *)pBuffer, nPackLen, pThis);
-				ZeroMemory(pBuffer, nBufferSize);
-			}
-			Sleep(10);
-		}
-		if (pBuffer)
-			delete[]pBuffer;
+// 		PlayerContext *pThis = (PlayerContext *)p;
+// 		if (!pThis->pClient)
+// 			return 0;
+// 		CSocketClient *pClient = pThis->pClient;
+// 		MSG_HEAD MsgHeader;
+// 		DWORD nBytesRecved = 0;
+// 		int nBufferSize = 64 * 1024;
+// 		int nDataLength = 0;
+// 		byte *pBuffer = new byte[nBufferSize];
+// 
+// 		while (pThis->bThreadRecvIPCStream)
+// 		{
+// 			ZeroMemory(&MsgHeader, sizeof(MSG_HEAD));
+// 			nBytesRecved = 0;
+// 			if (pClient->Recv((char *)&MsgHeader, sizeof(MSG_HEAD), nBytesRecved) == 0 &&
+// 				nBytesRecved == sizeof(MSG_HEAD))
+// 			{
+// 				int nPackLen = ntohl(MsgHeader.Pktlen) - sizeof(MSG_HEAD);
+// 				if (nBufferSize < nPackLen)
+// 				{
+// 					delete[]pBuffer;
+// 					while (nBufferSize < nPackLen)
+// 						nBufferSize *= 2;
+// 					pBuffer = new byte[nBufferSize];
+// 				}
+// 				nDataLength = 0;
+// 				while (nDataLength < nPackLen)
+// 				{
+// 					if (!pClient->Recv((char *)&pBuffer[nDataLength], nPackLen - nDataLength, nBytesRecved) == 0)
+// 						break;
+// 					nDataLength += nBytesRecved;
+// 				}
+// 				app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
+// 				pStreamHeader->chn = ntohl(pStreamHeader->chn);
+// 				pStreamHeader->stream = ntohl(pStreamHeader->stream);
+// 				pStreamHeader->frame_type = ntohl(pStreamHeader->frame_type);
+// 				pStreamHeader->frame_num = ntohl(pStreamHeader->frame_num);
+// 				pStreamHeader->sec = ntohl(pStreamHeader->sec);
+// 				pStreamHeader->usec = ntohl(pStreamHeader->usec);
+// 
+// 				pThis->pStreamCallBack(-1, -1, 0, (char *)pBuffer, nPackLen, pThis);
+// 				ZeroMemory(pBuffer, nBufferSize);
+// 			}
+// 			Sleep(10);
+// 		}
+// 		if (pBuffer)
+// 			delete[]pBuffer;
 		return 0;
 	}
 	void StartRecord()

@@ -22,149 +22,6 @@
 #include "dvoipcnetsdk_def.h"
 
 
-///////////////////////设备通信协议/命令 begin///////////////////////////////////////////////////
-
-// 数据类别：命令，视频，音频
-#define		APP_NET_TCP_TYPE_DATA_CMD					    (0x0001)
-#define		APP_NET_TCP_TYPE_DATA_VIDEO					    (0x0002)
-#define		APP_NET_TCP_TYPE_DATA_AUDIO					    (0x0003)
-
-/*
-　整个系统的消息分为六大类，分为系统，编码，图像，PTZ，事件，音频，其他，设备搜索设置，对应的命令字CmdType如下：
- */
-#define		APP_NET_TCP_TYPE_SYS						    (0x0001)
-#define		APP_NET_TCP_TYPE_ENC						    (0x0002)
-#define		APP_NET_TCP_TYPE_IMG						    (0x0003)
-#define		APP_NET_TCP_TYPE_PTZ						    (0x0004)
-#define		APP_NET_TCP_TYPE_EVT						    (0x0005)
-#define		APP_NET_TCP_TYPE_ADO						    (0x0006)
-#define		APP_NET_TCP_TYPE_MSC						    (0x0007)
-#define		APP_NET_TCP_TYPE_DEV						    (0x0008)
-
-
-//系统级消息
-#define		APP_NET_TCP_TYPE_SYS_SUB_LOGIN				    (0x0001)    //用户登录
-#define		APP_NET_TCP_TYPE_SYS_SUB_LOGOUT				    (0x0002)    //用户退出
-#define		APP_NET_TCP_TYPE_SYS_SUB_NETINFO_SET		    (0x0003)    //网络设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_NETINFO_GET		    (0x0004)    //网络配置查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVTIME_SET		    (0x0005)    //时间设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVTIME_GET		    (0x0006)    //时间查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEV_RESTART		    (0x0007)    //系统重启
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEV_SHUTDOWN		    (0x0008)    //系统关机
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVINFO_RESET 		    (0x0009)    //恢复系统默认配置
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVINFO_UPDATE 	    (0x000A)    //系统升级
-#define		APP_NET_TCP_TYPE_SYS_SUB_SERIALPORT_SET 	    (0x000B)    //串口设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_SERIALPORT_GET 	    (0x000C)    //串口查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEV_RESOURCE 	        (0x000D)    //设备资源查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEV_LOG_GET 	        (0x000E)    //设备日志查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVINFO_GET 	        (0x000F)    //设备信息查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_DEVINFO_SET 	        (0x0010)    //设备信息设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_DISKINFO_GET 	        (0x0011)    //磁盘信息查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_HEARTBEAT_SET 	        (0x0012)    //系统心跳设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_HEARTBEAT_GET 	        (0x0013)    //系统心跳查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_HEARTBEAT  	        (0x0014)    //系统心跳
-#define		APP_NET_TCP_TYPE_SYS_SUB_SERIAL_MAC_SET 	    (0x0015)    //序列号MAC地址设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_SERIAL_MAC_GET 	    (0x0016)    //序列号MAC地址查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_VIDEO_OUT_SET 	        (0x0017)    //视频输出接口设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_VIDEO_OUT_GET 	        (0x0018)    //视频输出接口查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_NTP_SET 	            (0x0019)    //NTP参数设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_NTP_GET 	            (0x001A)    //NTP参数查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_FUNCTION_GET           (0x001B)    //设备功能列表查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_FUNCTION_REPORT        (0x001C)    //设备功能状态上报
-#define		APP_NET_TCP_TYPE_SYS_SUB_NTP_TEST 	            (0x001D)    //开始NTP功能测试
-
-#define		APP_NET_TCP_TYPE_SYS_SUB_ALARM_IO_NUM_GET       (0x001E)    //IO报警端口数量查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_ALARM_IO_ATTR_GET      (0x001F)    //IO报警端口属性查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_ALARM_IO_ATTR_SET      (0x0020)    //IO报警端口属性设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_ALARM_IO_USE_SET       (0x0021)    //IO报警端口启用设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_ALARM_IO_USE_GET       (0x0022)    //IO报警端口启用状态查询
-#define		APP_NET_TCP_TYPE_SYS_SUB_FUNC_MODE_SET          (0x0023)    //设备功能型号设置
-#define		APP_NET_TCP_TYPE_SYS_SUB_FUNC_MODE_GET          (0x0024)    //设备功能型号查询
-
-
-/// 视频编码消息
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_ENC_SET			    (0x0001)    //设置视频编码
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_ENC_GET			    (0x0002)    //获取编码信息
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_STREAM_ENABLE        (0x0003)    //码流控制
-
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CFG_SET	        (0x0005)    //OSD参数设置
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CFG_GET	        (0x0006)    //OSD参数获取
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_PM_CFG_SET	        (0x0007)    //PM参数设置
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_ZONE_SET  (0x0008)    //自定义OSD区域设置
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_ZONE_GET  (0x0009)    //自定义OSD区域获取
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_LINE_SET  (0x000A)    //自定义OSD行参数设置
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_LINE_GET  (0x000B)    //自定义OSD行参数获取
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_SET  (0x000C)    //自定义OSD行数据设置
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_GET  (0x000D)    //自定义OSD行数据获取
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_DATA_CLEAR (0x000E)   //自定义OSD行数据清除(全部)
-#define		APP_NET_TCP_TYPE_VIDEO_SUB_OSD_CUSTOM_ARRAY_SET  (0x000F)   //自定义OSD行数据批量设置
-
-/// 图像处理消息
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_COLOR_SET            (0x0001)    //图像颜色参数设置color
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_COLOR_GET            (0x0002)    //图像颜色参数获取
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_EXPOSURE_SET         (0x0003)    //图像曝光参数设置expose
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_EXPOSURE_GET         (0x0004)    //图像曝光参数获取
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_WHITE_BALANCE_SET    (0x0005)    //图像白平衡参数设置white balance
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_WHITE_BALANCE_GET    (0x0006)    //图像白平衡参数获取
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_DAY_MODE_SET         (0x0007)    //图像白天黑夜模式设置day or night mode
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_DAY_MODE_GET         (0x0008)    //图像白天黑夜模式获取
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_MIIROR_MODE_SET      (0x0009)    //图像视频模式设置mirror mode
-#define		APP_NET_TCP_TYPE_IMAGE_SUB_MIIROR_MODE_GET      (0x000A)    //图像视频模式获取
-
-/// PTZ
-#define		APP_NET_TCP_TYPE_PTZ_SUB_PARAM_SET              (0x0001)    //PTZ设置
-#define		APP_NET_TCP_TYPE_PTZ_SUB_TRANS_DATA             (0x0002)    //PTZ透传
-
-/// 报警相关消息
-#define		APP_NET_TCP_TYPE_EVT_SUB_IOOUT_ENABLE_SET       (0x0001)    //IO报警输出使能设置
-#define		APP_NET_TCP_TYPE_EVT_SUB_IOOUT_ENABLE_GET       (0x0002)    //IO报警输出使能查询
-
-#define		APP_NET_TCP_TYPE_EVT_SUB_MD_RECT_SET			(0x0003)    //MD区域设置
-#define		APP_NET_TCP_TYPE_EVT_SUB_MD_RECT_GET			(0x0004)    //MD区域查询
-#define		APP_NET_TCP_TYPE_EVT_SUB_MD_PARAM_SET			(0x0005)    //MD参数设置
-#define		APP_NET_TCP_TYPE_EVT_SUB_MD_PARAM_GET			(0x0006)    //MD参数查询
-
-#define		APP_NET_TCP_TYPE_EVT_SUB_485_ENABLE_SET         (0x0007)    //485输入报警的输出使能设置
-#define		APP_NET_TCP_TYPE_EVT_SUB_485_ENABLE_GET         (0x0008)    //485输入报警的输出使能查询
-#define		APP_NET_TCP_TYPE_EVT_SUB_485_PARAM_SET			(0x0009)    //485输入报警的参数设置
-#define		APP_NET_TCP_TYPE_EVT_SUB_485_PARAM_GET			(0x000A)    //485输入报警的参数查询
-
-/// 音频相关消息,in为输入音频(拾音器)，out为输出音频(语音对讲)
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_IN_ENABLE_SET        (0x0001)    //设置输入音频码流的开关
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_IN_ENABLE_GET        (0x0002)    //获取输入音频码流开关的配置
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_OUT_ENABLE_SET       (0x0003)    //设置输出音频码流的开关
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_OUT_ENABLE_GET       (0x0004)    //获取输出音频码流开关的配置
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_IN_ENC_SET			(0x0005)    //设置输入音频编码
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_IN_ENC_GET			(0x0006)    //获取输入音频编码信息
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_OUT_ENC_SET			(0x0007)    //设置输出音频编码
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_OUT_ENC_GET			(0x0008)    //获取输出音频编码信息
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_IN_STREAM			(0x0009)    //输入音频的码流(录像,设备现场声音)
-#define		APP_NET_TCP_TYPE_AUDIO_SUB_OUT_STREAM			(0x000A)    //输出音频的码流(对讲)
-
-/// 其它消息
-#define		APP_NET_TCP_TYPE_MSC_SUB_CHIPSET_MATCH_GET      (0x0001)    //加密芯片匹配查询
-#define		APP_NET_TCP_TYPE_MSC_SUB_WIFI_PARAM_SET			(0x0002)    //WIFI参数设置
-#define		APP_NET_TCP_TYPE_MSC_SUB_WIFI_STATE_GET			(0x0003)    //WIFI链接状态查询
-#define		APP_NET_TCP_TYPE_MSC_SUB_AUDIO_OUT_SET			(0x0004)    //启动音频输出设置
-
-#define		APP_NET_TCP_TYPE_MSC_SUB_485_DEV_SET			(0x0005)    //485设备的参数设置
-#define		APP_NET_TCP_TYPE_MSC_SUB_485_DEV_GET			(0x0006)    //485设备的参数查询
-#define		APP_NET_TCP_TYPE_MSC_SUB_485_OSD_SET			(0x0007)    //485输入的OSD参数设置
-#define		APP_NET_TCP_TYPE_MSC_SUB_485_OSD_GET			(0x0008)    //485输入的OSD参数查询
-#define		APP_NET_TCP_TYPE_MSC_SUB_485_DATA_GET			(0x0009)    //获取485输入的数据
-
-
-///////////////////////设备通信协议/命令 end///////////////////////////////////////////////////
-
-/// 搜索设备命令
-#define		APP_NET_DISCOVERY_TYPE_DEV						    (0xFFFF)
-
-#define		APP_NET_TYPE_DISCOVERY_SUB_SEARCH_DEVICE_REQ        (0x0001)    //搜索设备命令
-#define		APP_NET_TYPE_DISCOVERY_SUB_SEARCH_DEVICE_ACK        (0x0002)    //搜索设备命令响应
-#define		APP_NET_TYPE_DISCOVERY_SUB_MODIFY_MAC_REQ			(0x0003)    //修改MAC地址命令
-#define		APP_NET_TYPE_DISCOVERY_SUB_MODIFY_MAC_ACK			(0x0004)    //修改MAC地址响应
-#define		APP_NET_TYPE_DISCOVERY_SUB_MODIFY_IP_REQ			(0x0005)    //修改IP地址命令
-#define		APP_NET_TYPE_DISCOVERY_SUB_MODIFY_IP_ACK			(0x0006)    //修改IP地址响应
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -178,8 +35,14 @@ typedef u16     U16;
 typedef u32     U32;
 typedef u64     U64;
 
-#define NET_MSG_HEAD_MAGIC          {0xF5, 0x5A, 0xA5, 0x5F}
-#define DVONET_MSG_HEAD_STREAM_TAG  0x44564F4D
+//////////////////////////////////////////////////////////////////////////
+
+
+#define		NET_TYPE_DISCOVERY_SUB_SEARCH_DEVICE_ACK        (0x0002)    //搜索设备命令响应
+#define		NET_TYPE_DISCOVERY_SUB_MODIFY_MAC_ACK			(0x0004)    //修改MAC地址响应
+#define		NET_TYPE_DISCOVERY_SUB_MODIFY_IP_ACK			(0x0006)    //修改IP地址响应
+
+//////////////////////////////////////////////////////////////////////////
 
 #define CHN_MAX     4
 
@@ -199,38 +62,7 @@ typedef u64     U64;
 
 
 //#pragma pack(1)
-//msg head 
-struct MSG_HEAD
-{
-    U8  Magic1[4];  // 	四字节 固定内容（0xF5，0x5A，0xA5，0x5F）
-    U32	Pktlen;		//	类型U32 数据包总长度。
-    U16	Version;	//  类型U16 协议版本号，高8位为主版本号，低8位为子版本号。
-    U16	Hwtype;		//	类型U16 硬件类型(保留)
-    U32	Sn;		    //  类型U32 帧序列号(保留)
-    U16	CmdType;	//	类型U16 表示命令类型
-    U16 CmdSubType;	//	类型U16 表示命令子类型
-    U16 DataType;	//  类型U16 数据包类型1：命令包，2：视频包，3：音频包
-    U16 Rev1;		//	类型U16 保留字段
-    U32 Rev2;		//	类型U32 保留字段
-    U32 Rev3;		//	类型U32 保留字段
-};
 
-//304+32
-//系统级控制命令的命令字CmdType 为0x0001
-//<1>用户登录
-//DataType:
-//　0x0001
-//CmdSubType：  
-//　0x0001
-//CmdPkt：
-typedef struct
-{
-    char	user_name[20];          //字符串。 
-    char	user_pwd[20];           //字符串。 
-    U32		rev[8];
-}app_net_tcp_sys_login_t;
-
-//AckPkt：
 typedef struct tagloginfo{
     int		    state;		        //0：成功 1：失败。
     char		dev_type[64];       //设备类型，字符串。
@@ -1001,7 +833,8 @@ typedef struct{
     char		net_mask[30];       //MASK，字符串。
     char		gate_way[30];       //GATE WAY，字符串。
     char        version[30];
-    char        rev[80];
+    u32         http_port;
+    char        rev[76];
 }multicast_dev_info_t_v2;
 
 

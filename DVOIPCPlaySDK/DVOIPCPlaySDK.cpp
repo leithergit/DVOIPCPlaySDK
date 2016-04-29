@@ -115,8 +115,8 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFil
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考GetLastError的返回值
 DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache, char *szLogFile)
 {
-	if (!hWnd || !IsWindow(hWnd) /*|| !szStreamHeader || !nHeaderSize*/)
-		return nullptr;
+ 	if ((hWnd && !IsWindow(hWnd)) || !szStreamHeader || !nHeaderSize)
+ 		return nullptr;
 	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd,nullptr,szLogFile);
 	if (!pPlayer)
 		return nullptr;
@@ -177,6 +177,7 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 	g_nPlayerHandles--;
 	LeaveCriticalSection(&g_csPlayerHandles);
 #endif
+	if (pPlayer->StopPlay())
 	EnterCriticalSection(&g_csListPlayertoFree);
 	g_listPlayertoFree.push_back(hPlayHandle);
 	LeaveCriticalSection(&g_csListPlayertoFree);

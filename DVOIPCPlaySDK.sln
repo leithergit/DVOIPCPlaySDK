@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DVOIPCPlaySDK", "DVOIPCPlay
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DvoIPCPlayDemo", "DvoIPCPlayDemo\DvoIPCPlayDemo.vcxproj", "{85756FC2-A070-4424-99F9-8FB43653C27D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DVOPlayDemoWin32", "DVOPlayDemoWin32\DVOPlayDemoWin32.vcxproj", "{9062E5C9-0998-4C8D-A056-4F56BA9F056F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -26,6 +28,12 @@ Global
 		{85756FC2-A070-4424-99F9-8FB43653C27D}.Release|Win32.Build.0 = Release|Win32
 		{85756FC2-A070-4424-99F9-8FB43653C27D}.Template|Win32.ActiveCfg = Release|Win32
 		{85756FC2-A070-4424-99F9-8FB43653C27D}.Template|Win32.Build.0 = Release|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Debug|Win32.Build.0 = Debug|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Release|Win32.ActiveCfg = Release|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Release|Win32.Build.0 = Release|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Template|Win32.ActiveCfg = Release|Win32
+		{9062E5C9-0998-4C8D-A056-4F56BA9F056F}.Template|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

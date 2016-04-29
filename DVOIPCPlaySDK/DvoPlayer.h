@@ -387,6 +387,41 @@ struct _OutputTime
 	}
 };
 
+struct StreamProbe
+{
+	StreamProbe(int nBuffSize = 256 * 1024)
+	{
+		ZeroMemory(this, sizeof(StreamProbe));
+		pProbeBuff = (byte *)_aligned_malloc(nBuffSize, 16);
+		nProbeBuffSize = nBuffSize;
+	}
+	~StreamProbe()
+	{
+		_aligned_free(pProbeBuff);
+	}
+	bool GetProbeStream(byte *pStream, int nStreamLength)
+	{
+		if (!pStream || !nStreamLength)
+			return false;
+		if ((nProbeDataLength + nStreamLength) > nProbeBuffSize)
+			return false;
+		memcpy(&pProbeBuff[nProbeDataLength], pStream, nStreamLength);
+		nProbeDataLength += nStreamLength;
+		nProbeDataRemained = nProbeDataLength;
+		nProbeOffset = 0;
+		return true;
+	}
+
+	byte		*pProbeBuff;			///< 码流控件探测缓冲区
+	int			nProbeBuffSize;			///< 探测缓冲的尺寸
+	int			nProbeDataLength;		///< 探测缓冲区数居的长度
+	int			nProbeDataRemained;
+	AVCodecID	nProbeAvCodecID;		///< 探测到的码流ID
+	int			nProbeWidth;
+	int			nProbeHeight;
+	int			nProbeCount;			///< 探测次数
+	int			nProbeOffset;			///< 码流探测时视频帧复制时的帧内偏移
+};
 extern volatile bool g_bThread_ClosePlayer/* = false*/;
 extern list<DVO_PLAYHANDLE > g_listPlayertoFree;
 extern CRITICAL_SECTION  g_csListPlayertoFree;
@@ -395,7 +430,6 @@ class CDvoPlayer
 public:
 	int		nSize;
 private:
-	list<StreamFramePtr>::iterator ItLoop;
 	list<StreamFramePtr>m_listAudioCache;///< 流播放帧缓冲
 	list<StreamFramePtr>m_listVideoCache;///< 流播放帧缓冲
 	CRITICAL_SECTION	m_csVideoCache;
@@ -416,11 +450,9 @@ private:
 	// 视频播放相关变量
 	int			m_nTotalFrames;			///< 当前文件中有效视频帧的数量,仅当播放文件时有效
 	int			m_nTotalTime;			///< 当前文件中播放总时长,仅当播放文件时有效
+	shared_ptr<StreamProbe>m_pStreamProbe;
 	HWND		m_hWnd;					///< 播放视频的窗口句柄
-	bool		m_bProbeMode;			///< 是否牌探测码流模式，在探测模式下，不会删除I帧后的码流
-	bool		m_bIFrameRecved;		///< 是否已经收到第一个I帧
-	int			m_nDisardFrames;		///< 收到第一个I帧前，被抛弃的帧数量
-	int			m_nFrameOffset;			///< 视频帧复制时的帧内偏移
+	
 	volatile bool m_bIpcStream;			///< 输入流为IPC流
 
 	DVO_CODEC	m_nVideoCodec;			///< 视频编码格式 @see DVO_CODEC	
@@ -479,6 +511,7 @@ private:
 	UINT		m_nTailFrameID;			///< 级存中最后一帧的ID
 	bool		m_bThreadSummaryRun;
 	bool		m_bSummaryIsReady;		///< 文件摘要信息准备完毕
+	HANDLE		m_hSnapShot;			///< 截图允许事件,该事件标志着截图可以进行
 	volatile bool m_bThreadParserRun;
 	volatile bool m_bThreadPlayVideoRun;
 	volatile bool m_bThreadPlayAudioRun;
@@ -520,7 +553,7 @@ private:
 	void*			m_pUserCaptureYUVEx;
 	FilePlayProc	m_pFilePlayCallBack;
 	void*			m_pUserFilePlayer;
-	CaptureYUVEx	m_pfnYUVFileter;
+	CaptureYUVEx	m_pfnYUVFilter;
 	void*			m_pUserYUVFilter;
 private:
 	shared_ptr<CRunlog> m_pRunlog;	///< 运行日志
@@ -993,6 +1026,7 @@ public:
 			strcpy(m_szLogFileName, szLogFile);
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
 		}
+		m_hSnapShot = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
@@ -1007,7 +1041,7 @@ public:
 		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 #endif
 		nSize = sizeof(CDvoPlayer);
-		m_nMaxFrameSize	 = 1024 * 128;
+		m_nMaxFrameSize	 = 1024 * 256;
 		m_nFileFPS		 = 25;				// FPS的默认值为25
 		m_fPlayRate		 = 1;
 		m_fPlayInterval	 = 40.0f;
@@ -1256,6 +1290,9 @@ public:
 			delete[]m_pszFileName;
 		if (m_hDvoFile)
 			CloseHandle(m_hDvoFile);
+
+		if (m_hSnapShot)
+			CloseHandle(m_hSnapShot);
 		if (m_hThreadGetFileSummary)
 		{
 			m_bThreadSummaryRun = false;		// 令概要线程立即退出
@@ -1539,7 +1576,7 @@ public:
 	/// @retval			-1	输入参数无效
 	/// @remark			播放流数据时，相应的帧数据其实并未立即播放，而是被放了播放队列中，应该根据dvoplay_PlayStream
 	///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停输入
-	int InputStream(unsigned char *szFrameData, int nFrameSize,UINT nCacheSize = 0)
+	int InputStream(unsigned char *szFrameData, int nFrameSize, UINT nCacheSize = 0, bool bNoThreadCheck = false)
 	{
 		if (!szFrameData || nFrameSize < sizeof(DVOFrameHeader))
 			return DVO_Error_InvalidFrame;
@@ -1547,7 +1584,17 @@ public:
 		int nMaxCacheSize = m_nMaxFrameCache;
 		if (nCacheSize != 0)
 			nMaxCacheSize = nCacheSize;
-
+		if (!bNoThreadCheck)
+		{
+			if (!m_bThreadPlayVideoRun || !m_hThreadPlayVideo)
+			{
+#ifdef _DEBUG
+				OutputMsg("%s \tObject:%d Video decode thread not run.\n", __FUNCTION__, m_nObjIndex);
+#endif
+				return DVO_Error_VideoThreadNotRun;
+			}
+		}
+		
 		DVOFrameHeader *pHeaderEx = (DVOFrameHeader *)szFrameData;
 		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
 		{
@@ -1658,15 +1705,15 @@ public:
 	int InputStream(IN byte *pFrameData, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime)
 	{
 		DeclareRunTime();
-#ifdef _DEBUG
-		if (m_OuputTime.nInputStream == 0 ||
-			(timeGetTime() - m_OuputTime.nInputStream) >= 5000)
-		{
-			OutputMsg("%s \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
-			m_OuputTime.nInputStream = timeGetTime();
-		}
-#endif
-		if (!m_hThreadPlayVideo)
+// #ifdef _DEBUG
+// 		if (m_OuputTime.nInputStream == 0 ||
+// 			(timeGetTime() - m_OuputTime.nInputStream) >= 5000)
+// 		{
+// 			OutputMsg("%s \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
+// 			m_OuputTime.nInputStream = timeGetTime();
+// 		}
+// #endif
+		if (!m_bThreadPlayVideoRun ||!m_hThreadPlayVideo)
 		{
 #ifdef _DEBUG
 			OutputMsg("%s \tObject:%d Video decode thread not run.\n", __FUNCTION__, m_nObjIndex);
@@ -1744,7 +1791,7 @@ public:
 		return 0;
 	}
 
-	void StopPlay()
+	bool StopPlay(DWORD nTimeout = 1000)
 	{
 #ifdef _DEBUG
 		TraceFunction();
@@ -1769,8 +1816,19 @@ public:
 		}
 		if (m_hThreadGetFileSummary)
 			hArray[nHandles++] = m_hThreadGetFileSummary;
-		
-		WaitForMultipleObjects(nHandles, hArray, true, INFINITE);
+		EnterCriticalSection(&m_csAudioCache);
+		m_listAudioCache.clear();
+		LeaveCriticalSection(&m_csAudioCache);
+
+		EnterCriticalSection(&m_csVideoCache);
+		m_listVideoCache.clear();
+		LeaveCriticalSection(&m_csVideoCache);
+
+		if (WaitForMultipleObjects(nHandles, hArray, true, nTimeout) == WAIT_TIMEOUT)
+		{
+			OutputMsg("%s Wait for thread exit timeout.\n", __FUNCTION__);
+			return false;
+		}
 		if (m_hThreadParser)
 		{
 			CloseHandle(m_hThreadParser);
@@ -1784,7 +1842,6 @@ public:
 #ifdef _DEBUG
 			OutputMsg("%s ThreadPlayVideo Object:%d has exit.\n", __FUNCTION__,m_nObjIndex);
 #endif
-			
 		}
 		if (m_hThreadPlayAudio)
 		{
@@ -1803,8 +1860,7 @@ public:
 		m_hThreadPlayAudio = nullptr;
 		m_pFrameOffsetTable = nullptr;
 #endif
-		m_listVideoCache.clear();
-		m_listAudioCache.clear();
+		return true;
 	}
 
 	void Pause()
@@ -1921,6 +1977,8 @@ public:
 	{
 		if (m_pDxSurface && m_hThreadPlayVideo)
 		{
+			if (WaitForSingleObject(m_hSnapShot, 5000) == WAIT_TIMEOUT)
+				return DVO_Error_PlayerNotStart;
 			m_pDxSurface->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat);
 			return DVO_Succeed;
 		}
@@ -2005,7 +2063,6 @@ public:
 			return DVO_Error_InvalidFrame;	
 		EnterCriticalSection(&m_csVideoCache);
 		m_listVideoCache.clear();
-		ItLoop = m_listVideoCache.begin();
 		LeaveCriticalSection(&m_csVideoCache);
 
 		EnterCriticalSection(&m_csAudioCache);
@@ -2193,7 +2250,7 @@ public:
 
 			_MyEnterCriticalSection(&m_csVideoCache);
 			m_listVideoCache.clear();			
-			m_nFrameOffset = 0;
+			//m_nFrameOffset = 0;
 			_MyLeaveCriticalSection(&m_csVideoCache);
 
 			_MyEnterCriticalSection(&m_csAudioCache);
@@ -2299,15 +2356,21 @@ public:
 		}
 		else
 		{
-			m_bEnableAudio = false;			
-			m_bThreadPlayAudioRun = false;
 			if (m_hThreadPlayAudio)
 			{
-				ResumeThread(m_hThreadPlayAudio);
-				WaitForSingleObject(m_hThreadPlayAudio, INFINITE);
-				CloseHandle(m_hThreadPlayAudio);
-				m_hThreadPlayAudio = nullptr;
-				OutputMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
+				m_bEnableAudio = false;			
+				if (m_bThreadPlayAudioRun)		// 尚未执行停止音频解码线程的操作
+				{
+					m_bThreadPlayAudioRun = false;
+					ResumeThread(m_hThreadPlayAudio);
+					WaitForSingleObject(m_hThreadPlayAudio, INFINITE);
+					CloseHandle(m_hThreadPlayAudio);
+					m_hThreadPlayAudio = nullptr;
+					OutputMsg("%s ThreadPlayAudio has exit.\n", __FUNCTION__);
+					EnterCriticalSection(&m_csAudioCache);
+					m_listAudioCache.clear();
+					LeaveCriticalSection(&m_csAudioCache);
+				}
 			}
 
 			if (m_pDsBuffer)
@@ -2317,9 +2380,7 @@ public:
 			}
 			if (m_pDsPlayer)
 				m_pDsPlayer = nullptr;
-			EnterCriticalSection(&m_csAudioCache);
-			m_listAudioCache.clear();
-			LeaveCriticalSection(&m_csAudioCache);
+			
 		}
 		return DVO_Succeed;
 	}
@@ -2367,7 +2428,7 @@ public:
 			break;
 		case YUVFilter:
 		{
-			m_pfnYUVFileter = (CaptureYUVEx)pUserCallBack;
+			m_pfnYUVFilter = (CaptureYUVEx)pUserCallBack;
 			m_pUserYUVFilter = pUserPtr;
 		}
 			break;
@@ -2607,7 +2668,7 @@ public:
 				}
 				if (bFirstBlockIsFilled)
 				{
-					if (InputStream((byte *)Parser.pHeader, Parser.nFrameSize, (UINT)nMaxCache) == DVO_Error_FrameCacheIsFulled && m_bThreadSummaryRun)
+					if (InputStream((byte *)Parser.pHeader, Parser.nFrameSize, (UINT)nMaxCache,true) == DVO_Error_FrameCacheIsFulled && m_bThreadSummaryRun)
 					{
 						SetEvent(m_hCacheFulled);
 						m_nSummaryOffset = nFrameOffset;
@@ -2618,18 +2679,19 @@ public:
 						int nAudioSize = m_listAudioCache.size();
 						LeaveCriticalSection(&m_csAudioCache);
 						m_nHeaderFrameID = m_listVideoCache.front()->FrameHeader()->nFrameID;
+						TraceMsgA("HeadFrame ID = %d.\n", m_nHeaderFrameID);
 						bFirstBlockIsFilled = false;
 					}
 				}
 
 				if (IsDVOVideoFrame(Parser.pHeader, bIFrame, m_nSDKVersion))	// 只记录视频帧的文件偏移
 				{
-					if (m_nVideoCodec == CODEC_UNKNOWN &&
-						bIFrame &&
-						!bStreamProbed)
-					{// 尝试探测码流
-						bStreamProbed = ProbeStream((byte *)Parser.pHeader, Parser.nFrameSize);
-					}
+// 					if (m_nVideoCodec == CODEC_UNKNOWN &&
+// 						bIFrame &&
+// 						!bStreamProbed)
+// 					{// 尝试探测码流
+// 						bStreamProbed = ProbeStream((byte *)Parser.pRawFrame, Parser.nRawFrameSize);
+// 					}
 					if (nFrames < m_nTotalFrames)
 					{
 						if (m_pFrameOffsetTable)
@@ -2929,23 +2991,31 @@ public:
 	bool ProbeStream(byte *szFrameBuffer,int nBufferLength)
 	{	
 		shared_ptr<CVideoDecoder>pDecodec = make_shared<CVideoDecoder>();
-		InputStream(szFrameBuffer, nBufferLength);
-		auto ItLoop = m_listVideoCache.begin();
-		m_bProbeMode = true;
+		if (!m_pStreamProbe)
+			m_pStreamProbe = make_shared<StreamProbe>();
+		
+		if (!m_pStreamProbe)
+			return false;
+		m_pStreamProbe->nProbeCount++;
+		m_pStreamProbe->GetProbeStream(szFrameBuffer, nBufferLength);
+		if (m_pStreamProbe->nProbeDataLength <= 128)
+			return false;
 		if (pDecodec->ProbeStream(this, ReadAvData, m_nMaxFrameSize) != 0)
 		{
-			OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
+			OutputMsg("%s Failed in ProbeStream,you may need to input more stream.\n", __FUNCTION__);
 			assert(false);
 			return false;
 		}
-		pDecodec->CancelProbe();		
-		m_bProbeMode = false;
-		::_MyEnterCriticalSection(&m_csAudioCache);
-		m_listVideoCache.clear();		
-		::_MyLeaveCriticalSection(&m_csAudioCache);
+		pDecodec->CancelProbe();	
 		if (pDecodec->m_nCodecId == AV_CODEC_ID_NONE)
 		{
 			OutputMsg("%s Unknown Video Codec or not found any codec in the stream.\n", __FUNCTION__);
+			assert(false);
+			return false;
+		}
+
+		if (!pDecodec->m_pAVCtx->width || !pDecodec->m_pAVCtx->height)
+		{
 			assert(false);
 			return false;
 		}
@@ -2966,13 +3036,9 @@ public:
 			assert(false);
 			return false;
 		}
-		m_nVideoWidth = pDecodec->m_pAVCtx->width;
-		m_nVideoHeight = pDecodec->m_pAVCtx->height;
-		if (!m_nVideoWidth || !m_nVideoHeight)
-		{
-			assert(false);
-			return false;
-		}
+		m_pStreamProbe->nProbeAvCodecID = pDecodec->m_nCodecId;
+		m_pStreamProbe->nProbeWidth = pDecodec->m_pAVCtx->width;
+		m_pStreamProbe->nProbeHeight = pDecodec->m_pAVCtx->height;
 		return true;
 	}
 
@@ -3068,14 +3134,14 @@ public:
 
 	void ProcessYUVFilter(AVFrame *pAvFrame, LONGLONG nTimestamp)
 	{
-		if (m_pfnYUVFileter)
+		if (m_pfnYUVFilter)
 		{// 在m_pfnYUVFileter中，用户需要把YUV数据处理分，再分成YUV数据
 			if (pAvFrame->format == AV_PIX_FMT_DXVA2_VLD)
 			{// dxva 硬解码帧
 				CopyDxvaFrame(m_pYUV, pAvFrame);
 				byte* pU = m_pYUV + pAvFrame->width*pAvFrame->height;
 				byte* pV = m_pYUV + pAvFrame->width*pAvFrame->height / 4;
-				m_pfnYUVFileter(this,
+				m_pfnYUVFilter(this,
 								m_pYUV,
 								pU,
 								pV,
@@ -3087,7 +3153,7 @@ public:
 								m_pUserYUVFilter);
 			}
 			else
-				m_pfnYUVFileter(this,
+				m_pfnYUVFilter(this,
 								pAvFrame->data[0],
 								pAvFrame->data[1],
 								pAvFrame->data[2],
@@ -3166,79 +3232,35 @@ public:
 	{
 		AvQueue *pAvQueue = (AvQueue *)opaque;
 		CDvoPlayer *pThis = (CDvoPlayer *)pAvQueue->pUserData;
-		StreamFramePtr FramePtr;
+		
 		int nReturnVal = buf_size;
 		int nRemainedLength = 0;
 		pAvQueue->pAvBuffer = buf;
-		CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-		if (pThis->m_listVideoCache.size() == 0)
+		if (!pThis->m_pStreamProbe)
 			return 0;
-#ifdef _DEBUG
-		int nCacheSize = pThis->m_listVideoCache.size();
-		//OutputMsg("%s Video Cache size = %d.\n", __FUNCTION__, nCacheSize);
-#endif
-		FramePtr = pThis->m_listVideoCache.front();
-		if (pThis->m_bProbeMode)
+		int &nDataLength = pThis->m_pStreamProbe->nProbeDataRemained;
+		byte *pProbeBuff = pThis->m_pStreamProbe->pProbeBuff;
+		int &nProbeOffset = pThis->m_pStreamProbe->nProbeOffset;
+		if (nDataLength > 0)
 		{
-			if (pThis->m_bIFrameRecved)
-			{
-				if (pThis->ItLoop == pThis->m_listVideoCache.end())
-					return 0;
-				FramePtr = *pThis->ItLoop;
-			}
-			bool bIFrame = FramePtr->FrameHeader()->nType == FRAME_IDR|| 
-						   FramePtr->FrameHeader()->nType == FRAME_I|| 
-						   FramePtr->FrameHeader()->nType == 0;		// 海思I帧类型值为0
-			nRemainedLength = FramePtr->FrameHeader()->nLength - pThis->m_nFrameOffset;
-
+			nRemainedLength = nDataLength - nProbeOffset;
 			if (nRemainedLength > buf_size)
 			{
-				memcpy(buf, &FramePtr->Framedata(pThis->m_nSDKVersion)[pThis->m_nFrameOffset], buf_size);
-				pThis->m_nFrameOffset += buf_size;
+				memcpy(buf, &pProbeBuff[nProbeOffset], buf_size);
+				nProbeOffset += buf_size;
+				nDataLength -= buf_size;
 			}
 			else
 			{
-				memcpy(buf, &FramePtr->Framedata(pThis->m_nSDKVersion)[pThis->m_nFrameOffset], nRemainedLength);
-				pThis->m_nFrameOffset = 0;
+				memcpy(buf, &pProbeBuff[nProbeOffset], nRemainedLength);
+				nDataLength -= nRemainedLength;
+				nProbeOffset = 0;
 				nReturnVal = nRemainedLength;
-				if (pThis->m_bIFrameRecved)
-				{
-					pThis->ItLoop++;
-				}
-				else
-				{
-					if (!bIFrame)		// 在探测模式下，抛弃所有第一个I帧之前的帧
-					{
-						pThis->m_listVideoCache.pop_front();
-						pThis->m_nDisardFrames++;						
-					}
-					else
-					{
-						pThis->m_bIFrameRecved = true;
-						pThis->ItLoop = pThis->m_listVideoCache.begin();
-					}
-				}
 			}
+			return nReturnVal;
 		}
 		else
-		{
-			pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
-			pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
-			nRemainedLength = FramePtr->FrameHeader()->nLength - pThis->m_nFrameOffset;
-			if (nRemainedLength > buf_size)
-			{
-				memcpy(buf, &FramePtr->Framedata(pThis->m_nSDKVersion)[pThis->m_nFrameOffset], buf_size);
-				pThis->m_nFrameOffset += buf_size;
-			}
-			else
-			{
-				memcpy(buf, &FramePtr->Framedata(pThis->m_nSDKVersion)[pThis->m_nFrameOffset], nRemainedLength);
-				pThis->m_nFrameOffset = 0;
-				nReturnVal = nRemainedLength;
-				pThis->m_listVideoCache.pop_front();
-			}
-		}
-		return nReturnVal;
+			return 0;
 	}
 	bool InitD3D()
 	{
@@ -3305,9 +3327,9 @@ public:
 #endif
 		if (!pThis->m_hWnd)
 		{
-			pThis->OutputMsg("%s Please assign a Window.\n", __FUNCTION__);
+			pThis->OutputMsg("%s Warning!!!A Windows handle is Needed otherwith the video Will not showed..\n", __FUNCTION__);
 			//assert(false);
-			return 0;
+			//return 0;
 		}	
 		shared_ptr<CVideoDecoder>pDecodec = make_shared<CVideoDecoder>();
 		if (!pDecodec)
@@ -3325,18 +3347,25 @@ public:
 // #else
 // 		DWORD dfTimeout = 4000;		// 等待I帧时间
 // #endif
+		int nDiscardFrames = 0;
+		bool bProbeSucced = false;
 		if (pThis->m_nVideoCodec == CODEC_UNKNOWN ||		/// 码流未知则尝试探测码
 			!pThis->m_nVideoWidth||
 			!pThis->m_nVideoHeight)
 		{
-			while (true)
+			
+			while (!bProbeSucced)
 			{
 				if ((timeGetTime() - tFirst) < dfTimeout)
 				{
 					Sleep(5);
 					CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-					if (find_if(pThis->m_listVideoCache.begin(), pThis->m_listVideoCache.end(), StreamFrame::IsIFrame) != pThis->m_listVideoCache.end())
-						break;
+					for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();it ++)
+					{
+						if (StreamFrame::IsIFrame(*it))
+							if (bProbeSucced = pThis->ProbeStream((byte *)(*it)->Framedata(pThis->m_nSDKVersion), (*it)->FrameHeader()->nLength))
+								break;
+					}
 				}
 				else
 				{
@@ -3350,9 +3379,9 @@ public:
 				}
 			}
 			// 探测码流类型
-			pThis->ItLoop = pThis->m_listVideoCache.begin();
-			pThis->m_bProbeMode = true;
-			if (pDecodec->ProbeStream(pThis,ReadAvData, pThis->m_nMaxFrameSize) != 0)
+			
+			StreamFramePtr FramePtr = pThis->m_listVideoCache.front();
+			if (!bProbeSucced)
 			{
 				pThis->OutputMsg("%s Failed in ProbeStream,you may input a unknown stream.\n", __FUNCTION__);
 	#ifdef _DEBUG
@@ -3362,15 +3391,14 @@ public:
 					::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_UNKNOWNSTREAM, 0);
 				return 0;
 			}
-			pDecodec->CancelProbe();
-			pThis->OutputMsg("%s Discard %d Non-I-Frames in Probe mode.\n", __FUNCTION__, pThis->m_nDisardFrames);
-			pThis->m_bProbeMode = false;
-			if (!pDecodec->InitDecoder(AV_CODEC_ID_NONE,0,0,pThis->m_bEnableHaccel))
+			//pThis->OutputMsg("%s Discard %d Non-I-Frames in Probe mode.\n", __FUNCTION__, nDiscardFrames);
+			if (!pDecodec->InitDecoder(pThis->m_pStreamProbe->nProbeAvCodecID, pThis->m_pStreamProbe->nProbeWidth, pThis->m_pStreamProbe->nProbeHeight, pThis->m_bEnableHaccel))
 			{
 				pThis->OutputMsg("%s Failed in Initializing Decoder.\n", __FUNCTION__);
 #ifdef _DEBUG
 				pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
+				pThis->m_pStreamProbe.reset();
 				if (pThis->m_hWnd)
 					::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
 				return 0;
@@ -3478,9 +3506,9 @@ public:
 			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 		}
-
+		if (pThis->m_pStreamProbe)
+			pThis->m_pStreamProbe = nullptr;
 		pThis->m_pDecodec = pDecodec;
-		pThis->ItLoop = pThis->m_listVideoCache.begin();
 // 		恢复音频线程
 // 		::EnterCriticalSection(&pThis->m_csAudioCache);
 // 		pThis->m_listAudioCache.clear();
@@ -3592,6 +3620,7 @@ public:
 					{
 						FramePtr = pThis->m_listVideoCache.front();
 						pThis->m_listVideoCache.pop_front();
+						//TraceMsgA("%s Pop a Frame ,FrameID = %d\tFrameTimestamp = %d.\n", __FUNCTION__, FramePtr->FrameHeader()->nFrameID, FramePtr->FrameHeader()->nTimestamp);
 					}
 					pThis->m_nVideoCache = pThis->m_listVideoCache.size();
 
@@ -3601,12 +3630,13 @@ public:
 						Sleep(10);
 						continue;
 					}
-					else
-					{
-						dfT1 = GetExactTime();
-						pAvPacket->data = (uint8_t *)FramePtr->Framedata(pThis->m_nSDKVersion);
-						pAvPacket->size = FramePtr->FrameHeader()->nLength;
-					}
+					dfT1 = GetExactTime();
+// 					else
+// 					{
+// 						dfT1 = GetExactTime();
+// 						pAvPacket->data = (uint8_t *)FramePtr->Framedata(pThis->m_nSDKVersion);
+// 						pAvPacket->size = FramePtr->FrameHeader()->nLength;
+// 					}
 				}
 				else
 				{
@@ -3626,8 +3656,7 @@ public:
 					pThis->m_listVideoCache.pop_front();
 					bPopFrame = true;
 				}
-				::LeaveCriticalSection(&pThis->m_csVideoCache);
-
+				
 				if (!bPopFrame)
 				{
 					lock.Unlock();
@@ -3701,9 +3730,13 @@ public:
 #endif
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
-				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)GetExactTime() * 1000);
-  				if (pThis->m_pDxSurface)
-  					pThis->RenderFrame(pAvFrame);
+				//TraceMsgA("%s m_nCurVideoFrame = %d\tm_tCurFrameTimeStamp = %d.\n", __FUNCTION__, pThis->m_nCurVideoFrame, pThis->m_tCurFrameTimeStamp);
+				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)pThis->m_nCurVideoFrame);
+				if (pThis->m_pDxSurface)
+				{
+					pThis->RenderFrame(pAvFrame);
+					SetEvent(pThis->m_hSnapShot);
+				}
 #ifdef _DEBUG
 // 				SYSTEMTIME sysTime;
 // 				GetSystemTime(&sysTime);
@@ -3730,6 +3763,12 @@ public:
  				if (pThis->m_pFilePlayCallBack)
  					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);
  			}
+			else
+			{
+#ifdef _DEBUG
+				TraceMsgA("%s Decode Succeed but Not get a picture ,FrameID = %d\tFrameTimestamp = %d.\n", __FUNCTION__, FramePtr->FrameHeader()->nFrameID, FramePtr->FrameHeader()->nTimestamp);
+#endif
+			}
 			av_frame_unref(pAvFrame);
 #ifdef _DEBUG
 // 			SYSTEMTIME sysTime;

@@ -495,7 +495,8 @@ public:
 			av_free(m_pIoContext);
 			m_pIoContext = nullptr;
 		}
-		m_pFormatCtx->pb = nullptr;
+		if (m_pFormatCtx)
+			m_pFormatCtx->pb = nullptr;
 	}
 
 
