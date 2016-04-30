@@ -3186,8 +3186,8 @@ public:
 			else
 			{
 				memcpy(m_pYUV, pAvFrame->data[0], nPicSize);
-				memcpy(&m_pYUV[nPicSize], pAvFrame->data[1], nPicSize / 2);
-				memcpy(&m_pYUV[nPicSize + nPicSize / 2], pAvFrame->data[2], nPicSize / 2);	
+				memcpy(&m_pYUV[nPicSize], pAvFrame->data[1], nPicSize / 4);
+				memcpy(&m_pYUV[nPicSize + nPicSize / 4], pAvFrame->data[2], nPicSize / 4);	
 			}
 			m_pfnCaptureYUV(this, m_pYUV, m_nYUVSize, pAvFrame->width, pAvFrame->height, nTimestamp, m_pUserCaptureYUV);		
 		}

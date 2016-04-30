@@ -705,7 +705,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 							SYSTEMTIME sysTime;
 							GetLocalTime(&sysTime);
 							char szYUVFile[512] = { 0 };
-							sprintf(szYUVFile, "YVU%s_%04d%02d%02d_%02d%02d%02d.YUV",
+							sprintf(szYUVFile, "YVU_%s_%04d%02d%02d_%02d%02d%02d.YUV",
 								g_vIPCamera[i].c_str(),
 								sysTime.wYear,
 								sysTime.wMonth,
@@ -715,7 +715,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 								sysTime.wSecond);
 							m_pPlayContext[i]->hYUVFile = CreateFileA(szYUVFile,
 								GENERIC_WRITE,
-								FILE_GENERIC_WRITE,
+								0,
 								NULL,
 								OPEN_ALWAYS,
 								FILE_ATTRIBUTE_ARCHIVE,
@@ -731,6 +731,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 								ListBox_AddString(g_hListMessage, szText);
 							}
 						}
+						dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
 						dvoplay_Start(m_pPlayContext[i]->hPlayer, false, true);
 					}
 					m_pPlayContext[i]->dwLastStreamTime = timeGetTime();
@@ -754,12 +755,17 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					EnableDlgItem(hDlg, IDC_COMBO_STREAM, TRUE);
 					if (m_pPlayContext[i]->hPlayer)
 					{
-						
 						if (m_pPlayContext[i]->hPlayer)
 						{
 							dvoplay_Stop(m_pPlayContext[i]->hPlayer);
 							//dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
 							dvoplay_Close(m_pPlayContext[i]->hPlayer);
+							if (m_pPlayContext[i]->hYUVFile)
+							{
+								CloseHandle(m_pPlayContext[i]->hYUVFile);
+								m_pPlayContext[i]->hYUVFile = nullptr;
+							}
+								
 							m_pPlayContext[i]->hPlayer = nullptr;
 						}
 					}
@@ -989,5 +995,7 @@ void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
 		{
 			ListBox_AddString(g_hListMessage, "Ð´ÈëYVUÊý¾ÝÊ§°Ü");
 		}
+		CloseHandle(pContext->hYUVFile);
+		pContext->hYUVFile = nullptr;
 	}
 }

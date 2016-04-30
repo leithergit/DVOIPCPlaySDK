@@ -193,7 +193,6 @@ BOOL CDvoIPCPlayDemoDlg::OnInitDialog()
 
 	m_wndStreamInfo.InsertColumn(nCol++, _T("ÏîÄ¿"), LVCFMT_LEFT, 60);
 	m_wndStreamInfo.InsertColumn(nCol++, _T("ÄÚÈÝ"), LVCFMT_LEFT, 130);
-	m_wndStreamInfo.InsertItem(0, "1");
 	CheckRadioButton(IDC_RADIO_DVONETSDK, IDC_RADIO_INSIDE_NETSDK, IDC_RADIO_DVONETSDK);
 	int nItem = 0;
 	ZeroMemory(m_szListText, sizeof(ListItem) * 16);
