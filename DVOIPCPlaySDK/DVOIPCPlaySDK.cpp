@@ -177,10 +177,15 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 	g_nPlayerHandles--;
 	LeaveCriticalSection(&g_csPlayerHandles);
 #endif
-	if (pPlayer->StopPlay())
-	EnterCriticalSection(&g_csListPlayertoFree);
-	g_listPlayertoFree.push_back(hPlayHandle);
-	LeaveCriticalSection(&g_csListPlayertoFree);
+	if (!pPlayer->StopPlay())
+	{
+		EnterCriticalSection(&g_csListPlayertoFree);
+		g_listPlayertoFree.push_back(hPlayHandle);
+		LeaveCriticalSection(&g_csListPlayertoFree);
+	}
+	else
+		delete pPlayer;
+
 	return 0;
 }
 

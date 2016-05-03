@@ -209,6 +209,7 @@ struct StreamFrame
 		assert(nLenth >= sizeof(DVOFrameHeader));
 		nSize = nLenth;
 		pInputData = (byte *)_aligned_malloc(nLenth, 16);
+		//pInputData = _New byte[nLenth];
 		if (pInputData)
 			memcpy(pInputData, pBuffer, nLenth);
 		DVOFrameHeader* pHeader = (DVOFrameHeader *)pInputData;
@@ -218,9 +219,8 @@ struct StreamFrame
 	/// @brief	接收来自相机或其它实时码流的数据
 	StreamFrame(IN byte *pFrame, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime )
 	{
-		nSize = sizeof(DVOFrameHeaderEx) + nFrameLength + 1;
+		nSize = sizeof(DVOFrameHeaderEx) + nFrameLength;
 		pInputData = (byte *)_aligned_malloc(nSize, 16);
-		//pInputData = _New byte[nSize ];
 		if (!pInputData)
 		{
 			assert(false);
@@ -3172,7 +3172,7 @@ public:
 		{
 			if (!m_pYUV)
 			{
-				m_nYUVSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pAvFrame->width, pAvFrame->height, 8);
+				m_nYUVSize = pAvFrame->linesize[0] * pAvFrame->height * 3 / 2;
 				m_pYUV = (byte *)av_malloc(m_nYUVSize);
 				m_pYUVPtr = shared_ptr<byte>(m_pYUV, av_free);
 			}
@@ -3353,7 +3353,6 @@ public:
 			!pThis->m_nVideoWidth||
 			!pThis->m_nVideoHeight)
 		{
-			
 			while (!bProbeSucced)
 			{
 				if ((timeGetTime() - tFirst) < dfTimeout)

@@ -730,8 +730,8 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 								sprintf(szText, "打开文件%s失败，YVU数据将无法保存.", szYUVFile);
 								ListBox_AddString(g_hListMessage, szText);
 							}
+							dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
 						}
-						dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
 						dvoplay_Start(m_pPlayContext[i]->hPlayer, false, true);
 					}
 					m_pPlayContext[i]->dwLastStreamTime = timeGetTime();
@@ -755,21 +755,16 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					EnableDlgItem(hDlg, IDC_COMBO_STREAM, TRUE);
 					if (m_pPlayContext[i]->hPlayer)
 					{
-						if (m_pPlayContext[i]->hPlayer)
+						dvoplay_Stop(m_pPlayContext[i]->hPlayer);
+						//dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
+						dvoplay_Close(m_pPlayContext[i]->hPlayer);
+						if (m_pPlayContext[i]->hYUVFile)
 						{
-							dvoplay_Stop(m_pPlayContext[i]->hPlayer);
-							//dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
-							dvoplay_Close(m_pPlayContext[i]->hPlayer);
-							if (m_pPlayContext[i]->hYUVFile)
-							{
-								CloseHandle(m_pPlayContext[i]->hYUVFile);
-								m_pPlayContext[i]->hYUVFile = nullptr;
-							}
-								
-							m_pPlayContext[i]->hPlayer = nullptr;
+							CloseHandle(m_pPlayContext[i]->hYUVFile);
+							m_pPlayContext[i]->hYUVFile = nullptr;
 						}
+						m_pPlayContext[i]->hPlayer = nullptr;
 					}
-
 				}
 			EnableDlgItem(hDlg, IDC_BUTTON_SNAPSHOT, FALSE);
 			EnableDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT, FALSE);
