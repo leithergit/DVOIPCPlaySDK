@@ -599,11 +599,11 @@ void CDvoIPCPlayDemoDlg::OnSize(UINT nType, int cx, int cy)
 			}
 			}
 		}
-		if (m_pPlayContext)
-			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
-			{
-				dvoplay_Reset(m_pPlayContext->hPlayer[i]);
-			}
+// 		if (m_pPlayContext)
+// 			for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
+// 			{
+// 				dvoplay_Reset(m_pPlayContext->hPlayer[i]);
+// 			}
 	}
 }
 

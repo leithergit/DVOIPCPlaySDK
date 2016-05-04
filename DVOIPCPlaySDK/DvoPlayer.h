@@ -918,10 +918,15 @@ private:
 		char *szStatus = "Succeed";
 #endif
 		CAutoLock lock(&m_csDxSurface, false,__FILE__, __FUNCTION__, __LINE__);
+		RECT rtRender;
+		GetWindowRect(m_hWnd, &rtRender);
+		ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
+		ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
+
 		if (m_bFitWindow)
 		{
 			DWORD dwTNow = timeGetTime();
-			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr);
+			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
 			DWORD dwTimeSpan = timeGetTime() - dwTNow;
 			if (dwTimeSpan > 200)
 			{
@@ -940,20 +945,6 @@ private:
 		}
 		else
 		{
-			RECT rtRender;
-			GetWindowRect(m_hWnd, &rtRender);
-			POINT ptLeftTop, ptRightBottom;
-			ptLeftTop.x = rtRender.left;
-			ptLeftTop.y = rtRender.top;
-			ptRightBottom.x = rtRender.right;
-			ptRightBottom.y = rtRender.bottom;
-
-			ScreenToClient(m_hWnd, &ptLeftTop);
-			ScreenToClient(m_hWnd, &ptRightBottom);
-			rtRender.left = ptLeftTop.x;
-			rtRender.top = ptLeftTop.y;
-			rtRender.right = ptRightBottom.x;
-			rtRender.bottom = ptRightBottom.y;
 			int nWndWidth = rtRender.right - rtRender.left;
 			int nWndHeight = rtRender.bottom - rtRender.top;
 			float fScaleWnd = (float)nWndHeight / nWndWidth;

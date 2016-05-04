@@ -244,8 +244,8 @@ struct LineTime
 	}
 };
 #ifdef _DEBUG
-#define SaveRunTime()		LineSave.SaveLineTime(__FILE__,__LINE__);
-#define DeclareRunTime()	CLineRunTime LineSave;
+#define SaveRunTime()		//LineSave.SaveLineTime(__FILE__,__LINE__);
+#define DeclareRunTime()	//CLineRunTime LineSave;
 #else
 #define SaveRunTime()
 #define DeclareRunTime()			
@@ -482,6 +482,7 @@ public:
 	{
 		if (!pImage)
 			return -1;
+		DxTrace("@File:%s %s pSrcFrame(%d,%d)->LineSize(%d,%d,%d).\n", __FILE__, __FUNCTION__, pSrcFrame->width, pSrcFrame->height, pSrcFrame->linesize[0], pSrcFrame->linesize[1], pSrcFrame->linesize[2]);
 		if (nGQP != nGQ)
 		{
 			// 转换算法调整
@@ -1194,12 +1195,12 @@ _Failed:
 		// 若窗口被隐藏或最小化则不再显示图像
 		if (IsIconic(hRenderWnd))		// 窗口最小化	
 		{
-			DxTraceMsg("%s hRenderWnd is Iconic.\n", __FUNCTION__);
+			//DxTraceMsg("%s hRenderWnd is Iconic.\n", __FUNCTION__);
 			return false;
 		}
 		if (!IsWindowVisible(hRenderWnd))// 窗口隐藏
 		{
-			DxTraceMsg("%s hRenderWnd is Unvisible Window.\n", __FUNCTION__);
+			//DxTraceMsg("%s hRenderWnd is Unvisible Window.\n", __FUNCTION__);
 			return false;
 		}
 		// 若当前窗口的根窗口被隐藏或最小化亦不显示图像
@@ -1208,12 +1209,12 @@ _Failed:
 		{
 			if (IsIconic(hRoot))			// 窗口最小化
 			{
-				DxTraceMsg("%s hRoot is Iconic.\n", __FUNCTION__);
+				//DxTraceMsg("%s hRoot is Iconic.\n", __FUNCTION__);
 				return false;
 			}
 			if (!IsWindowVisible(hRoot))	// 窗口隐藏
 			{
-				DxTraceMsg("%s hRoot is WindowUnvisible.\n", __FUNCTION__);
+				//DxTraceMsg("%s hRoot is WindowUnvisible.\n", __FUNCTION__);
 				ShowWindow(hRoot, SW_SHOW);
 				return false;
 			}
