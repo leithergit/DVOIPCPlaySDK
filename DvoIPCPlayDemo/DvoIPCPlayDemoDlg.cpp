@@ -1188,7 +1188,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				CFile fpMedia((LPCTSTR)strFilePath, CFile::modeRead);
 				DVO_MEDIAINFO MediaHeader;
 				if (fpMedia.Read(&MediaHeader, sizeof(DVO_MEDIAINFO)) < sizeof(DVO_MEDIAINFO) ||
-					MediaHeader.nMediaTag != 0x44564F4D)	// 头标志 固定为   0x44564F4D 即字符串"MOVD"
+					(MediaHeader.nMediaTag != DVO_TAG &&	// 头标志 固定为   0x44564F4D 即字符串"MOVD"
+					MediaHeader.nMediaTag != GSJ_TAG))
 				{
 					m_wndStatus.SetWindowText(_T("指定的文件不是一个有效的DVO录像文件"));
 					m_wndStatus.SetAlarmGllitery();	

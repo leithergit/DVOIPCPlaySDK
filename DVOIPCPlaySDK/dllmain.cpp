@@ -7,10 +7,80 @@ volatile bool g_bThread_ClosePlayer/* = false*/;
 list<DVO_PLAYHANDLE > g_listPlayertoFree;
 list<DVO_PLAYHANDLE> g_listPlayer;
 CRITICAL_SECTION  g_csListPlayertoFree;
+list<DxSurfaceWrap *>g_listDxCache;
+CRITICAL_SECTION  g_csListDxCache;
+
+UINT	g_nMaxCacheTime = 30;		//CDxSurface对象在g_listDxCache中留存的最大时间,默认为30秒,超过这个时间时,对应的CDxSurface对象将被删除
 #ifdef _DEBUG
 CRITICAL_SECTION g_csPlayerHandles;
 UINT	g_nPlayerHandles = 0;
 #endif
+
+double	g_dfProcessLoadTime = 0.0f;
+CDxSurface* GetDxInCache(int nWidth, int nHeight)
+{
+	CAutoLock lock(&g_csListDxCache);
+	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+	{
+		if ((*it)->CompareSize(nWidth,nHeight))
+		{
+			CDxSurface *pDxSurface = (*it)->Strip();		// 剥离DxSurface对象
+#ifdef _DEBUG
+			TraceMsgA("%s DxSurface Obj %p Striped.\n",__FUNCTION__, pDxSurface);
+			pDxSurface->OutputDxPtr();
+#endif
+			delete (*it);
+			it = g_listDxCache.erase(it);
+			return pDxSurface;
+		}
+		else
+			it++;
+	}
+	return nullptr;
+}
+void PutDxCache(CDxSurface *pDxSurface)
+{
+	TraceMsgA("%s DxSurface Obj %p input.\n",__FUNCTION__, pDxSurface);
+	EnterCriticalSection(&g_csListDxCache);
+	DxSurfaceWrap* pDxSurfaceWrap =  new DxSurfaceWrap(pDxSurface);
+	g_listDxCache.push_back(pDxSurfaceWrap);
+	LeaveCriticalSection(&g_csListDxCache);
+}
+
+void RemoveTimeoutDxSurface()
+{
+	CAutoLock lock(&g_csListDxCache);
+	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+	{
+		if (TimeSpanEx((*it)->dfInput) > g_nMaxCacheTime)
+		{
+#ifdef _DEBUG
+			TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
+			(*it)->pDxSurface->OutputDxPtr();
+#endif
+			delete (*it);
+			it = g_listDxCache.erase(it);
+			return;
+		}
+		else
+			it++;
+	}
+}
+
+
+void RemoveAllDxSurface()
+{
+	CAutoLock lock(&g_csListDxCache);
+	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+	{
+#ifdef _DEBUG
+		TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
+		(*it)->pDxSurface->OutputDxPtr();
+#endif
+		it = g_listDxCache.erase(it);
+	}
+}
+
 DWORD WINAPI Thread_ClosePlayer(void *);
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -21,7 +91,9 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	{
 	case DLL_PROCESS_ATTACH:
 	{
-		TraceMsgA("%s DvoIPCPlaySDK is loaded.\r\n", __FUNCTION__);
+		g_dfProcessLoadTime = GetExactTime();
+		//TraceMsgA("%s DvoIPCPlaySDK is loaded.\r\n", __FUNCTION__);
+		InitializeCriticalSection(&g_csListDxCache);
 		InitializeCriticalSection(&g_csListPlayertoFree);
 #ifdef _DEBUG
 		InitializeCriticalSection(&g_csPlayerHandles);
@@ -35,9 +107,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_ATTACH:
 		break;
 	case DLL_THREAD_DETACH:
-	{
-		TraceMsgA("%s DLL_THREAD_DETACH .\r\n", __FUNCTION__);
-	}
 		break;
 	case DLL_PROCESS_DETACH:
 	{
@@ -50,7 +119,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 				TraceMsgA("%s %d(%s) WaitForSingleObject Timeout.\n)", __FILE__, __LINE__, __FUNCTION__);
 			}
 		Sleep(10);
-			
 		GetExitCodeThread(g_hThread_ClosePlayer, &dwExitCode);
 		if (dwExitCode != STILL_ACTIVE)
 			TerminateThread(g_hThread_ClosePlayer, 0);
@@ -59,7 +127,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 #if _DEBUG
 		DeleteCriticalSection(&g_csPlayerHandles);
 #endif
-		TraceMsgA("%s DvoIPCPlaySDK is Unloaded.\r\n", __FUNCTION__);
+		DeleteCriticalSection(&g_csListDxCache);
+		//TraceMsgA("%s DvoIPCPlaySDK is Unloaded.\r\n", __FUNCTION__);
 		CloseHandle(g_hEventThreadExit);
 		g_hEventThreadExit = nullptr;
 	}
@@ -68,7 +137,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	return TRUE;
 }
 
-
 DWORD WINAPI Thread_ClosePlayer(void *)
 {
 //#ifdef _DEBUG
@@ -76,6 +144,7 @@ DWORD WINAPI Thread_ClosePlayer(void *)
 //#endif
 	while (g_bThread_ClosePlayer)
 	{
+		RemoveTimeoutDxSurface();
 		EnterCriticalSection(&g_csListPlayertoFree);
 		if (g_listPlayertoFree.size() > 0)
 			g_listPlayer.swap(g_listPlayertoFree);

@@ -38,3 +38,4 @@ EXPORTS
 	dvoplay_GetMaxFrameSize
 	dvoplay_SetMaxFrameSize
 	dvoplay_ClearCache
+	ClearD3DCache

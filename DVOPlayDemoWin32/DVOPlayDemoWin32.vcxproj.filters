@@ -33,6 +33,9 @@
     <ClInclude Include="SocketClient.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\DVOIPCPlaySDK\Utility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -40,6 +43,9 @@
     </ClCompile>
     <ClCompile Include="DVOPlayDemoWin32.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\DVOIPCPlaySDK\Utility.cpp">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

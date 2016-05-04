@@ -65,7 +65,7 @@
     </Link>
     <PostBuildEvent>
       <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),"E:\DVO\VCASysPC SDK V1.4.2.39104A9\BIN\DEMO\x86") do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -93,7 +93,7 @@ for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlayS
     </Link>
     <PostBuildEvent>
       <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

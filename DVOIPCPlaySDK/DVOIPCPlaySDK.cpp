@@ -35,6 +35,9 @@ extern UINT	g_nPlayerHandles;
 using namespace std;
 using namespace std::tr1;
 
+extern list<DxSurfaceWrap *>g_listDxCache;
+extern CRITICAL_SECTION  g_csListDxCache;
+
 //DVO IPC 返回流包头
 struct DVOIPC_StreamHeader
 {
@@ -173,9 +176,7 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 	if (strlen(pPlayer->m_szLogFileName) > 0)
 		TraceMsgA("%s %s.\n", __FUNCTION__, pPlayer->m_szLogFileName);
 	DxTraceMsg("%s DvoPlayer Object:%d.\n", __FUNCTION__, pPlayer->m_nObjIndex);
-	EnterCriticalSection(&g_csPlayerHandles);
-	g_nPlayerHandles--;
-	LeaveCriticalSection(&g_csPlayerHandles);
+	
 #endif
 	if (!pPlayer->StopPlay())
 	{
@@ -184,7 +185,14 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 		LeaveCriticalSection(&g_csListPlayertoFree);
 	}
 	else
+	{
+#ifdef _DEBUG
+		EnterCriticalSection(&g_csPlayerHandles);
+		g_nPlayerHandles--;
+		LeaveCriticalSection(&g_csPlayerHandles);
+#endif
 		delete pPlayer;
+	}
 
 	return 0;
 }
@@ -822,4 +830,9 @@ DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int
 	nStreamLength			 = nFrameLength;
 	
 	return DVO_Succeed;
+}
+
+DVOIPCPLAYSDK_API void ClearD3DCache()
+{
+	
 }

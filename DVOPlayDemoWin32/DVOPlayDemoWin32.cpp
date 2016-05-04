@@ -11,6 +11,7 @@
 #include <commctrl.h>
 #include <string>
 #include <vector>
+#include "../DVOIPCPlaySDK/Utility.h"
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 #include "../dvoipcnetsdk/dvoipcnetsdk.h"
 #pragma  comment(lib,"../debug/dvoipcnetsdk.lib")
@@ -33,42 +34,11 @@ int		g_nSnapShotedCount = 0;
 HWND	g_hListMessage = nullptr;
 HWND	g_hListCamera = nullptr;
 vector<string> g_vIPCamera;
+#ifdef EnableDlgItem
+#undef EnableDlgItem
 #define EnableDlgItem(hWnd,ID,enable) {::EnableWindow(::GetDlgItem(hWnd,ID),enable);}
-typedef void (CALLBACK* fnDVOCallback_RealAVData_T)( USER_HANDLE lUserID,  REAL_HANDLE lStreamHandle,  int nErrorType,  const char* pBuf,  int nDataSize,  void* pUser);
-
-#define __countof(array) (sizeof(array)/sizeof(array[0]))
-static void TraceMsgA(LPCSTR pFormat, ...)
-{
-	va_list args;
-	va_start(args, pFormat);
-	int nBuff;
-	CHAR szBuffer[0x7fff];
-	nBuff = _vsnprintf(szBuffer, __countof(szBuffer), pFormat, args);
-	//::wvsprintf(szBuffer, pFormat, args);
-	//assert(nBuff >=0);
-	OutputDebugStringA(szBuffer);
-	va_end(args);
-}
-
-int StrReserverFind(LPCSTR srcstr, CHAR ch)
-{
-	LPSTR lpsz = (LPSTR)strrchr(srcstr, ch);
-	return (lpsz == NULL) ? -1 : (int)(lpsz - srcstr);
-}
-
-void GetAppPathA(CHAR *szPath, int nBuffLen)
-{
-	int nPos;
-	CHAR	szTempPath[MAX_PATH] = { 0 };
-	::GetModuleFileNameA(NULL, szTempPath, MAX_PATH);
-	nPos = StrReserverFind(szTempPath, _T('\\'));
-#ifdef _DEBUG
-// 	if (nBuffLen <= 0)
-// 		assert(true);
 #endif
-	strncpy_s(szPath, nBuffLen, szTempPath, nPos);
-}
-
+typedef void (CALLBACK* fnDVOCallback_RealAVData_T)( USER_HANDLE lUserID,  REAL_HANDLE lStreamHandle,  int nErrorType,  const char* pBuf,  int nDataSize,  void* pUser);
 
 /// @brief		解码后YVU数据回调
 void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
@@ -247,14 +217,14 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_ LPTSTR    lpCmdLine,
                      _In_ int       nCmdShow)
 {
-	DVO2_NET_Init(true);
+	
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	hInst = hInstance;
 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DVOIPCPLAY), NULL, (DLGPROC)DialogProc);
 	nResult = GetLastError();
-	DVO2_NET_Release();
+	
 	return (int)0;
 }
 
@@ -387,7 +357,7 @@ BOOL ReOpenStream(int nIndex , int nStream,HWND hWnd)
 		if (hStream == -1)
 		{
 			sprintf(szText, "连接码流失败[%d].", nIndex);
-			ListBox_AddString(g_hListMessage, szText);
+			ListBox_InsertString(g_hListMessage,0, szText);
 			return FALSE;
 		}
 		m_pPlayContext[nIndex]->hStream = hStream;
@@ -415,7 +385,7 @@ BOOL ReOpenStream(int nIndex , int nStream,HWND hWnd)
 		if (!m_pPlayContext[nIndex]->hPlayer)
 		{
 			sprintf(szText, "%s 打开流播放句柄失败[%d].",__FUNCTION__, nIndex);
-			ListBox_AddString(g_hListMessage, szText);
+			ListBox_InsertString(g_hListMessage,0, szText);
 			return false;
 		}
 		m_pPlayContext[nIndex]->dwLastStreamTime = timeGetTime();
@@ -440,7 +410,7 @@ BOOL SnapShot(int nIndex,HWND hDlg)
 			if (!CreateDirectory(szPath, nullptr))
 			{
 				sprintf(szText, "%s 无法创建保存截图文件的目录,请确主是否有足够的权限[%d].", __FUNCTION__, nIndex);
-				ListBox_AddString(g_hListMessage, szText);
+				ListBox_InsertString(g_hListMessage,0, szText);
 				return FALSE;
 			}
 		}
@@ -456,13 +426,13 @@ BOOL SnapShot(int nIndex,HWND hDlg)
 		if (dvoplay_SnapShot(m_pPlayContext[nIndex]->hPlayer, szPath, XIFF_JPG) == DVO_Succeed)
 		{
 			sprintf(szText, "%s 已经生成截图[%d]:%s.", __FUNCTION__, nIndex,szPath);
-			ListBox_AddString(g_hListMessage, szText);
+			ListBox_InsertString(g_hListMessage,0, szText);
 			return TRUE;
 		}
 		else
 		{
 			sprintf(szText, "%s 播放器尚未启动,无法截图[%d].", __FUNCTION__, nIndex);
-			ListBox_AddString(g_hListMessage, szText);
+			ListBox_InsertString(g_hListMessage,0, szText);
 			return FALSE;
 		}
 	}
@@ -559,7 +529,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 			CHAR szIPAddress[32] = { 0 };
 			GetDlgItemText(hDlg,IDC_EDIT_ACCOUNT, szAccount, 32);
 			GetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, szPassowd, 32);
-			
+			DVO2_NET_Init(true);
 			int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL,0,0);
 			for (int i = 0; i < g_vIPCamera.size();i ++)
 				if (m_pPlayContext[i])
@@ -581,7 +551,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 				else
 				{
 					m_pPlayContext[i].reset();
-					ListBox_AddString(g_hListMessage, "连接相机失败");
+					ListBox_InsertString(g_hListMessage,0, "连接相机失败");
 				}
 			}
 			EnableDlgItem(hDlg, IDC_BUTTON_DISCONNECT, true);
@@ -604,7 +574,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 			EnableDlgItem(hDlg, IDC_EDIT_PASSWORD, true);
 			EnableDlgItem(hDlg, IDC_IPADDRESS, true);
 			EnableDlgItem(hDlg, IDC_COMBO_STREAM, true);
-			
+			DVO2_NET_Release();
 			break;
 		}
 		case IDC_BUTTON_SWITCSTREAM:
@@ -633,7 +603,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 
 			if (hStream == -1)
 			{
-				ListBox_AddString(g_hListMessage, _T("连接码流失败"));
+				ListBox_InsertString(g_hListMessage,0, _T("连接码流失败"));
 				return FALSE;
 			}
 			break;
@@ -662,7 +632,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					if (hStreamHandle == -1)
 					{
 						sprintf(szText, "连接码流[%d]失败,Error = %d.", i,nError);
-						ListBox_AddString(g_hListMessage, szText);
+						ListBox_InsertString(g_hListMessage,0, szText);
 						continue;
 					}
 					m_pPlayContext[i]->hStream = hStreamHandle;
@@ -673,7 +643,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 						if (!m_pPlayContext[i]->GetStreamInfo(nStream, &MediaHeader,nError))
 						{
 							sprintf(szText, "获取码流信息失败[%d],Error = %d.", i,nError);
-							ListBox_AddString(g_hListMessage, szText);
+							ListBox_InsertString(g_hListMessage,0, szText);
 							continue;
 						}
 						if (IsDlgButtonChecked(hDlg, IDC_RADIO_PLAYSTREAM) == BST_CHECKED)
@@ -684,7 +654,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 							if (!m_pPlayContext[i]->hPlayer)
 							{
 								sprintf(szText, "打开流播放句柄失败[%d].", i);
-								ListBox_AddString(g_hListMessage, szText);
+								ListBox_InsertString(g_hListMessage,0, szText);
 								continue;
 							}
 						}
@@ -694,7 +664,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 							if (!m_pPlayContext[i]->hPlayer)
 							{
 								sprintf(szText, "打开流播放句柄失败[%d].", i);
-								ListBox_AddString(g_hListMessage, szText);
+								ListBox_InsertString(g_hListMessage,0, szText);
 								continue;
 							}
 						}
@@ -723,12 +693,12 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 							if (m_pPlayContext[i]->hYUVFile != INVALID_HANDLE_VALUE)
 							{
 								sprintf(szText, "YVU数据将被保存到文件%s中.", szYUVFile);
-								ListBox_AddString(g_hListMessage, szText);
+								ListBox_InsertString(g_hListMessage,0, szText);
 							}
 							else
 							{
 								sprintf(szText, "打开文件%s失败，YVU数据将无法保存.", szYUVFile);
-								ListBox_AddString(g_hListMessage, szText);
+								ListBox_InsertString(g_hListMessage,0, szText);
 							}
 							dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
 						}
@@ -804,6 +774,9 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
+	{
+		ClearD3DCache();
+	}
 		break;
 	case WM_TIMER:
 	{
@@ -830,7 +803,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 						&nError);
 					if (m_pPlayContext[0]->hStream == -1)
 					{
-						ListBox_AddString(g_hListMessage, _T("连接码流失败"));
+						ListBox_InsertString(g_hListMessage,0, _T("连接码流失败"));
 						return 0;
 					}
 					m_pPlayContext[0]->dwLastStreamTime = timeGetTime();
@@ -860,7 +833,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 				}
 				
 				sprintf(szText, "正在进行第[%d]路截图……", g_nSnapIndex);
-				ListBox_AddString(g_hListMessage, szText);
+				ListBox_InsertString(g_hListMessage,0, szText);
 				
 				int nError = 0;
 				int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
@@ -874,6 +847,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					return 0;
 				}
 				//Sleep(2000);
+				//EventDelay(nullptr, 2000);
 				if (SnapShot(g_nSnapIndex,hDlg))
 				{
 					g_nSnapShotedCount++;
@@ -988,7 +962,7 @@ void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
 		DWORD dwBytesWrite = 0;
 		if (!WriteFile(pContext->hYUVFile, pYUV, nSize, &dwBytesWrite, nullptr))
 		{
-			ListBox_AddString(g_hListMessage, "写入YVU数据失败");
+			ListBox_InsertString(g_hListMessage,0, "写入YVU数据失败");
 		}
 		CloseHandle(pContext->hYUVFile);
 		pContext->hYUVFile = nullptr;

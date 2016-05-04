@@ -559,6 +559,7 @@ class CDxSurface
 {
 protected:	
 	long					m_nVtableAddr;		// 虚函数表地址，该变量地址位置虚函数表之后，仅用于类初始化，请匆移动该变量的位置
+	
 	D3DPRESENT_PARAMETERS	m_d3dpp;
 	CRITICAL_SECTION		m_csRender;			// 渲染临界区
 	CRITICAL_SECTION		m_csSnapShot;		// 截图临界区
@@ -602,6 +603,8 @@ protected:
 	WNDPROC					m_pOldWndProc;
 	static WndSurfaceMap	m_WndSurfaceMap;
 	static CriticalSectionPtr m_WndSurfaceMapcs;
+	static	int				m_nObjectCount;
+	static CriticalSectionPtr m_csObjectCount;
 	bool					m_bWndSubclass;		// 是否子类化显示窗口,为ture时，则将显示窗口子类化,此时窗口消息会先被CDxSurface::WndProc优先处理,再由窗口函数处理
 	pDirect3DCreate9*		m_pDirect3DCreate9;
 public:
@@ -623,6 +626,10 @@ public:
 		// 借助于m_nVtableAddr变量，避开对虚函数表的初始化
 		// 仅适用于微软的Visual C++编译器
 		ZeroMemory(&m_nVtableAddr, sizeof(CDxSurface) - offsetof(CDxSurface,m_nVtableAddr));
+		m_csObjectCount->Lock();
+		m_nObjectCount++;
+		DxTraceMsg("%s CDxSurface Count = %d.\n", __FUNCTION__, m_nObjectCount);
+		m_csObjectCount->Unlock();
 		m_bEnableVsync = true;
 		if (!m_hD3D9)
 			m_hD3D9 = LoadLibraryA("d3d9.dll");
@@ -650,7 +657,11 @@ public:
 		m_hEventCopySurface		 = CreateEvent(NULL,TRUE,FALSE,NULL);
 		m_hEventCreateSurface	 = CreateEvent(NULL,TRUE,FALSE,NULL);
 	}
-
+	void ReleaseOffSurface()
+	{
+		if (m_pDirect3DSurfaceRender)
+			SafeRelease(m_pDirect3DSurfaceRender);
+	}
 	virtual ~CDxSurface()
 	{
 		TraceFunction();
@@ -781,7 +792,11 @@ public:
 		return SUCCEEDED(m_pDirect3DDevice->Reset(&m_d3dpp));
 #endif
 	}
-	
+	// 取视频尺寸,低16 bit为宽度，高16bit为高度
+	DWORD GetVideoSize()
+	{
+		return MAKELONG(m_nVideoWidth, m_nVideoHeight);
+	}
 	// D3dDirect9Ex下，该成员不再有效
 	virtual bool RestoreDevice()
 	{// 恢复设备，即用原始参数重建资源
@@ -804,6 +819,13 @@ public:
 		return SUCCEEDED(m_pDirect3DDevice->CreateOffscreenPlainSurface(m_nVideoWidth, m_nVideoHeight, m_nD3DFormat, D3DPOOL_DEFAULT, &m_pDirect3DSurfaceRender, NULL));
 #endif
 	}
+
+#ifdef _DEBUG
+	virtual void OutputDxPtr()
+	{
+		DxTraceMsg("%s m_pDirect3D9 = %p\tm_pDirect3DDevice = %p\tm_pDirect3DSurfaceRender = %p.\n", __FUNCTION__, m_pDirect3D9, m_pDirect3DDevice, m_pDirect3DSurfaceRender);
+	}
+#endif
 	virtual void DxCleanup()
 	{
 		SafeRelease(m_pDirect3DSurfaceRender);
@@ -855,7 +877,7 @@ public:
 			wcslen(szFilePath) <= 0)
 			return false;
 		CAutoLock lock(&m_csSnapShot);
-		_tcscpy_s(m_szSnapShotPath, MAX_PATH, szFilePath);
+		wcscpy(m_szSnapShotPath, szFilePath);
 		m_D3DXIFF = D3DImageFormat;
 		HRESULT hr = S_OK;
 		if (!m_pSnapshotSurface)
@@ -1962,7 +1984,13 @@ public:
 			assert(false);
 		}
 	}
-	void DxCleanup()
+#ifdef _DEBUG
+	virtual void OutputDxPtr()
+	{
+		DxTraceMsg("%s m_pDirect3D9Ex = %p\tm_pDirect3DDeviceEx = %p\tm_pDirect3DSurfaceRender = %p.\n", __FUNCTION__, m_pDirect3D9Ex, m_pDirect3DDeviceEx, m_pDirect3DSurfaceRender);
+	}
+#endif
+	virtual void DxCleanup()
 	{
 		SafeRelease(m_pDirect3DSurfaceRender);
 		SafeRelease(m_pDirect3DDeviceEx);
@@ -2303,7 +2331,7 @@ _Failed:
 			wcslen(szFilePath) <= 0)
 			return false;
 		CAutoLock lock(&m_csSnapShot);
-		_tcscpy_s(m_szSnapShotPath, MAX_PATH, szFilePath);
+		wcscpy(m_szSnapShotPath, szFilePath);
 		m_D3DXIFF = D3DImageFormat;
 		HRESULT hr = S_OK;
 		if (!m_pSnapshotSurface)

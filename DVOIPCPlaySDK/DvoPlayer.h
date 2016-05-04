@@ -20,8 +20,6 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <process.h>
-#include <thread>
-#include <chrono>
 #include <Shlwapi.h>
 #include <MMSystem.h>
 #pragma comment(lib, "winmm.lib")
@@ -57,8 +55,45 @@ using namespace std::tr1;
 #define FrameSize2(p)	(((DVOFrameHeader*)p)->nLength + sizeof(DVOFrameHeader))	
 #define Frame2(p)		((DVOFrameHeader *)p)
 
-struct StreamFrame;
+struct DxSurfaceWrap
+{
+	DxSurfaceWrap(CDxSurface *pSurface)
+	{
+		dfInput = GetExactTime();
+		pDxSurface = pSurface;
+	}
+	~DxSurfaceWrap()
+	{
+		if (pDxSurface)
+			delete pDxSurface;
+	}
+	CDxSurface* Strip()		// 剥离CDxSurface对象指针
+	{
+		if (pDxSurface)
+		{
+			CDxSurface *pTemp = pDxSurface;
+			pDxSurface = nullptr;
+			return pTemp;
+		}
+		else
+		{
+			assert(false);
+			return nullptr;
+		}
+	}
+	bool CompareSize(int nWidth,int nHeight)
+	{
+		if (pDxSurface)
+			return (MAKELONG(nWidth, nHeight) == pDxSurface->GetVideoSize());
+		else
+			return false;
+	}
+	double dfInput;
+	CDxSurface	*pDxSurface;
+};
+//typedef shared_ptr<DxSurfaceWrap> DxSurfaceWrapPtr;
 
+struct StreamFrame;
 typedef shared_ptr<StreamFrame> StreamFramePtr;
 
 struct AudioPlayDevice
@@ -213,7 +248,7 @@ struct StreamFrame
 		if (pInputData)
 			memcpy(pInputData, pBuffer, nLenth);
 		DVOFrameHeader* pHeader = (DVOFrameHeader *)pInputData;
-		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 			pHeader->nTimestamp = ((DVOFrameHeaderEx* )pHeader)->nFrameID*nFrameInterval * 1000;
 	}
 	/// @brief	接收来自相机或其它实时码流的数据
@@ -277,7 +312,7 @@ struct StreamFrame
 	}
 	inline const byte *Framedata(int nSDKVersion = DVO_IPC_SDK_VERSION_2015_12_16)
 	{
-		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 			return (pInputData + sizeof(DVOFrameHeaderEx));
 		else
 			return (pInputData + sizeof(DVOFrameHeader));
@@ -425,6 +460,10 @@ struct StreamProbe
 extern volatile bool g_bThread_ClosePlayer/* = false*/;
 extern list<DVO_PLAYHANDLE > g_listPlayertoFree;
 extern CRITICAL_SECTION  g_csListPlayertoFree;
+extern double	g_dfProcessLoadTime ;
+extern CDxSurface* GetDxInCache(int nWidth, int nHeight);
+extern void PutDxCache(CDxSurface *pDxSurface);
+extern CDxSurfaceEx* g_dx;
 class CDvoPlayer
 {
 public:
@@ -619,7 +658,7 @@ private:
 	static bool IsDVOVideoFrame(DVOFrameHeader *pFrameHeader,bool &bIFrame,int nSDKVersion)
 	{
 		bIFrame = false;
-		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 		{
 			switch (pFrameHeader->nType)
 			{
@@ -1084,6 +1123,7 @@ public:
 					{
 					case DVO_IPC_SDK_VERSION_2015_09_07:
 					case DVO_IPC_SDK_VERSION_2015_10_20:
+					case DVO_IPC_SDK_GSJ_HEADER:
 					{
 						m_nFileFPS = 25;
 						m_nVideoCodec = CODEC_UNKNOWN;
@@ -1218,10 +1258,15 @@ public:
 			OSVERSIONINFOEX osVer;
 			osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
 			GetVersionEx((OSVERSIONINFO *)&osVer);
-			if (osVer.dwMajorVersion < 6)
-				m_pDxSurface = _New CDxSurface();
- 			else
- 				m_pDxSurface = _New CDxSurfaceEx();
+			if (TimeSpanEx(g_dfProcessLoadTime) < 15)
+			{// 进程启动15秒内，不从缓存中取CDxSurface 对象
+				if (osVer.dwMajorVersion < 6)
+					m_pDxSurface = _New CDxSurface();
+				else
+					m_pDxSurface = _New CDxSurfaceEx();
+			}
+			else
+				m_pDxSurface = nullptr;
 			//m_DsPlayer = _New CDSoundPlayer();
 			//m_DsPlayer.Initialize(m_hWnd, Audio_Play_Segments);
 		}
@@ -1272,10 +1317,13 @@ public:
 		}
 		if (m_pDxSurface)
 		{
-			delete m_pDxSurface;
-#ifdef _DEBUG
-			m_pDxSurface = nullptr;
-#endif
+			if (m_pDxSurface->IsInited())
+			{
+				PutDxCache(m_pDxSurface);
+				OutputMsg("%s nVideoWidth = %d\tnVideoHeight = %d\n",__FUNCTION__, m_nVideoWidth, m_nVideoHeight);
+			}
+//			delete m_pDxSurface;
+ 			m_pDxSurface = nullptr;
 		}
 		if (m_hCacheFulled)
 		{
@@ -1344,6 +1392,7 @@ public:
 			{
 			case DVO_IPC_SDK_VERSION_2015_09_07:
 			case DVO_IPC_SDK_VERSION_2015_10_20:
+			case DVO_IPC_SDK_GSJ_HEADER:
 			{
 				m_nFileFPS = 25;
 				m_nVideoCodec = CODEC_UNKNOWN;
@@ -1516,7 +1565,8 @@ public:
 			return GetLastError();
 		}
 		// 分析视频文件头
-		if (m_pMediaHeader->nMediaTag != DVO_TAG ||
+		if ((m_pMediaHeader->nMediaTag != DVO_TAG && 
+			 m_pMediaHeader->nMediaTag != GSJ_TAG) ||
 			dwBytesRead != sizeof(DVO_MEDIAINFO))
 		{
 			CloseHandle(m_hDvoFile);
@@ -1525,8 +1575,10 @@ public:
 		m_nSDKVersion = m_pMediaHeader->nSDKversion;
 		switch (m_nSDKVersion)
 		{
+
 		case DVO_IPC_SDK_VERSION_2015_09_07:
 		case DVO_IPC_SDK_VERSION_2015_10_20:
+		case DVO_IPC_SDK_GSJ_HEADER:
 		{
 			m_nFileFPS = 25;
 			m_nVideoCodec = CODEC_UNKNOWN;
@@ -1558,6 +1610,7 @@ public:
 		}
 		break;
 		default:
+		
 			return DVO_Error_InvalidSDKVersion;
 		}
 		m_nFileFrameInterval = 1000 / m_nFileFPS;
@@ -1594,9 +1647,9 @@ public:
 				return DVO_Error_VideoThreadNotRun;
 			}
 		}
-		
+		m_bIpcStream = false;		// 非IPC码流
 		DVOFrameHeader *pHeaderEx = (DVOFrameHeader *)szFrameData;
-		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 		{
 			switch (pHeaderEx->nType)
 			{
@@ -1624,7 +1677,7 @@ public:
 				{
 	// 				if (!m_hThreadPlayVideo)
 	// 					return DVO_Error_AudioThreadNotRun;
-					if (!m_bEnableAudio)
+					if (!m_bEnableAudio && !bNoThreadCheck)
 						break;
 					if (m_fPlayRate != 1.0f)
 						break;
@@ -1665,6 +1718,7 @@ public:
 			
 			case 2:				// 音频帧
 			case FRAME_G711U:
+			//case FRAME_G726:    // G726编码帧
 			{
 				if (!m_bEnableAudio)
 					break;
@@ -1683,7 +1737,7 @@ public:
 			}
 			default:
 			{
-				assert(false);
+				//assert(false);
 				return DVO_Error_InvalidFrameType;
 				break;
 			}
@@ -1797,6 +1851,8 @@ public:
 		TraceFunction();
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
+		if (!m_bIpcStream)			// 对于文件码流，不使用异步关闭的方式
+			nTimeout = INFINITE;
 		m_bThreadParserRun = false;
 		m_bThreadPlayVideoRun = false;
 		m_bThreadPlayAudioRun = false;
@@ -1851,7 +1907,10 @@ public:
 		}
 		EnableAudio(false);
 		if (m_pFrameOffsetTable)
-			delete []m_pFrameOffsetTable;
+		{
+			delete[]m_pFrameOffsetTable;
+			m_pFrameOffsetTable = nullptr;
+		}
 		
 #ifdef _DEBUG
 		m_hThreadPlayVideo = nullptr;		
@@ -1942,7 +2001,7 @@ public:
 			{
 				pPlayInfo->nCurFrameID = m_nCurVideoFrame;
 				pPlayInfo->nTotalFrames = m_nTotalFrames;
-				if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+				if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 				{
 					pPlayInfo->tTotalTime = m_nTotalFrames*1000/m_nFileFPS;
 					pPlayInfo->tCurFrameTime = m_nCurVideoFrame * 1000 / m_nFileFPS;
@@ -1975,12 +2034,17 @@ public:
 	/// @retval			-1	输入参数无效
 	inline int  SnapShot(IN WCHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat = XIFF_JPG)
 	{
-		if (m_pDxSurface && m_hThreadPlayVideo)
+		if (m_hThreadPlayVideo)
 		{
 			if (WaitForSingleObject(m_hSnapShot, 5000) == WAIT_TIMEOUT)
 				return DVO_Error_PlayerNotStart;
-			m_pDxSurface->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat);
-			return DVO_Succeed;
+			if (m_pDxSurface)
+			{
+				m_pDxSurface->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat);
+				return DVO_Succeed;
+			}
+			else
+				return DVO_Error_WindowNotAssigned;
 		}
 		else
 			return DVO_Error_PlayerNotStart;
@@ -2141,7 +2205,7 @@ public:
 			av_init_packet(pAvPacket);
 			m_nCurVideoFrame = Frame(pBuffer)->nFrameID;
 			pAvPacket->size = Frame(pBuffer)->nLength;
-			if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+			if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 				pAvPacket->data = pBuffer + sizeof(DVOFrameHeaderEx);
 			else
 				pAvPacket->data = pBuffer + sizeof(DVOFrameHeader);
@@ -2284,7 +2348,7 @@ public:
 			shared_ptr<AVFrame>AvFramePtr(pAvFrame, av_free);
 			av_init_packet(pAvPacket);
 			pAvPacket->size = Frame(pBuffer)->nLength;
-			if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+			if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 				pAvPacket->data = pBuffer + sizeof(DVOFrameHeaderEx);
 			else
 				pAvPacket->data = pBuffer + sizeof(DVOFrameHeader);
@@ -2475,7 +2539,7 @@ public:
 		shared_ptr<void> DvoFilePtr(hDvoFile, CloseHandle);
 	
 		DWORD nBufferSize = sizeof(DVOFrameHeader);
-		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 			nBufferSize = sizeof(DVOFrameHeaderEx);
 		LARGE_INTEGER liFileSize;
 		if (!GetFileSizeEx(hDvoFile, &liFileSize))
@@ -2544,7 +2608,7 @@ public:
 						m_pFrameOffsetTable[nFrames].nFrameSize	 = nFrameSize;
 						m_pFrameOffsetTable[nFrames].bIFrame	 = bIFrame;
 						// 根据帧ID和文件播放间隔来精确调整每一帧的播放时间
-						if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+						if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 							m_pFrameOffsetTable[nFrames].tTimeStamp = nFrames*m_nFileFrameInterval * 1000;
 						else
 							m_pFrameOffsetTable[nFrames].tTimeStamp = pHeaderEx->nTimestamp;
@@ -2640,7 +2704,7 @@ public:
 		const UINT nMaxCache = 200;
 		bool bFirstBlockIsFilled = true;
 		int nAllFrames = 0;
-		m_bEnableAudio = true;			// 先开启音频标记，以输入音频数据,若后期关闭音频，则缓存数据会自动删除
+		//m_bEnableAudio = true;			// 先开启音频标记，以输入音频数据,若后期关闭音频，则缓存数据会自动删除
 		
 		while (true && m_bThreadSummaryRun)
 		{
@@ -2681,6 +2745,7 @@ public:
 						m_nHeaderFrameID = m_listVideoCache.front()->FrameHeader()->nFrameID;
 						TraceMsgA("HeadFrame ID = %d.\n", m_nHeaderFrameID);
 						bFirstBlockIsFilled = false;
+						m_bEnableAudio = false;
 					}
 				}
 
@@ -2700,7 +2765,7 @@ public:
 							m_pFrameOffsetTable[nFrames].nFrameSize = Parser.nFrameSize;
 							m_pFrameOffsetTable[nFrames].bIFrame = bIFrame;
 							// 根据帧ID和文件播放间隔来精确调整每一帧的播放时间
-							if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16)
+							if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 								m_pFrameOffsetTable[nFrames].tTimeStamp = nFrames*m_nFileFrameInterval * 1000;
 							else
 								m_pFrameOffsetTable[nFrames].tTimeStamp = Parser.pHeader->nTimestamp;
@@ -2766,7 +2831,7 @@ public:
 			return false;
 
 		byte *pFrameBuff = *ppBuffer;
-		if (m_nSDKVersion < DVO_IPC_SDK_VERSION_2015_12_16)
+		if (m_nSDKVersion < DVO_IPC_SDK_VERSION_2015_12_16 || m_nSDKVersion == DVO_IPC_SDK_GSJ_HEADER)
 		{// 旧版文件
 			// 帧头信息不完整
 			if ((nOffset + sizeof(DVOFrameHeader)) >= nDataSize)
@@ -3479,32 +3544,54 @@ public:
 		if (!pThis->m_nVideoWidth || !pThis->m_nVideoHeight)
 			assert(false);
 		//shared_ptr<CSimpleWnd>pWndDxInit = make_shared<CSimpleWnd>(pThis->m_nVideoWidth, pThis->m_nVideoHeight);	///< 视频显示时，用以初始化DirectX的隐藏窗口对象
-		nRetry = 0;
-		while (pThis->m_bThreadPlayVideoRun && pThis->m_hWnd)
-		{
-			if (!pThis->InitD3D())
-			{
-				nRetry++;
-				Delay(2500, pThis->m_bThreadPlayVideoRun);
-				if (nRetry >= 3)
-				{
-					if (pThis->m_hWnd)
-						::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
-					return 0;
-				}
-			}
-			else
-				break;
-		}
-		RECT rtWindow;
 		if (pThis->m_hWnd)
 		{
+			bool bCacheDxSurface = false;		// 是否为缓存中取得的Surface对象
+			if (!pThis->m_pDxSurface)
+			{
+				pThis->m_pDxSurface = GetDxInCache(pThis->m_nVideoWidth, pThis->m_nVideoHeight);
+				if (pThis->m_pDxSurface)
+					bCacheDxSurface = true;
+				else
+				{
+					OSVERSIONINFOEX osVer;
+					osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+					GetVersionEx((OSVERSIONINFO *)&osVer);
+					if (osVer.dwMajorVersion < 6)
+						pThis->m_pDxSurface = _New CDxSurface();
+					else
+						pThis->m_pDxSurface = _New CDxSurfaceEx();
+				}
+			}
+			if (!bCacheDxSurface)
+			{
+				nRetry = 0;
+				while (pThis->m_bThreadPlayVideoRun)
+				{
+					if (!pThis->InitD3D())
+					{
+						nRetry++;
+						Delay(2500, pThis->m_bThreadPlayVideoRun);
+						if (nRetry >= 3)
+						{
+							if (pThis->m_hWnd)
+								::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
+							return 0;
+						}
+					}
+					else
+						break;
+				}
+			}
+
+			RECT rtWindow;
 			GetWindowRect(pThis->m_hWnd, &rtWindow);
 			pThis->OutputMsg("%s Window Width = %d\tHeight = %d.\n", __FUNCTION__, (rtWindow.right - rtWindow.left), (rtWindow.bottom - rtWindow.top));
 #ifdef _DEBUG
 			pThis->OutputMsg("%s \tObject:%d Line %d Time = %d.\n", __FUNCTION__, pThis->m_nObjIndex, __LINE__, timeGetTime() - pThis->m_nLifeTime);
 #endif
 		}
+		
 		if (pThis->m_pStreamProbe)
 			pThis->m_pStreamProbe = nullptr;
 		pThis->m_pDecodec = pDecodec;
@@ -3713,20 +3800,13 @@ public:
 			if (nAvError < 0)
 			{
 				av_strerror(nAvError, szAvError, 1024);
-				pThis->OutputMsg("%s Decode error:%s.\n", __FUNCTION__, szAvError);
-				pThis->OutputMsg("%s Frame data = %02d %02d %02d %02d.\n", __FUNCTION__, pAvPacket->data[0], pAvPacket->data[1], pAvPacket->data[2], pAvPacket->data[3]);
+				//pThis->OutputMsg("%s Decode error:%s.\n", __FUNCTION__, szAvError);
+				//pThis->OutputMsg("%s Frame data = %02d %02d %02d %02d.\n", __FUNCTION__, pAvPacket->data[0], pAvPacket->data[1], pAvPacket->data[2], pAvPacket->data[3]);
 				continue;
 			}
 			av_packet_unref(pAvPacket);
  			if (nGot_picture)
  			{
-#ifdef _DEBUG
-				if (!bDecodeSucceed)
-				{
-					bDecodeSucceed = true;
-					pThis->OutputMsg("%s \tObject:%d  DecodeSucceed m_nLifeTime = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
-				}
-#endif
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
 				//TraceMsgA("%s m_nCurVideoFrame = %d\tm_tCurFrameTimeStamp = %d.\n", __FUNCTION__, pThis->m_nCurVideoFrame, pThis->m_tCurFrameTimeStamp);
@@ -3734,7 +3814,14 @@ public:
 				if (pThis->m_pDxSurface)
 				{
 					pThis->RenderFrame(pAvFrame);
-					SetEvent(pThis->m_hSnapShot);
+					if (!bDecodeSucceed)
+					{
+						bDecodeSucceed = true;
+						SetEvent(pThis->m_hSnapShot);
+#ifdef _DEBUG
+						pThis->OutputMsg("%s \tObject:%d  SetEvent Snapshot  m_nLifeTime = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
+#endif
+					}
 				}
 #ifdef _DEBUG
 // 				SYSTEMTIME sysTime;
