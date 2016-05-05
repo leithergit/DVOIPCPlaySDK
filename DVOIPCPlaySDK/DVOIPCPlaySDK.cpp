@@ -283,15 +283,15 @@ DVOIPCPLAYSDK_API int dvoplay_Start(IN DVO_PLAYHANDLE hPlayHandle,
 /// @param [in]		nHeight			窗口高度,该参数暂未使用,可设为0
 DVOIPCPLAYSDK_API int  dvoplay_Reset(IN DVO_PLAYHANDLE hPlayHandle, HWND hWnd, int nWidth , int nHeight)
 {
-	if (!hPlayHandle)
-		return DVO_Error_InvalidParameters;
-	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
-	if (pPlayer->nSize != sizeof(CDvoPlayer))
-		return DVO_Error_InvalidParameters;
-	if (pPlayer->Reset(hWnd, nWidth, nHeight))
+// 	if (!hPlayHandle)
+// 		return DVO_Error_InvalidParameters;
+// 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+// 	if (pPlayer->nSize != sizeof(CDvoPlayer))
+// 		return DVO_Error_InvalidParameters;
+// 	if (pPlayer->Reset(hWnd, nWidth, nHeight))
 		return DVO_Succeed;
-	else
-		return DVO_Error_DxError;
+//	else
+//		return DVO_Error_DxError;
 }
 
 /// @brief			使视频适应窗口

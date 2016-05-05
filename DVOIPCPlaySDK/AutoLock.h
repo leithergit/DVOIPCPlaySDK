@@ -45,6 +45,7 @@ void MyDeleteCriticalSection(MYCRITICAL_SECTION *);
 #define _MyEnterCriticalSection			EnterCriticalSection
 #define _MyLeaveCriticalSection			LeaveCriticalSection
 
+#define Autolock(cs)	CAutoLock lock(cs,false,__FILE__,__FUNCTION__,__LINE__);
 class CAutoLock
 {
 private:
@@ -64,6 +65,7 @@ private:
 public:
 	CAutoLock(CRITICAL_SECTION *pCS, bool bAutoDelete = false, const CHAR *szFile = nullptr, char *szFunction = nullptr, int nLine = 0)
 	{
+		ZeroMemory(this, sizeof(CAutoLock));
 		assert(pCS != NULL);
 		if (pCS)
 		{

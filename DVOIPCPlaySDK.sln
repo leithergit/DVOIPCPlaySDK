@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DVOPlayDemoWin32", "DVOPlay
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestDxSurfaceWin32", "TestDxSurfaceWin32\TestDxSurfaceWin32.vcxproj", "{155EA4AD-9FDD-46E6-B7D4-9161806EF801}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DVOSnapshot", "DVOSnapshot\DVOSnapshot.vcxproj", "{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -42,6 +44,12 @@ Global
 		{155EA4AD-9FDD-46E6-B7D4-9161806EF801}.Release|Win32.Build.0 = Release|Win32
 		{155EA4AD-9FDD-46E6-B7D4-9161806EF801}.Template|Win32.ActiveCfg = Release|Win32
 		{155EA4AD-9FDD-46E6-B7D4-9161806EF801}.Template|Win32.Build.0 = Release|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Debug|Win32.Build.0 = Debug|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Release|Win32.ActiveCfg = Release|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Release|Win32.Build.0 = Release|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Template|Win32.ActiveCfg = Release|Win32
+		{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}.Template|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -581,7 +581,7 @@ protected:
 	shared_ptr<PixelConvert>m_pPixelConvert;
 	IDirect3D9				*m_pDirect3D9		/* = NULL*/;
 	IDirect3DDevice9		*m_pDirect3DDevice	/*= NULL*/;	
-	HANDLE					m_hEventCreateSurface;// 截图表面创建事件
+	HANDLE					m_hEventSnapShot;	// 截图请求事件
 	HANDLE					m_hEventCopySurface;// 解码数据复制事件
 	// 外部绘制接口，提供外部接口，允许调用方自行绘制图像
 	ExternDrawProc			m_pExternDraw;
@@ -653,8 +653,8 @@ public:
 		}
 		InitializeCriticalSection(&m_csRender);
 		InitializeCriticalSection(&m_csSnapShot);
-		m_hEventCopySurface		 = CreateEvent(NULL,TRUE,FALSE,NULL);
-		m_hEventCreateSurface	 = CreateEvent(NULL,TRUE,FALSE,NULL);
+		m_hEventCopySurface		 = CreateEvent(NULL,FALSE,FALSE,NULL);
+		m_hEventSnapShot	 = CreateEvent(NULL,FALSE,FALSE,NULL);
 	}
 	void ReleaseOffSurface()
 	{
@@ -679,10 +679,10 @@ public:
 			CloseHandle(m_hEventCopySurface);
 			m_hEventCopySurface = NULL;
 		}
-		if (m_hEventCreateSurface)
+		if (m_hEventSnapShot)
 		{
-			CloseHandle(m_hEventCreateSurface);
-			m_hEventCreateSurface = NULL;
+			CloseHandle(m_hEventSnapShot);
+			m_hEventSnapShot = NULL;
 		}
 	}
 
@@ -821,12 +821,18 @@ public:
 		SafeRelease(m_pSnapshotSurface);
 	}
 
+	// 发送截图请求，即置信截图事件
+	void RequireSnapshot()
+	{
+		SetEvent(m_hEventSnapShot);
+	}
+
 	// 把解码帧pAvFrame中的图像传送到截图表面
 	void TransferSnapShotSurface(AVFrame *pAvFrame)
 	{
-		if (WaitForSingleObject(m_hEventCreateSurface,0) == WAIT_OBJECT_0 )						// 已经创建截图表面
+		if (m_pSnapshotSurface && WaitForSingleObject(m_hEventSnapShot, 0) == WAIT_OBJECT_0)						// 收到截图请求
 		{
-			ResetEvent(m_hEventCreateSurface);
+			//ResetEvent(m_hEventCreateSurface);
 			// 不能使用StretchRect把显存表面复制到系统内存表面
 			// hr = m_pDirect3DDevice->StretchRect(m_pDirect3DSurfaceRender, &srcrt, m_pSnapshotSurface, &srcrt, D3DTEXF_LINEAR);
 			D3DLOCKED_RECT D3dRect;
@@ -842,15 +848,16 @@ public:
 			memcpy(D3dRect.pBits, pVideoScale->pImage,pVideoScale->nImageSize);
 			m_pSnapshotSurface->UnlockRect();
 			SetEvent(m_hEventCopySurface);
+			DxTraceMsg("%s Surface is Transfered.\n", __FUNCTION__);
 		}
 	}
 	
 	// 解码抓图，把Surface中的图像数据保存到文件中，此截图得到的图像是原始的图像
 	virtual bool SaveSurfaceToFileA(CHAR *szFilePath,D3DXIMAGE_FILEFORMAT D3DImageFormat = D3DXIFF_JPG)
 	{
-		if (!szFilePath ||
-			strlen(szFilePath) <= 0)
+		if (!szFilePath || strlen(szFilePath) <= 0)
 			return false;
+		
 		WCHAR szFilePathW[1024] = { 0 };
 		MultiByteToWideChar(CP_ACP, 0, szFilePath, -1, szFilePathW, 1024);
 		return SaveSurfaceToFileW(szFilePathW, D3DImageFormat);
@@ -860,12 +867,12 @@ public:
 	virtual bool SaveSurfaceToFileW(WCHAR *szFilePath, D3DXIMAGE_FILEFORMAT D3DImageFormat = D3DXIFF_JPG)
 	{
 		if (!m_pDirect3DDevice ||
-			!m_pDirect3DSurfaceRender ||
-			!szFilePath ||
-			wcslen(szFilePath) <= 0)
+			!m_pDirect3DSurfaceRender)
+			return false;
+		if (!szFilePath || wcslen(szFilePath) <= 0)
 			return false;
 		CAutoLock lock(&m_csSnapShot);
-		wcscpy(m_szSnapShotPath, szFilePath);
+		
 		m_D3DXIFF = D3DImageFormat;
 		HRESULT hr = S_OK;
 		if (!m_pSnapshotSurface)
@@ -883,25 +890,30 @@ public:
 			}
 		}
 
-		bool bResult = true;
-		// 表面已准备好,可以复制
-		SetEvent(m_hEventCreateSurface);
-		DWORD dwTime = timeGetTime();
-		if (WaitForSingleObject(m_hEventCopySurface, 1000) == WAIT_OBJECT_0)
+		wcscpy(m_szSnapShotPath, szFilePath);
+		bool bSnapReady = false;
+		// 截图数据尚未就绪,则置信截图事件
+		if (WaitForSingleObject(m_hEventCopySurface, 0) == WAIT_TIMEOUT)
 		{
-			hr = D3DXSaveSurfaceToFileW(szFilePath, m_D3DXIFF, m_pSnapshotSurface, NULL, NULL);
-			if (FAILED(hr))
-			{
-				DxTraceMsg("%s D3DXSaveSurfaceToFile Failed,hr = %08X.\n", __FUNCTION__, hr);
+			SetEvent(m_hEventSnapShot);
+			// 重新待截图数据
+			if (WaitForSingleObject(m_hEventCopySurface, 1000) == WAIT_OBJECT_0)
+				bSnapReady = true;
+			else
 				return false;
-			}
 		}
-		else
-			bResult = false;
-		DWORD dwTimeSpan = timeGetTime() - dwTime;
-		DxTraceMsg("%s TimeSpan = %dms.\n", __FUNCTION__, dwTimeSpan);
-		ResetEvent(m_hEventCopySurface);
-		return bResult;
+		else // 截图数据已就绪
+			bSnapReady = true;
+		if (!bSnapReady)
+			return false;
+
+		hr = D3DXSaveSurfaceToFileW(szFilePath, m_D3DXIFF, m_pSnapshotSurface, NULL, NULL);
+		if (FAILED(hr))
+		{
+			DxTraceMsg("%s D3DXSaveSurfaceToFile Failed,hr = %08X.\n", __FUNCTION__, hr);
+			return false;
+		}
+		return true;
 	}
 	
 	// 屏幕抓图，把显示到屏幕上的图象，保存到文件中,此截图得到的有可能不是原始的图像，可能是被拉伸或处理过的图像 
@@ -2282,27 +2294,27 @@ _Failed:
 		return true;
 	}
 	// 解码抓图，把Surface中的图像数据保存到文件中，此截图得到的图像是原始的图像
-	virtual bool SaveSurfaceToFileA(CHAR *szFilePath, D3DXIMAGE_FILEFORMAT D3DImageFormat = D3DXIFF_JPG)
-	{
-		if (!m_pDirect3DDeviceEx ||
-			!m_pDirect3DSurfaceRender ||
-			!szFilePath ||
-			strlen(szFilePath) <= 0)
-			return false;
-		WCHAR szFilePathW[1024] = { 0 };
-		MultiByteToWideChar(CP_ACP, 0, szFilePath, -1, szFilePathW, 1024);
-		return SaveSurfaceToFileW(szFilePathW, D3DImageFormat);
-	}
+// 	virtual bool SaveSurfaceToFileA(CHAR *szFilePath, D3DXIMAGE_FILEFORMAT D3DImageFormat = D3DXIFF_JPG)
+// 	{
+// 		if (szFilePath && strlen(szFilePath) > 0)
+// 		{
+// 			WCHAR szFilePathW[1024] = { 0 };
+// 			MultiByteToWideChar(CP_ACP, 0, szFilePath, -1, szFilePathW, 1024);
+// 			return SaveSurfaceToFileW(szFilePathW, D3DImageFormat);
+// 		}
+// 		else
+// 			return SaveSurfaceToFileW(nullptr, D3DImageFormat);
+// 		
+// 	}
 	// 解码抓图，把Surface中的图像数据保存到文件中，此截图得到的图像是原始的图像
 	virtual bool SaveSurfaceToFileW(WCHAR *szFilePath, D3DXIMAGE_FILEFORMAT D3DImageFormat = D3DXIFF_JPG)
 	{
 		if (!m_pDirect3DDeviceEx || 
-			!m_pDirect3DSurfaceRender || 
-			!szFilePath || 
-			wcslen(szFilePath) <= 0)
+			!m_pDirect3DSurfaceRender) 
 			return false;
-		CAutoLock lock(&m_csSnapShot);
-		wcscpy(m_szSnapShotPath, szFilePath);
+		if (!szFilePath || wcslen(szFilePath) <= 0)
+			return false;
+		Autolock(&m_csSnapShot);
 		m_D3DXIFF = D3DImageFormat;
 		HRESULT hr = S_OK;
 		if (!m_pSnapshotSurface)
@@ -2319,22 +2331,29 @@ _Failed:
 				return false;
 			}
 		}
-		
-		// 表面已准备好,可以复制
-		SetEvent(m_hEventCreateSurface);
-		DWORD dwTime = timeGetTime();
-		if (WaitForSingleObject(m_hEventCopySurface, 1000) == WAIT_OBJECT_0)
+		wcscpy(m_szSnapShotPath, szFilePath);
+		bool bSnapReady = false;
+		// 截图数据尚未就绪,则置信截图事件
+		if (WaitForSingleObject(m_hEventCopySurface, 0) == WAIT_TIMEOUT)
 		{
-			hr = D3DXSaveSurfaceToFileW(szFilePath, m_D3DXIFF, m_pSnapshotSurface, NULL, NULL);
-			if (FAILED(hr))
-			{
-				DxTraceMsg("%s D3DXSaveSurfaceToFile Failed,hr = %08X.\n", __FUNCTION__, hr);
+			SetEvent(m_hEventSnapShot);
+			// 重新待截图数据
+			if (WaitForSingleObject(m_hEventCopySurface, 1000) == WAIT_OBJECT_0)
+				bSnapReady = true;
+			else
 				return false;
-			}
 		}
-		DWORD dwTimeSpan = timeGetTime() - dwTime;
-		DxTraceMsg("%s TimeSpan = %dms.\n", __FUNCTION__, dwTimeSpan);
-		ResetEvent(m_hEventCopySurface);		
+		else // 截图数据已就绪
+			bSnapReady = true;
+		if (!bSnapReady)
+			return false;
+
+		hr = D3DXSaveSurfaceToFileW(szFilePath, m_D3DXIFF, m_pSnapshotSurface, NULL, NULL);
+		if (FAILED(hr))
+		{
+			DxTraceMsg("%s D3DXSaveSurfaceToFile Failed,hr = %08X.\n", __FUNCTION__, hr);
+			return false;
+		}
 		return true;
 	}
 	
@@ -2409,12 +2428,9 @@ _Failed:
 			return false;
 			SaveRunTime();
 		}
-
 		// HandelDevLost仍无法使用m_pDirect3DDevice，则直接返回false
 		if (!m_pDirect3DDeviceEx)
 			return false;
-		
-		//CAutoLock lock(&m_csRender,false,__FUNCTION__,__LINE__);
 		
 		switch(pAvFrame->format)
 		{

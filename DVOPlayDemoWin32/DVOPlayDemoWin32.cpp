@@ -445,16 +445,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 	{
 	case WM_INITDIALOG:
 	{
-// 		WSADATA		WSAData = { 0 };
-// 		if (WSAStartup(WSA_VERSION, &WSAData))
-// 		{
-// 			if (LOBYTE(WSAData.wVersion) != LOBYTE(WSA_VERSION) ||
-// 				HIBYTE(WSAData.wVersion) != HIBYTE(WSA_VERSION))
-// 			{
-// 				WSACleanup();
-// 				
-// 			}
-// 		}
+
 		CenterWindow(hDlg);
 		SetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, "admin");
 		SetDlgItemText(hDlg, IDC_EDIT_PASSWORD, "admin");

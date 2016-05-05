@@ -11,21 +11,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{155EA4AD-9FDD-46E6-B7D4-9161806EF801}</ProjectGuid>
+    <ProjectGuid>{27B1CB2D-5F4F-458C-9110-DA5E6FA61FB5}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>TestDxSurfaceWin32</RootNamespace>
+    <RootNamespace>DVOSnapshot</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120_xp</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -57,7 +57,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>E:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>LIBCMTD.lib;LIBCMT.lib</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -67,13 +67,17 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_ENABLE_FFMPEG_STAITC_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>e:\ffmpeg\static\include;..\dvoipcnetsdk;..\faad2-2.7\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;D:\boost_1_59;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <IgnoreSpecificDefaultLibraries>LIBCMTD.lib;LIBCMT.lib</IgnoreSpecificDefaultLibraries>
+      <AdditionalLibraryDirectories>E:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -86,10 +90,10 @@
     <ClInclude Include="..\DVOIPCPlaySDK\Runlog.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\TimeUtility.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\Utility.h" />
+    <ClInclude Include="DVOSnapshot.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="TestDxSurfaceWin32.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\DVOIPCPlaySDK\DxSurface\DxSurface.cpp" />
@@ -97,18 +101,18 @@
     <ClCompile Include="..\DVOIPCPlaySDK\Runlog.cpp" />
     <ClCompile Include="..\DVOIPCPlaySDK\TimeUtility.cpp" />
     <ClCompile Include="..\DVOIPCPlaySDK\Utility.cpp" />
+    <ClCompile Include="DVOSnapshot.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="TestDxSurfaceWin32.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="TestDxSurfaceWin32.rc" />
+    <ResourceCompile Include="DVOSnapshot.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="DVOSnapshot.ico" />
     <Image Include="small.ico" />
-    <Image Include="TestDxSurfaceWin32.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

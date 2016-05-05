@@ -171,6 +171,20 @@ struct PlayerInfo
 
 typedef void* 	DVO_PLAYHANDLE;
 
+#pragma pack(push)
+#pragma pack(16)
+// 自定义传输YUV帧，用于跨进程的YUV数据传输和截图
+struct YUVFrame
+{
+	int nWidth;
+	int nHeight;
+	int nFormat;
+	int nLineSize[4];			// YVU数据的宽度
+	int nFrameLength;			// YUV数据总长度
+	char szFileName[512];
+};
+#pragma pack(pop)
+
 /// @brief		解码后YVU数据回调
 typedef void(__stdcall *CaptureYUV)(DVO_PLAYHANDLE hPlayHandle,
 	const unsigned char* pYUV,

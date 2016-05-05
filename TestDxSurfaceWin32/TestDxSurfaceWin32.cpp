@@ -6,6 +6,7 @@
 #include <d3d9.h>
 #include <assert.h>
 #include <memory>
+#include <COMMCTRL.H>
 //#include <d3dx9tex.h>
 #pragma comment ( lib, "d3d9.lib" )
 #pragma comment ( lib, "d3dx9.lib" )
@@ -13,6 +14,7 @@
 #include <wtypes.h>
 #include "../DVOIPCPlaySDK/DxSurface/DxSurface.h"
 #include "../DVOIPCPlaySDK/Utility.h"
+#include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 using namespace std;
 using namespace std::tr1;
 #define SafeRelease(p) { if(p) { (p)->Release(); (p)=NULL; } }
@@ -36,6 +38,7 @@ CDxSurfaceEx *g_pDxSurface = nullptr;
 // 	OutputDebugStringA(szBuffer);
 // 	va_end(args);
 // }
+
 
 void CopyFrameYV12(byte *pDest, int nStride, char *pYUV420P,int nWidth,int nHeight)
 {
@@ -81,7 +84,7 @@ IDirect3DSurface9 *m_pDirect3DSurfaceRender = nullptr;
 D3DPRESENT_PARAMETERS m_d3dpp;
 int nVideoWidth = 1280;
 int nVideoHeight = 720;
-char *szYUVFile = "YVU_192.168.3.127_20160503_095743.YUV";
+char *szYUVFile = "YVU_192.168.3.127_20160505_093408.YUV";
 HANDLE g_hYUVFile = nullptr;
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -91,6 +94,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	//InitCommonControls();
 	hInst = hInstance;
 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG), NULL, (DLGPROC)WndProc);
 	nResult = GetLastError();
@@ -115,7 +119,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 		
 	case WM_COMMAND:
-	{
+	{ 
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
 		// Parse the menu selections:
@@ -287,7 +291,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				if (!m_pDirect3DDeviceEx)
 				{
-					MessageBox(hWnd, "Direct3DDeviceEx Not Created.", "提示", MB_OK | MB_ICONSTOP);
+					EnableWindow(hWnd, FALSE);
+					MessageBox(hWnd, "Direct3DDeviceEx Not Created.", "提示", /*MB_OK |*/ MB_ICONSTOP);
+					EnableWindow(hWnd, TRUE);
 					return 0;
 				}
 				if (FAILED(hr = m_pDirect3DDeviceEx->CreateOffscreenPlainSurface(1280,
@@ -370,8 +376,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			RECT rtDest;
 			GetWindowRect(hDestPresent, &rtDest);
-			ScreenToClient(hWnd, (LPPOINT)&rtDest);
-			ScreenToClient(hWnd, ((LPPOINT)&rtDest) + 1);
+			ScreenToClient(hDestPresent, (LPPOINT)&rtDest);
+			ScreenToClient(hDestPresent, ((LPPOINT)&rtDest) + 1);
 
 			if (ReadFile(g_hYUVFile, pYUVBuffer, nFileLength, &dwBytesreads, nullptr) && dwBytesreads)
 			{
@@ -435,6 +441,75 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 			}
 			
+			break;
+		}
+		case IDC_BUTTON_SENDYUV:
+		{
+			ShowWindow(hWnd, SW_HIDE);
+			HWND hDest = FindWindow(nullptr, _T("DVO SnapShot"));
+			if (!hDest)
+			{
+				MessageBox(nullptr, "找不到指定的窗口", "提示", MB_ICONSTOP);
+				return 0;
+			}
+			char szPath[1024] = { 0 };
+			GetAppPathA(szPath, 1024);
+			strcat(szPath, "\\");
+			strcat(szPath, szYUVFile);
+			g_hYUVFile = CreateFileA(szPath,
+				GENERIC_READ,
+				FILE_SHARE_READ,
+				NULL,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_ARCHIVE,
+				NULL);
+			if (g_hYUVFile == INVALID_HANDLE_VALUE)
+			{
+				MessageBox(hWnd, "CreateFileA  Failed.", "提示", MB_OK | MB_ICONSTOP);
+				return 0;
+			}
+			shared_ptr<void> FileClosePtr(g_hYUVFile, CloseHandle);
+			DWORD nFileLength = 0;
+			if (!(nFileLength = GetFileSize(g_hYUVFile, nullptr)))
+			{
+				MessageBox(hWnd, "GetFileSize Failed.", "提示", MB_OK | MB_ICONSTOP);
+				return 0;
+			}
+			char *pYUVBuffer = (char *)_aligned_malloc(nFileLength, 16);
+			shared_ptr<char> pYUVBufferPtr(pYUVBuffer, _aligned_free);
+			DWORD dwBytesreads = 0;
+
+			if (ReadFile(g_hYUVFile, pYUVBuffer, nFileLength, &dwBytesreads, nullptr) && dwBytesreads)
+			{
+				int nSize = sizeof(YUVFrame) + nVideoWidth * nVideoHeight * 3 / 2;
+				nSize = FFALIGN(nSize, 16);
+				YUVFrame *pYUVFrame = (YUVFrame *)malloc(nSize);
+				pYUVFrame->nFormat = AV_PIX_FMT_YUV420P;
+				pYUVFrame->nFrameLength = nVideoWidth * nVideoHeight * 3 / 2;
+				pYUVFrame->nHeight = nVideoHeight;
+				pYUVFrame->nWidth = nVideoWidth;
+				pYUVFrame->nLineSize[0] = 1280;
+				pYUVFrame->nLineSize[1] = 640;
+				pYUVFrame->nLineSize[2] = 640;
+				SYSTEMTIME sysTime;
+				GetLocalTime(&sysTime);
+				char szYUVFile[512] = { 0 };
+				sprintf(pYUVFrame->szFileName, "YVU_192.168.3.29_%04d%02d%02d_%02d%02d%02d.jpg",
+					sysTime.wYear,
+					sysTime.wMonth,
+					sysTime.wDay,
+					sysTime.wHour,
+					sysTime.wMinute,
+					sysTime.wSecond);
+				byte *pYUV = (byte *)(((byte *)pYUVFrame) + sizeof(YUVFrame));
+				memcpy(pYUV, pYUVBuffer, nSize - sizeof(YUVFrame));
+				COPYDATASTRUCT cds;
+				cds.cbData = FFALIGN(nSize, 16);
+				cds.lpData = pYUVFrame;
+				LRESULT nResult = SendMessage(hDest, WM_COPYDATA, (WPARAM)hWnd, (LPARAM)&cds);
+				free(pYUVFrame);
+				DxTraceMsg("WM_COPYDATA Result = %d.\n", nResult);
+			}
 			break;
 		}
 		case IDC_BUTTON_CLOSEDXSURFACE:
@@ -507,8 +582,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
+	case WM_CLOSE:
+		EndDialog(hWnd, 0);
+		break;
+// 	default:
+// 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
 }

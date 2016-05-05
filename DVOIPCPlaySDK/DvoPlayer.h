@@ -502,9 +502,9 @@ private:
 	CDSoundBuffer* m_pDsBuffer;
 	DxSurfaceInitInfo	m_DxInitInfo;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
-	bool		m_bDxReset;				///< 是否重置DxSurface
-	HWND		m_hDxReset;
-	CRITICAL_SECTION m_csDxSurface;
+// 	bool		m_bDxReset;				///< 是否重置DxSurface
+// 	HWND		m_hDxReset;
+// 	CRITICAL_SECTION m_csDxSurface;
 	shared_ptr<CVideoDecoder>m_pDecodec;
 	//static shared_ptr<CSimpleWnd>m_pWndDxInit;///< 视频显示时，用以初始化DirectX的隐藏窗口对象
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
@@ -623,7 +623,7 @@ private:
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csParser);
-		InitializeCriticalSection(&m_csDxSurface);
+		//InitializeCriticalSection(&m_csDxSurface);
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
@@ -917,7 +917,7 @@ private:
 		}
 		char *szStatus = "Succeed";
 #endif
-		CAutoLock lock(&m_csDxSurface, false,__FILE__, __FUNCTION__, __LINE__);
+		//CAutoLock lock(&m_csDxSurface, false,__FILE__, __FUNCTION__, __LINE__);
 		RECT rtRender;
 		GetWindowRect(m_hWnd, &rtRender);
 		ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
@@ -926,7 +926,7 @@ private:
 		if (m_bFitWindow)
 		{
 			DWORD dwTNow = timeGetTime();
-			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd);
 			DWORD dwTimeSpan = timeGetTime() - dwTNow;
 			if (dwTimeSpan > 200)
 			{
@@ -1031,7 +1031,7 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
-		DeleteCriticalSection(&m_csDxSurface);
+		//DeleteCriticalSection(&m_csDxSurface);
 		if (m_hDvoFile)
 			CloseHandle(m_hDvoFile);
 	}
@@ -1061,7 +1061,7 @@ public:
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
 		InitializeCriticalSection(&m_csParser);
-		InitializeCriticalSection(&m_csDxSurface);
+		//InitializeCriticalSection(&m_csDxSurface);
 		m_csDsoundEnum->Lock();
 		if (!m_pDsoundEnum)
 			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
@@ -1342,7 +1342,7 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
-		DeleteCriticalSection(&m_csDxSurface);
+		//DeleteCriticalSection(&m_csDxSurface);
 
 #ifdef _DEBUG
 		OutputMsg("%s \tFinish Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
@@ -1521,15 +1521,16 @@ public:
 	/// @brief 复位播放窗口
 	bool Reset(HWND hWnd = nullptr, int nWidth = 0, int nHeight = 0)
 	{
-		CAutoLock lock(&m_csDxSurface, false, __FILE__, __FUNCTION__, __LINE__);
-		if (m_pDxSurface)
-		{
-			m_bDxReset = true;
-			m_hDxReset = hWnd;
-			return true;
-		}
-		else
-			return false;
+// 		CAutoLock lock(&m_csDxSurface, false, __FILE__, __FUNCTION__, __LINE__);
+// 		if (m_pDxSurface)
+// 		{
+// 			m_bDxReset = true;
+// 			m_hDxReset = hWnd;
+// 			return true;
+// 		}
+// 		else
+// 			return false;
+		return true;
 	}
 
 	int GetFileHeader()
@@ -3642,29 +3643,29 @@ public:
 				Sleep(100);
 				continue;
 			}
-			if (pThis->m_hWnd)
-			{
-				EnterCriticalSection(&pThis->m_csDxSurface);
-				if (pThis->m_bDxReset)
-				{
-					HWND hWnd = pThis->m_hDxReset;
-					pThis->m_bDxReset = false;
-					pThis->m_hDxReset = nullptr;
-				
-					if (pThis->m_DxInitInfo.nSize == sizeof(DxSurfaceInitInfo))
-					{
-						if (hWnd)
-							pThis->m_hWnd = hWnd;
-						pThis->m_pDxSurface->DxCleanup();
-						pThis->m_pDxSurface->InitD3D(pThis->m_hWnd,
-							pThis->m_DxInitInfo.nFrameWidth,
-							pThis->m_DxInitInfo.nFrameHeight,
-							TRUE,
-							pThis->m_DxInitInfo.nD3DFormat);
-					}
-				}
-				LeaveCriticalSection(&pThis->m_csDxSurface);
-			}
+// 			if (pThis->m_hWnd)
+// 			{
+// 				EnterCriticalSection(&pThis->m_csDxSurface);
+// 				if (pThis->m_bDxReset)
+// 				{
+// 					HWND hWnd = pThis->m_hDxReset;
+// 					pThis->m_bDxReset = false;
+// 					pThis->m_hDxReset = nullptr;
+// 				
+// 					if (pThis->m_DxInitInfo.nSize == sizeof(DxSurfaceInitInfo))
+// 					{
+// 						if (hWnd)
+// 							pThis->m_hWnd = hWnd;
+// 						pThis->m_pDxSurface->DxCleanup();
+// 						pThis->m_pDxSurface->InitD3D(pThis->m_hWnd,
+// 							pThis->m_DxInitInfo.nFrameWidth,
+// 							pThis->m_DxInitInfo.nFrameHeight,
+// 							TRUE,
+// 							pThis->m_DxInitInfo.nD3DFormat);
+// 					}
+// 				}
+// 				LeaveCriticalSection(&pThis->m_csDxSurface);
+//			}
 			if (!pThis->m_bIpcStream)
 			{// 文件或流媒体播放，可调节播放速度
 				fTimeSpan = (int)(TimeSpanEx(dfT1) * 1000);
