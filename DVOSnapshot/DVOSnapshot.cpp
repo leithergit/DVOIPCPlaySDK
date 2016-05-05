@@ -32,8 +32,20 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
-	hInst = hInstance;
-	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_SNAPSHOT), NULL, (DLGPROC)DialogProc);
+// 	hInst = hInstance;
+// 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_SNAPSHOT), NULL, (DLGPROC)DialogProc);
+	HWND   hDialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOG_SNAPSHOT), NULL, (DLGPROC)DialogProc);
+
+	ShowWindow(hDialog, SW_HIDE);
+	UpdateWindow(hDialog);
+
+	MSG msg;
+
+	while (GetMessage(&msg, NULL, 0, 0) )
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
 
 	return (int)0;
 }
@@ -69,8 +81,8 @@ BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 		g_pDxSurface = new CDxSurfaceEx();
 		g_pDxSurface->InitD3D(GetDlgItem(hDlg, IDC_STATIC_FRAME), g_nVideoWidth, g_nVideoHeight, TRUE);
 	}
-	ShowWindow(hDlg, SW_HIDE);
-	return TRUE;
+	//ShowWindow(hDlg, SW_HIDE);
+	return FALSE;
 }
 
 void OnCommand(HWND hDlg, UINT nID, HWND hWndCtrl, UINT nCodeNotify)
@@ -149,6 +161,14 @@ void OnSysCommand(HWND hwnd, UINT nID, int x, int y)
 		g_bWindowShowed = true;
 	}
 }
+
+void OnActivate(HWND hwnd, UINT state, HWND hwndActDeact, BOOL fMinimized)
+{
+// 	ShowWindow(hwnd, SW_HIDE);
+// 	g_bWindowShowed = true;
+}
+
+
 LRESULT CALLBACK DialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
@@ -160,6 +180,8 @@ LRESULT CALLBACK DialogProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 		HANDLE_MSG(hwnd, WM_COPYDATA, OnCopyData);
 		HANDLE_MSG(hwnd, WM_HOTKEY, OnHotKey);
 		HANDLE_MSG(hwnd, WM_SYSCOMMAND, OnSysCommand);
+		HANDLE_MSG(hwnd, WM_ACTIVATE, OnActivate);
+
 	}
 	return 0;
 }
