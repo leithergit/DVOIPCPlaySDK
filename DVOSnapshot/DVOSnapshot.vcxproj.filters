@@ -51,6 +51,9 @@
     <ClInclude Include="..\DVOIPCPlaySDK\Utility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dump\DumpFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

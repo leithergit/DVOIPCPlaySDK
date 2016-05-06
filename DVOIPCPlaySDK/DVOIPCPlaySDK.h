@@ -134,6 +134,11 @@ enum DVO_CALLBACK
 #define		DVO_Error_VideoThreadAbnormalExit (-26)	///< 播放线程异常退出
 #define		DVO_Error_MediaFileHeaderError	(-27)	///< 文件件头有错误
 #define		DVO_Error_WindowNotAssigned		(-28)	///< 未指定显示窗口,无法截图
+#define		DVO_Error_SnapShotProcessNotRun	(-29)	///< 截图进程未运行
+#define		DVO_Error_SnapShotProcessFileMissed	(-30)///< 截图程序文件丢失
+#define		DVO_Error_SnapShotProcessStartFailed	(-31)///< 截图进程启动失败
+#define		DVO_Error_SnapShotFailed	 	(-32)	///< 截图进程未运行
+#define		DVO_Error_PlayerHasStop			(-33)		///< 播放器已经启动，不能执行初始化或其它设置操作
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 #define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
@@ -168,11 +173,31 @@ struct PlayerInfo
 };
 ///	@def	DVO_PLAYHANDLE
 ///	@brief	DVO文件播放句柄
-
 typedef void* 	DVO_PLAYHANDLE;
 
-#pragma pack(push)
-#pragma pack(16)
+#define _SnapShotYUVName	_T("Global\\{FC1C6EAE-3B46-4FAB-A4B0-014AFCA446D2}")
+#define _SnapShotMutexName	_T("Global\\{DED880AB-3644-443D-B906-ED4FFA2CE8D5}")
+#define _SnapShotMemName	_T("Global\\{4FAFDA41-7A85-460A-814E-DFF11B81E1AF}")
+#define _SnapShotEventName	_T("Global\\{2FEBF985-F81F-48BA-8E7D-671DD5DAFD04}")
+
+#define _SnapShotCmdLine	_T("{DE697731-733A-419C-97E2-6D55AB14D6A5}")
+// SnapShot 共享内存结构，总长维持要128字节内
+struct SnapShotMem
+{
+	HWND 	hSnapShot;		// 截图进程的窗口
+	UINT	nReserve[31];
+};
+
+struct SnapsnotManger
+{
+	HANDLE			hSnapProcess;		// 截图进程句柄
+	HANDLE			hSnapShotMem;
+	SnapShotMem*	pSnapshotMem;
+	HANDLE			hEventSnapShot;
+};
+
+#pragma pack(push,16)
+#pragma pack(show)
 // 自定义传输YUV帧，用于跨进程的YUV数据传输和截图
 struct YUVFrame
 {
@@ -180,8 +205,10 @@ struct YUVFrame
 	int nHeight;
 	int nFormat;
 	int nLineSize[4];			// YVU数据的宽度
+	SNAPSHOT_FORMAT nD3DImageFormat;	// 保存图像的格式
 	int nFrameLength;			// YUV数据总长度
-	char szFileName[512];
+	int nReserve[3];			// 把YUVFrame凑足16的整数倍
+	WCHAR szFileName[512];
 };
 #pragma pack(pop)
 

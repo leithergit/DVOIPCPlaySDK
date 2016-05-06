@@ -17,6 +17,7 @@ UINT	g_nPlayerHandles = 0;
 #endif
 
 double	g_dfProcessLoadTime = 0.0f;
+HWND	g_hSnapShotWnd = nullptr;
 CDxSurface* GetDxInCache(int nWidth, int nHeight)
 {
 	CAutoLock lock(&g_csListDxCache);
@@ -99,6 +100,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		InitializeCriticalSection(&g_csPlayerHandles);
 		g_nPlayerHandles = 0;
 #endif
+		CDvoPlayer::CheckSnapshotWnd(g_hSnapShotWnd);
 		g_bThread_ClosePlayer = true;
 		g_hEventThreadExit = CreateEvent(nullptr, true, false, nullptr);
 		g_hThread_ClosePlayer = CreateThread(nullptr, 0, Thread_ClosePlayer, nullptr, 0, 0);

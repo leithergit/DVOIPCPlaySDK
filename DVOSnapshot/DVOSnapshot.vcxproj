@@ -59,6 +59,10 @@
       <AdditionalLibraryDirectories>E:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>LIBCMTD.lib;LIBCMT.lib</IgnoreSpecificDefaultLibraries>
     </Link>
+    <PostBuildEvent>
+      <Command>@echo off
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath), $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -69,16 +73,22 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_ENABLE_FFMPEG_STAITC_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>e:\ffmpeg\static\include;..\dvoipcnetsdk;..\faad2-2.7\include;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;D:\boost_1_59;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <IgnoreSpecificDefaultLibraries>LIBCMTD.lib;LIBCMT.lib</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>
+      </IgnoreSpecificDefaultLibraries>
       <AdditionalLibraryDirectories>E:\ffmpeg\static\lib;..\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\faad2-2.7\include;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\MinGW\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
+    <PostBuildEvent>
+      <Command>@echo off
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath),  $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -90,6 +100,7 @@
     <ClInclude Include="..\DVOIPCPlaySDK\Runlog.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\TimeUtility.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\Utility.h" />
+    <ClInclude Include="dump\DumpFile.h" />
     <ClInclude Include="DVOSnapshot.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />

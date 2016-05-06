@@ -126,6 +126,7 @@ struct AudioPlayDevice
 			delete[]pszDrvName;
 	}
 };
+
 class CDSoundEnum
 {
 public:
@@ -464,6 +465,7 @@ extern double	g_dfProcessLoadTime ;
 extern CDxSurface* GetDxInCache(int nWidth, int nHeight);
 extern void PutDxCache(CDxSurface *pDxSurface);
 extern CDxSurfaceEx* g_dx;
+extern HWND g_hSnapShotWnd;
 class CDvoPlayer
 {
 public:
@@ -550,7 +552,7 @@ private:
 	UINT		m_nTailFrameID;			///< 级存中最后一帧的ID
 	bool		m_bThreadSummaryRun;
 	bool		m_bSummaryIsReady;		///< 文件摘要信息准备完毕
-	HANDLE		m_hSnapShot;			///< 截图允许事件,该事件标志着截图可以进行
+	bool		m_bStopFlag;			///< 播放已停止标志，不再接收码流
 	volatile bool m_bThreadParserRun;
 	volatile bool m_bThreadPlayVideoRun;
 	volatile bool m_bThreadPlayAudioRun;
@@ -564,6 +566,12 @@ private:
 	byte		*m_pYUV;				///< YVU捕捉专用内存
 	int			m_nYUVSize ;			///<
 	shared_ptr<byte>m_pYUVPtr;
+	// 截图操作相关句变量
+	HANDLE		m_hEvnetYUVReady;		///< YUV数据就绪事件
+	HANDLE		m_hEventYUVRequire;		///< YUV数据请求事件,该事件置信后,解码线程，就立即把YUV数据复制到共享内存
+	HANDLE		m_hEventSnapShot;		///< 截图动作已完成事件
+	SNAPSHOT_FORMAT m_nD3DImageFormat;
+	WCHAR		m_szSnapShotFile[512];
 private:	// 文件播放相关变量
 	HANDLE		m_hDvoFile;				///< 正在播放的文件句柄
 	INT64		m_nSummaryOffset;		///< 在读取概要时获得的文件解析偏移
@@ -1056,7 +1064,9 @@ public:
 			strcpy(m_szLogFileName, szLogFile);
 			m_pRunlog = make_shared<CRunlogA>(szLogFile);
 		}
-		m_hSnapShot = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+		m_hEvnetYUVReady = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+		m_hEventYUVRequire = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		m_hEventSnapShot = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
@@ -1330,8 +1340,14 @@ public:
 		if (m_hDvoFile)
 			CloseHandle(m_hDvoFile);
 
-		if (m_hSnapShot)
-			CloseHandle(m_hSnapShot);
+		if (m_hEvnetYUVReady)
+			CloseHandle(m_hEvnetYUVReady);
+		if (m_hEventYUVRequire)
+			CloseHandle(m_hEventYUVRequire);
+
+		if (m_hEventSnapShot)
+			CloseHandle(m_hEventSnapShot);
+
 		if (m_hThreadGetFileSummary)
 		{
 			m_bThreadSummaryRun = false;		// 令概要线程立即退出
@@ -1499,7 +1515,7 @@ public:
 			m_listVideoCache.clear();
 			m_listAudioCache.clear();
 		}
-		
+		m_bStopFlag = false;
 		// 启动流播放线程
 		m_bThreadPlayVideoRun = true;			
 		//m_hThreadPlayVideo = CreateThread(nullptr, 0, ThreadPlayVideo, this, 0, 0);
@@ -1629,6 +1645,8 @@ public:
 		int nMaxCacheSize = m_nMaxFrameCache;
 		if (nCacheSize != 0)
 			nMaxCacheSize = nCacheSize;
+		if (m_bStopFlag)
+			return DVO_Error_PlayerHasStop;
 		if (!bNoThreadCheck)
 		{
 			if (!m_bThreadPlayVideoRun || !m_hThreadPlayVideo)
@@ -1639,6 +1657,7 @@ public:
 				return DVO_Error_VideoThreadNotRun;
 			}
 		}
+		
 		m_bIpcStream = false;		// 非IPC码流
 		DVOFrameHeader *pHeaderEx = (DVOFrameHeader *)szFrameData;
 		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
@@ -1759,6 +1778,9 @@ public:
 // 			m_OuputTime.nInputStream = timeGetTime();
 // 		}
 // #endif
+		if (m_bStopFlag)
+			return DVO_Error_PlayerHasStop;
+
 		if (!m_bThreadPlayVideoRun ||!m_hThreadPlayVideo)
 		{
 #ifdef _DEBUG
@@ -1843,8 +1865,9 @@ public:
 		TraceFunction();
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
-		if (!m_bIpcStream)			// 对于文件码流，不使用异步关闭的方式
-			nTimeout = INFINITE;
+// 		if (!m_bIpcStream)			// 对于文件码流，不使用异步关闭的方式
+// 			nTimeout = INFINITE;
+		m_bStopFlag = true;
 		m_bThreadParserRun = false;
 		m_bThreadPlayVideoRun = false;
 		m_bThreadPlayAudioRun = false;
@@ -2018,7 +2041,120 @@ public:
 		else
 			return DVO_Error_PlayerNotStart;
 	}
-	
+	static void CloseShareMemory(HANDLE &hMemHandle, void *pMemory)
+	{
+		if (!pMemory || !hMemHandle)
+			return;
+		if (pMemory)
+		{
+			UnmapViewOfFile(pMemory);
+			pMemory = NULL;
+		}
+		if (hMemHandle)
+		{
+			CloseHandle(hMemHandle);
+			hMemHandle = NULL;
+		}
+	}
+
+	static void *OpenShareMemory(HANDLE &hMemHandle, TCHAR *szUniqueName)
+	{
+		void *pShareSection = NULL;
+		bool bResult = false;
+		__try
+		{
+			__try
+			{
+				if (!szUniqueName || _tcslen(szUniqueName) < 1)
+					__leave;
+				hMemHandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, 0, szUniqueName);
+				if (hMemHandle == INVALID_HANDLE_VALUE ||
+					hMemHandle == NULL)
+				{
+					_TraceMsg(_T("%s %d MapViewOfFile Failed,ErrorCode = %d.\r\n"), __FILEW__, __LINE__, GetLastError());
+					__leave;
+				}
+				pShareSection = MapViewOfFile(hMemHandle, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+				if (pShareSection == NULL)
+				{
+					_TraceMsg(_T("%s %d MapViewOfFile Failed,ErrorCode = %d.\r\n"), __FILEW__, __LINE__, GetLastError());
+					__leave;
+				}
+				bResult = true;
+				_TraceMsg(_T("Open Share memory map Succeed."));
+			}
+			__finally
+			{
+				if (!bResult)
+				{
+					CloseShareMemory(hMemHandle, pShareSection);
+					pShareSection = NULL;
+				}
+			}
+		}
+		__except (1)
+		{
+			TraceMsg(_T("Exception in OpenShareMemory.\r\n"));
+		}
+		return pShareSection;
+	}
+	/// @brief			检查截图窗口是否存在
+	/// @param [inout]	hSnapWnd		返回截图进程的窗口
+	/// @retval			0	操作成功，否则操作失败
+	static int CheckSnapshotWnd(HWND &hSnapWnd)
+	{
+		// 查找截图窗口
+		if (hSnapWnd && IsWindow(hSnapWnd))
+			return DVO_Succeed;
+		hSnapWnd = FindWindow(nullptr, _T("DVO SnapShot"));
+		if (!hSnapWnd)
+		{// 准备创建截图进程
+			TCHAR szAppPath[1024] = { 0 };
+			GetAppPath(szAppPath, 1024);
+			_tcscat(szAppPath, _T("\\DVOSnapshot.exe"));
+			if (!PathFileExists(szAppPath))
+			{// 截图程序文件不存在
+				return DVO_Error_SnapShotProcessFileMissed;
+			}
+			//////////////////////////////////////////////////////////////////////////
+			///必须把命令行通过_stprintf方式将命令行_SnapShotCmdLine复制到szCmdLine中才能生效
+			///原因不明,但必须这么做，否则目标进程无法收到命令行参数
+			//////////////////////////////////////////////////////////////////////////
+			TCHAR szCmdLine[128] = { 0 };
+			_stprintf(szCmdLine, _T(" %s"), _SnapShotCmdLine);
+			STARTUPINFO si;
+			PROCESS_INFORMATION pi;
+			ZeroMemory(&si, sizeof(si));
+			si.cb = sizeof(si);
+			ZeroMemory(&pi, sizeof(pi));
+			if (!CreateProcess(szAppPath, //module name 
+				szCmdLine,
+				NULL,             // Process handle not inheritable. 
+				NULL,             // Thread handle not inheritable. 
+				FALSE,            // Set handle inheritance to FALSE. 
+				0,                // No creation flags. 
+				NULL,             // Use parent's environment block. 
+				NULL,             // Use parent's starting directory. 
+				&si,              // Pointer to STARTUPINFO structure.
+				&pi))             // Pointer to PROCESS_INFORMATION structure.
+			{
+				return DVO_Error_SnapShotProcessStartFailed;
+			}
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
+		}
+		int nRetry = 0;
+		while (!hSnapWnd && nRetry < 5)
+		{
+			hSnapWnd = FindWindow(nullptr, _T("DVO SnapShot"));
+			nRetry++;
+			Sleep(100);
+		}
+		if (!hSnapWnd || !IsWindow(hSnapWnd))
+			return DVO_Error_SnapShotProcessNotRun;
+		return DVO_Succeed;
+	}
+
 	/// @brief			截取正放播放的视频图像
 	/// @param [in]		szFileName		要保存的文件名
 	/// @param [in]		nFileFormat		保存文件的编码格式,@see SNAPSHOT_FORMAT定义
@@ -2026,13 +2162,23 @@ public:
 	/// @retval			-1	输入参数无效
 	inline int  SnapShot(IN WCHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat = XIFF_JPG)
 	{
+		if (!szFileName || !wcslen(szFileName))
+			return -1;
 		if (m_hThreadPlayVideo)
 		{
-			if (WaitForSingleObject(m_hSnapShot, 5000) == WAIT_TIMEOUT)
+			if (WaitForSingleObject(m_hEvnetYUVReady, 5000) == WAIT_TIMEOUT)
 				return DVO_Error_PlayerNotStart;
 			if (m_pDxSurface)
 			{
-				m_pDxSurface->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat);
+				int nResult = CheckSnapshotWnd(g_hSnapShotWnd);
+				if (nResult != DVO_Succeed)
+					return nResult;
+				wcscpy(m_szSnapShotFile, szFileName);
+				SetEvent(m_hEventYUVRequire);		// 请求YUV数据
+				m_nD3DImageFormat = nFileFormat;
+				// 等待截图完成
+				if (WaitForSingleObject(m_hEventSnapShot, 5000) == WAIT_TIMEOUT)
+					return DVO_Error_SnapShotFailed;
 				return DVO_Succeed;
 			}
 			else
@@ -2040,6 +2186,68 @@ public:
 		}
 		else
 			return DVO_Error_PlayerNotStart;
+	}
+	/// @brief			处理截图请求
+	/// remark			处理完成后，将置信m_hEventSnapShot事件
+	void ProcessSnapshotRequire(AVFrame *pAvFrame)
+	{
+		if (!pAvFrame)
+			return;
+		if (WaitForSingleObject(m_hEventYUVRequire, 0) == WAIT_TIMEOUT)
+			return;
+		if (!g_hSnapShotWnd || !IsWindow(g_hSnapShotWnd))
+			return;
+		int nPicSize = pAvFrame->linesize[0] * pAvFrame->height;
+		int nSize = sizeof(YUVFrame) + nPicSize * 3 / 2;
+		nSize = FFALIGN(nSize, 16);
+		TraceMsgA("%s nSizeof pYUVFrame = %d.\tSizeof(YUVFrame) = %d\n", __FUNCTION__, nSize, sizeof(YUVFrame));
+		YUVFrame *pYUVFrame = (YUVFrame *)malloc(nSize);
+		pYUVFrame->nFormat = AV_PIX_FMT_YUV420P;
+		pYUVFrame->nFrameLength = nPicSize * 3 / 2;
+		pYUVFrame->nHeight = pAvFrame->height;
+		pYUVFrame->nWidth = pAvFrame->width;
+		pYUVFrame->nLineSize[0] = pAvFrame->linesize[0];
+		pYUVFrame->nLineSize[1] = pAvFrame->linesize[1];
+		pYUVFrame->nLineSize[2] = pAvFrame->linesize[2];
+		pYUVFrame->nD3DImageFormat = m_nD3DImageFormat;
+		wcscpy(pYUVFrame->szFileName, m_szSnapShotFile);
+		byte *pYUV = (byte *)(((byte *)pYUVFrame) + sizeof(YUVFrame));
+		
+		if (pAvFrame->format == AV_PIX_FMT_DXVA2_VLD)
+		{// 暂不支持dxva 硬解码帧
+			CopyDxvaFrame(pYUV, pAvFrame);
+		}
+		else
+		{
+// 			int a = 0, i;
+// 			for (i = 0; i < pAvFrame->height; i++)
+// 			{
+// 				memcpy(pYUV + a, pAvFrame->data[0] + i * pAvFrame->linesize[0], pAvFrame->width);
+// 				a += pAvFrame->width;
+// 			}
+// 			for (i = 0; i < pAvFrame->height / 2; i++)
+// 			{
+// 				memcpy(pYUV + a, pAvFrame->data[1] + i * pAvFrame->linesize[1], pAvFrame->width / 2);
+// 				a += pAvFrame->width / 2;
+// 			}
+// 			for (i = 0; i < pAvFrame->height / 2; i++)
+// 			{
+// 				memcpy(pYUV + a, pAvFrame->data[2] + i * pAvFrame->linesize[2], pAvFrame->width / 2);
+// 				a += pAvFrame->width / 2;
+// 			}
+			memcpy(pYUV, pAvFrame->data[0], pAvFrame->linesize[0]*pAvFrame->height);
+			memcpy(&pYUV[nPicSize], pAvFrame->data[1], pAvFrame->linesize[1] * pAvFrame->height/2);
+			memcpy(&pYUV[nPicSize + nPicSize / 4], pAvFrame->data[2], pAvFrame->linesize[2] * pAvFrame->height/2);
+		}
+		
+		COPYDATASTRUCT cds;
+		cds.cbData = nSize;
+		cds.lpData = pYUVFrame;
+		LRESULT nResult = SendMessage(g_hSnapShotWnd, WM_COPYDATA, (WPARAM)m_hWnd, (LPARAM)&cds);
+		free(pYUVFrame);
+		SetEvent(m_hEventSnapShot);
+		DxTraceMsg("WM_COPYDATA Result = %d.\n", nResult);
+
 	}
 
 	/// @brief			设置播放的音量
@@ -3799,6 +4007,8 @@ public:
 			av_packet_unref(pAvPacket);
  			if (nGot_picture)
  			{
+				SetEvent(pThis->m_hEvnetYUVReady);
+				pThis->ProcessSnapshotRequire(pAvFrame);
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
 				//TraceMsgA("%s m_nCurVideoFrame = %d\tm_tCurFrameTimeStamp = %d.\n", __FUNCTION__, pThis->m_nCurVideoFrame, pThis->m_tCurFrameTimeStamp);
@@ -3809,7 +4019,6 @@ public:
 					if (!bDecodeSucceed)
 					{
 						bDecodeSucceed = true;
-						SetEvent(pThis->m_hSnapShot);
 #ifdef _DEBUG
 						pThis->OutputMsg("%s \tObject:%d  SetEvent Snapshot  m_nLifeTime = %d.\n", __FUNCTION__, pThis->m_nObjIndex, timeGetTime() - pThis->m_nLifeTime);
 #endif

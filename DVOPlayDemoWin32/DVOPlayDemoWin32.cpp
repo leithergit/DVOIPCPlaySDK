@@ -570,32 +570,50 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 		}
 		case IDC_BUTTON_SWITCSTREAM:
 		{
-			DVO2_NET_StopRealPlay(m_pPlayContext[0]->hStream);
-			int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
-			int nError = 0;
-			int nRetry = 0;
-			REAL_HANDLE hStream = -1;
-			while (hStream == -1)
+			//KillTimer(hDlg, ID_TIMER_CHECKSTREAM);
+			g_nSnapIndex = 0;
+			if (m_pPlayContext[g_nSnapIndex] && m_pPlayContext[g_nSnapIndex]->hPlayer)
 			{
-				hStream = DVO2_NET_StartRealPlay(m_pPlayContext[0]->hUser,
-					0,
-					nStream,
-					DVO_TCP,
-					0,
-					NULL,
-					(fnDVOCallback_RealAVData_T)StreamCallBack,
-					(void *)m_pPlayContext[0].get(),
-					&nError);
-				nRetry++;
-				if (nRetry >= 3)
-					break;
-				Sleep(500);
-			}
+				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), FALSE);
+				char szText[128] = { 0 };
+				int nCount = ListBox_GetCount(g_hListMessage);
+				if (nCount > 1024)
+				{
+					for (int i = 0; i < nCount; i++)
+						ListBox_DeleteString(g_hListMessage, 0);
+				}
 
-			if (hStream == -1)
-			{
-				ListBox_InsertString(g_hListMessage,0, _T("连接码流失败"));
-				return FALSE;
+				sprintf(szText, "正在进行第[%d]路截图……", g_nSnapIndex);
+				ListBox_InsertString(g_hListMessage, 0, szText);
+
+				int nError = 0;
+				int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
+				if (nStream == 1)	// 副码流切到主码流
+					nStream = 0;
+				else				// 主码流切换到副码流	
+					nStream = 1;
+				if (!ReOpenStream(g_nSnapIndex, nStream, hDlg))
+				{
+					EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
+					return 0;
+				}
+				//Sleep(2000);
+				//EventDelay(nullptr, 2000);
+				if (SnapShot(g_nSnapIndex, hDlg))
+				{
+					g_nSnapShotedCount++;
+					SetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOTED_COUNT, g_nSnapShotedCount, FALSE);
+				}
+				if (nStream == 1)	// 副码流切到主码流
+					nStream = 0;
+				else				// 主码流切换到副码流	
+					nStream = 1;
+				//Sleep(100);
+				ReOpenStream(g_nSnapIndex, nStream, hDlg);
+				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
+				g_nSnapIndex++;
+				g_nSnapIndex = g_nSnapIndex%g_vIPCamera.size();
+				//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100, nullptr);
 			}
 			break;
 		}
@@ -659,7 +677,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 								continue;
 							}
 						}
-						SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100,nullptr);
+						//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100,nullptr);
 						dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
 						if (IsDlgButtonChecked(hDlg,IDC_CHECK_SAVEYUV) == BST_CHECKED)
 						{
@@ -751,6 +769,8 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 				SetTimer(hDlg, ID_TIMER_SNAPSHOT, nInterval * 1000,nullptr);
 				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT), FALSE);
 				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_STOPSNAPSHOT), TRUE);
+				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCSTREAM), FALSE);
+				
 				break;
 			}
 		}
@@ -777,30 +797,27 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 		{
 			if (m_pPlayContext[0] && m_pPlayContext[0]->hPlayer)
 			{
-				if ((timeGetTime() - m_pPlayContext[0]->dwLastStreamTime) >= 5000)
+				int nError = 0;
+				int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
+				DVO2_NET_StopRealPlay(m_pPlayContext[0]->hStream);
+				// 重新打开码流
+				m_pPlayContext[0]->hStream = DVO2_NET_StartRealPlay(m_pPlayContext[0]->hUser,
+					0,
+					nStream,
+					DVO_TCP,
+					0,
+					NULL,
+					(fnDVOCallback_RealAVData_T)StreamCallBack,
+					(void *)m_pPlayContext[0].get(),
+					&nError);
+				if (m_pPlayContext[0]->hStream == -1)
 				{
-					int nError = 0;
-					int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
-					DVO2_NET_StopRealPlay(m_pPlayContext[0]->hStream);
-					// 重新打开码流
-					m_pPlayContext[0]->hStream = DVO2_NET_StartRealPlay(m_pPlayContext[0]->hUser,
-						0,
-						nStream,
-						DVO_TCP,
-						0,
-						NULL,
-						(fnDVOCallback_RealAVData_T)StreamCallBack,
-						(void *)m_pPlayContext[0].get(),
-						&nError);
-					if (m_pPlayContext[0]->hStream == -1)
-					{
-						ListBox_InsertString(g_hListMessage,0, _T("连接码流失败"));
-						return 0;
-					}
-					m_pPlayContext[0]->dwLastStreamTime = timeGetTime();
-					m_pPlayContext[0]->nReOpenStream++;
-					TraceMsgA("Try go Reopen IPC Video Stream [%d].\n", m_pPlayContext[0]->nReOpenStream);
+					ListBox_InsertString(g_hListMessage,0, _T("连接码流失败"));
+					return 0;
 				}
+				m_pPlayContext[0]->dwLastStreamTime = timeGetTime();
+				m_pPlayContext[0]->nReOpenStream++;
+				TraceMsgA("Try go Reopen IPC Video Stream [%d].\n", m_pPlayContext[0]->nReOpenStream);
 			}
 		}
 			break;

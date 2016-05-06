@@ -352,7 +352,7 @@ public:
 		}
 		
 		pFrameNew = av_frame_alloc();
-		nImageSize	 = av_image_get_buffer_size(nDstAvFormat, pSrcFrame->width,pSrcFrame->height,8); 
+		nImageSize	 = av_image_get_buffer_size(nDstAvFormat, pSrcFrame->width,pSrcFrame->height,16); 
 		if (nImageSize < 0)
 		{
 			char szAvError[256] = {0};
@@ -370,8 +370,8 @@ public:
 		}
 		DxTraceMsg("%s Image size = %d.\n",__FUNCTION__,nImageSize);
 		// 把显示图像与YUV帧关联
-		av_image_fill_arrays(pFrameNew->data,pFrameNew->linesize, pImage, nDstAvFormat, pSrcFrame->width,pSrcFrame->height,8);
-		pFrameNew->width	 = pSrcFrame->width;
+		av_image_fill_arrays(pFrameNew->data,pFrameNew->linesize, pImage, nDstAvFormat, pSrcFrame->width,pSrcFrame->height,16);
+		pFrameNew->width		 = pSrcFrame->width;
 		pFrameNew->height	 = pSrcFrame->height;
 		pFrameNew->format	 = nDstAvFormat;
 		nGQP = nGQ;
@@ -531,7 +531,7 @@ public:
 										(AVPixelFormat)pSrcFrame->format,	// src format
 										pSrcFrame->width,					// dst Width
 										pSrcFrame->height,					// dst Height
-										nDstAvFormat,					// dst format
+										nDstAvFormat,						// dst format
 										nScaleFlag, 
 										NULL, 
 										NULL, 
@@ -582,6 +582,7 @@ protected:
 	IDirect3D9				*m_pDirect3D9		/* = NULL*/;
 	IDirect3DDevice9		*m_pDirect3DDevice	/*= NULL*/;	
 	HANDLE					m_hEventSnapShot;	// 截图请求事件
+	bool					m_bSnapFlag;		// 截图事件标志,若该标志为TRUE，即使窗口被隐藏也会进行画面渲染
 	HANDLE					m_hEventCopySurface;// 解码数据复制事件
 	// 外部绘制接口，提供外部接口，允许调用方自行绘制图像
 	ExternDrawProc			m_pExternDraw;
@@ -817,14 +818,15 @@ public:
 	virtual void DxCleanup()
 	{
 		SafeRelease(m_pDirect3DSurfaceRender);
-		SafeRelease(m_pDirect3DDevice);
 		SafeRelease(m_pSnapshotSurface);
+		SafeRelease(m_pDirect3DDevice);
 	}
 
 	// 发送截图请求，即置信截图事件
 	void RequireSnapshot()
 	{
 		SetEvent(m_hEventSnapShot);
+		m_bSnapFlag = true;
 	}
 
 	// 把解码帧pAvFrame中的图像传送到截图表面
@@ -906,7 +908,7 @@ public:
 			bSnapReady = true;
 		if (!bSnapReady)
 			return false;
-
+		m_bSnapFlag = false;
 		hr = D3DXSaveSurfaceToFileW(szFilePath, m_D3DXIFF, m_pSnapshotSurface, NULL, NULL);
 		if (FAILED(hr))
 		{
@@ -1183,6 +1185,8 @@ _Failed:
 	// 当窗口或其根窗口处于隐藏或最小化状态时，则不应在该窗口上绘制图像
 	bool IsNeedRender(HWND hRenderWnd)
 	{
+		if (IsWindow(hRenderWnd) && m_bSnapFlag)
+			return true;
 		// 若窗口被隐藏或最小化则不再显示图像
 		if (IsIconic(hRenderWnd))		// 窗口最小化	
 		{
@@ -1364,21 +1368,21 @@ _Failed:
 		// YUV420P的U和V分量对调，便成为YV12格式
 		// 复制Y分量
 		for (int i = 0; i < pFrame420P->height; i++)
-			memcpy(pDestY + i * nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->linesize[0]);
+			memcpy(pDestY + i * nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
 
 		// 复制YUV420P的U分量到目村的YV12的U分量
 		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy(pDestU + i * nStride / 2, pFrame420P->data[1] + i * pFrame420P->linesize[1] , pFrame420P->linesize[1]);
+			memcpy(pDestU + i * nStride / 2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width/2);
 
 		// 复制YUV420P的V分量到目村的YV12的V分量
 		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy(pDestV + i * nStride / 2, pFrame420P->data[2] + i * pFrame420P->linesize[2] , pFrame420P->linesize[2]);
+			memcpy(pDestV + i * nStride / 2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width/2);
 	}
 
 	void CopyFrameARGB(byte *pDest,int nStride,AVFrame *pFrameARGB)
 	{	
 		for (int i = 0; i < pFrameARGB->height; i++)
-			memcpy(pDest + i * nStride, pFrameARGB->data[0] + i * pFrameARGB->linesize[0], pFrameARGB->linesize[0]);
+			memcpy(pDest + i * nStride, pFrameARGB->data[0] + i * pFrameARGB->linesize[0], pFrameARGB->width);
 	}
 	
 	virtual bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
@@ -1984,6 +1988,7 @@ public:
 #endif
 	virtual void DxCleanup()
 	{
+		SafeRelease(m_pSnapshotSurface);
 		SafeRelease(m_pDirect3DSurfaceRender);
 		SafeRelease(m_pDirect3DDeviceEx);
 	}
@@ -2219,6 +2224,7 @@ _Failed:
 		if (FAILED(hr))
 		{
 			DxTraceMsg("%s IDirect3DDevice9Ex::ResetEx Failed,hr = %08X.\n",__FUNCTION__,hr);
+			
 			return false;
 		}
 		return true;
@@ -2246,7 +2252,11 @@ _Failed:
 		case S_PRESENT_MODE_CHANGED:
 			{
 				DxTraceMsg("%s The display mode has changed.\n",__FUNCTION__);
-				return ResetDevice();
+				if (!ResetDevice())
+				{
+					DxCleanup();
+					return InitD3D(m_d3dpp.hDeviceWindow, m_nVideoWidth, m_nVideoHeight, m_bFullScreen);
+				}
 			}
 			break;
 		case S_PRESENT_OCCLUDED:	// 窗口被其它窗口模式的画面遮挡或全屏画面被最小化,若为全屏窗口，
@@ -2271,9 +2281,7 @@ _Failed:
 			{
 				DxTraceMsg("%s The device is hung.\n",__FUNCTION__);
 				DxCleanup();
-				if (FAILED(hr))
-					return false;
-				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	
+				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen);	
 			}
 			break;
 		case D3DERR_DEVICEREMOVED:	// 需要重新创建IDirect3DEx对象
@@ -2284,7 +2292,7 @@ _Failed:
 				hr = m_pDirect3DCreate9Ex(D3D_SDK_VERSION, &m_pDirect3D9Ex);
 				if (FAILED(hr))
 					return false;
-				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen,m_d3dpp.BackBufferFormat);	
+				return InitD3D(m_d3dpp.hDeviceWindow,m_nVideoWidth,m_nVideoHeight,m_bFullScreen);	
 			}
 			break;
 		default:
