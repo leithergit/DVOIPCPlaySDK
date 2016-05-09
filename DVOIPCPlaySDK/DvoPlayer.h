@@ -247,7 +247,7 @@ struct StreamFrame
 		pInputData = (byte *)_aligned_malloc(nLenth, 16);
 		//pInputData = _New byte[nLenth];
 		if (pInputData)
-			memcpy(pInputData, pBuffer, nLenth);
+			memcpy_s(pInputData,nLenth, pBuffer, nLenth);
 		DVOFrameHeader* pHeader = (DVOFrameHeader *)pInputData;
 		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 			pHeader->nTimestamp = ((DVOFrameHeaderEx* )pHeader)->nFrameID*nFrameInterval * 1000;
@@ -301,7 +301,7 @@ struct StreamFrame
 #ifdef _DEBUG
 		pHeader->dfRecvTime		 = GetExactTime();
 #endif
-		memcpy(pInputData + sizeof(DVOFrameHeaderEx), pFrame, nFrameLength);
+		memcpy_s(pInputData + sizeof(DVOFrameHeaderEx),nFrameLength, pFrame, nFrameLength);
 #ifdef _DEBUG
 		//OutputMsg("%s pInputData = %08X size = %d.\n", __FUNCTION__, (long)pInputData,nSize);
 #endif
@@ -441,7 +441,7 @@ struct StreamProbe
 			return false;
 		if ((nProbeDataLength + nStreamLength) > nProbeBuffSize)
 			return false;
-		memcpy(&pProbeBuff[nProbeDataLength], pStream, nStreamLength);
+		memcpy_s(&pProbeBuff[nProbeDataLength], nProbeBuffSize - nProbeDataLength, pStream, nStreamLength);
 		nProbeDataLength += nStreamLength;
 		nProbeDataRemained = nProbeDataLength;
 		nProbeOffset = 0;
@@ -803,7 +803,7 @@ private:
 			return GetLastError();
 		if (bFoundVideo)
 		{
-			memcpy(pFrame, Parser.pHeader, sizeof(DVOFrameHeader));
+			memcpy_s(pFrame, sizeof(DVOFrameHeader), Parser.pHeader, sizeof(DVOFrameHeader));
 			return DVO_Succeed;
 		}
 		else
@@ -1393,7 +1393,7 @@ public:
 		m_pMediaHeader = make_shared<DVO_MEDIAINFO>();
 		if (m_pMediaHeader)
 		{
-			memcpy(m_pMediaHeader.get(), szStreamHeader, sizeof(DVO_MEDIAINFO));
+			memcpy_s(m_pMediaHeader.get(), sizeof(DVO_MEDIAINFO), szStreamHeader, sizeof(DVO_MEDIAINFO));
 			m_nSDKVersion = m_pMediaHeader->nSDKversion;
 			switch (m_nSDKVersion)
 			{
@@ -2235,9 +2235,9 @@ public:
 // 				memcpy(pYUV + a, pAvFrame->data[2] + i * pAvFrame->linesize[2], pAvFrame->width / 2);
 // 				a += pAvFrame->width / 2;
 // 			}
-			memcpy(pYUV, pAvFrame->data[0], pAvFrame->linesize[0]*pAvFrame->height);
-			memcpy(&pYUV[nPicSize], pAvFrame->data[1], pAvFrame->linesize[1] * pAvFrame->height/2);
-			memcpy(&pYUV[nPicSize + nPicSize / 4], pAvFrame->data[2], pAvFrame->linesize[2] * pAvFrame->height/2);
+			memcpy_s(pYUV, nPicSize*3/2,pAvFrame->data[0],  pAvFrame->linesize[0] * pAvFrame->height);
+			memcpy_s(&pYUV[nPicSize], nPicSize/2, pAvFrame->data[1], pAvFrame->linesize[1] * pAvFrame->height / 2);
+			memcpy_s(&pYUV[nPicSize + nPicSize / 4], nPicSize/4, pAvFrame->data[2], pAvFrame->linesize[2] * pAvFrame->height / 2);
 		}
 		
 		COPYDATASTRUCT cds;
@@ -2792,7 +2792,7 @@ public:
 				{// 尝试探测码流,继续读出完整数据以探测码流格式
 					pFrameBuffer = _New byte[nFrameSize];
 					shared_ptr<byte> FrameBufferPtr(pFrameBuffer);
-					memcpy(pFrameBuffer, pHeaderEx, nBufferSize);
+					memcpy_s(pFrameBuffer, nFrameSize, pHeaderEx, nBufferSize);
 					if (!ReadFile(hDvoFile, &pFrameBuffer[nBufferSize], pHeaderEx->nLength, &nBytesRead, nullptr))
 					{
 						OutputMsg("%s ReadFile Failed,Error = %d.\n", __FUNCTION__, GetLastError());
@@ -2993,7 +2993,7 @@ public:
 // 				bFirstBlockIsFilled = false;
 // 			}
 			// 残留数据长为nDataLength
-			memcpy(pBuffer, pFrameBuffer, nDataLength);
+			memcpy_s(pBuffer,nBufferSize, pFrameBuffer, nDataLength);
 			ZeroMemory(&pBuffer[nDataLength] ,nBufferSize - nDataLength);
 		}
 		m_nTotalFrames = nFrames;
@@ -3450,10 +3450,11 @@ public:
 			}
 			else
 			{
-				memcpy(m_pYUV, pAvFrame->data[0], nPicSize);
-				memcpy(&m_pYUV[nPicSize], pAvFrame->data[1], nPicSize / 4);
-				memcpy(&m_pYUV[nPicSize + nPicSize / 4], pAvFrame->data[2], nPicSize / 4);	
+				memcpy_s(m_pYUV, m_nYUVSize, pAvFrame->data[0], nPicSize);
+				memcpy_s(&m_pYUV[nPicSize], m_nYUVSize - nPicSize, pAvFrame->data[1], nPicSize / 4);
+				memcpy_s(&m_pYUV[nPicSize + nPicSize / 4], m_nYUVSize - nPicSize - nPicSize / 4, pAvFrame->data[2], nPicSize / 4);
 			}
+			TraceMsgA("%s m_pfnCaptureYUV = %p", __FUNCTION__, m_pfnCaptureYUV);
 			m_pfnCaptureYUV(this, m_pYUV, m_nYUVSize, pAvFrame->width, pAvFrame->height, nTimestamp, m_pUserCaptureYUV);		
 		}
 		if (m_pfnCaptureYUVEx)
@@ -3511,13 +3512,13 @@ public:
 			nRemainedLength = nDataLength - nProbeOffset;
 			if (nRemainedLength > buf_size)
 			{
-				memcpy(buf, &pProbeBuff[nProbeOffset], buf_size);
+				memcpy_s(buf,buf_size, &pProbeBuff[nProbeOffset], buf_size);
 				nProbeOffset += buf_size;
 				nDataLength -= buf_size;
 			}
 			else
 			{
-				memcpy(buf, &pProbeBuff[nProbeOffset], nRemainedLength);
+				memcpy_s(buf, buf_size, &pProbeBuff[nProbeOffset], nRemainedLength);
 				nDataLength -= nRemainedLength;
 				nProbeOffset = 0;
 				nReturnVal = nRemainedLength;

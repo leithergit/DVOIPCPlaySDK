@@ -231,6 +231,8 @@ BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 		g_pDxSurface->InitD3D(GetDlgItem(hDlg, IDC_STATIC_FRAME), g_nVideoWidth, g_nVideoHeight, TRUE);
 	}
 	g_hEditText = GetDlgItem(hDlg, IDC_EDIT_TEXT);
+	SendDlgItemMessage(hDlg,IDC_EDIT_TEXT, EM_LIMITTEXT, 0, 0xFFFF);
+	//SendDlgItemMessage(hDlg, EM_SETBKGNDCOLOR, 0, GetSysColor(COLOR_3DFACE));
 	// 创建共享内存
 // 	g_pSnapShotMem = (SnapShotMem *)CreateShareMemory(g_hSnapShotMem, _SnapShotMemName, sizeof(SnapShotMem));
 // 	if (!g_hSnapShotMem || !g_hSnapShotMem)

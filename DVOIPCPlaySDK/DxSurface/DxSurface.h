@@ -838,6 +838,8 @@ public:
 			// 不能使用StretchRect把显存表面复制到系统内存表面
 			// hr = m_pDirect3DDevice->StretchRect(m_pDirect3DSurfaceRender, &srcrt, m_pSnapshotSurface, &srcrt, D3DTEXF_LINEAR);
 			D3DLOCKED_RECT D3dRect;
+			D3DSURFACE_DESC desc;
+			m_pSnapshotSurface->GetDesc(&desc);
 			m_pSnapshotSurface->LockRect(&D3dRect, NULL, D3DLOCK_DONOTWAIT);
 			// FFMPEG像素编码字节序与DirectX像素的字节序相反,因此
 			// D3DFMT_A8R8G8B8(A8:R8:G8:B8)==>AV_PIX_FMT_BGRA(B8:G8:R8:A8)
@@ -847,7 +849,7 @@ public:
 			shared_ptr<PixelConvert> pVideoScale (new PixelConvert(pAvFrame,D3DFMT_A8R8G8B8,GQ_BICUBIC));
 #endif
 			pVideoScale->ConvertPixel(pAvFrame);
-			memcpy(D3dRect.pBits, pVideoScale->pImage,pVideoScale->nImageSize);
+			memcpy_s(D3dRect.pBits, D3dRect.Pitch*desc.Height, pVideoScale->pImage, pVideoScale->nImageSize);
 			m_pSnapshotSurface->UnlockRect();
 			SetEvent(m_hEventCopySurface);
 			DxTraceMsg("%s Surface is Transfered.\n", __FUNCTION__);
@@ -1356,33 +1358,37 @@ _Failed:
 				
 		return true;
 	}
-	
-	void CopyFrameYUV420P(byte *pDest,int nStride,AVFrame *pFrame420P)
+	void CopyFrameYUV420P(D3DLOCKED_RECT *pD3DRect,int nDescHeight,AVFrame *pFrame420P)
+	//void CopyFrameYUV420P(byte *pDest,int nDestSize,int nStride,AVFrame *pFrame420P)
 	{
-		int nSize = pFrame420P->height * nStride;			
-		const size_t nHalfSize = (nSize) >> 1;	
+		byte *pDest = (byte *)pD3DRect->pBits;
+		int nStride = pD3DRect->Pitch;
+		int nSize = nDescHeight * nStride;
+		int nHalfSize = (nSize) >> 1;	
 		byte *pDestY = pDest;										// Y分量起始地址
 		byte *pDestV = pDest + nSize;								// U分量起始地址
+		int nSizeofV = nHalfSize>>1;
 		byte *pDestU = pDestV + (size_t)(nHalfSize >> 1);			// V分量起始地址
+		int nSizoefU = nHalfSize>>1;
 
 		// YUV420P的U和V分量对调，便成为YV12格式
 		// 复制Y分量
 		for (int i = 0; i < pFrame420P->height; i++)
-			memcpy(pDestY + i * nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
+			memcpy_s(pDestY + i * nStride, nSize*3/2 - i*nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
 
 		// 复制YUV420P的U分量到目村的YV12的U分量
 		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy(pDestU + i * nStride / 2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width/2);
+			memcpy_s(pDestU + i * nStride / 2,nSizoefU - i*nStride/2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width/2);
 
 		// 复制YUV420P的V分量到目村的YV12的V分量
 		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy(pDestV + i * nStride / 2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width/2);
+			memcpy_s(pDestV + i * nStride / 2,nSizeofV - i*nStride/2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width/2);
 	}
 
-	void CopyFrameARGB(byte *pDest,int nStride,AVFrame *pFrameARGB)
+	void CopyFrameARGB(byte *pDest,int nDestSize,int nStride,AVFrame *pFrameARGB)
 	{	
 		for (int i = 0; i < pFrameARGB->height; i++)
-			memcpy(pDest + i * nStride, pFrameARGB->data[0] + i * pFrameARGB->linesize[0], pFrameARGB->width);
+			memcpy_s(pDest + i * nStride, nDestSize - i*nStride,pFrameARGB->data[0] + i * pFrameARGB->linesize[0], pFrameARGB->width);
 	}
 	
 	virtual bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
@@ -1503,7 +1509,7 @@ _Failed:
  				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
 					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
- 					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
+					CopyFrameYUV420P(&d3d_rect,Desc.Height, pAvFrame);
  				else
 				{
 					if (!m_pPixelConvert)
@@ -1514,7 +1520,7 @@ _Failed:
 #endif
 					m_pPixelConvert->ConvertPixel(pAvFrame);
 					if (m_pPixelConvert->GetDestPixelFormat() == AV_PIX_FMT_YUV420P)
-						CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,m_pPixelConvert->pFrameNew);
+						CopyFrameYUV420P(&d3d_rect,Desc.Height,m_pPixelConvert->pFrameNew);
 					else					
 						memcpy((byte *)d3d_rect.pBits,m_pPixelConvert->pImage,m_pPixelConvert->nImageSize);
 				}
@@ -2531,7 +2537,7 @@ _Failed:
 				if ((pAvFrame->format == AV_PIX_FMT_YUV420P ||
 					pAvFrame->format == AV_PIX_FMT_YUVJ420P) &&
 					Desc.Format == (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2'))
-					CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,pAvFrame);
+					CopyFrameYUV420P(&d3d_rect,Desc.Height, pAvFrame);
 				else
 				{
 					if (!m_pPixelConvert)
@@ -2542,9 +2548,9 @@ _Failed:
 #endif 
 					m_pPixelConvert->ConvertPixel(pAvFrame);
 					if (m_pPixelConvert->GetDestPixelFormat() == AV_PIX_FMT_YUV420P)
-						CopyFrameYUV420P((byte *)d3d_rect.pBits,d3d_rect.Pitch,m_pPixelConvert->pFrameNew);
+						CopyFrameYUV420P(&d3d_rect,Desc.Height, m_pPixelConvert->pFrameNew);
 					else					
-						memcpy((byte *)d3d_rect.pBits,m_pPixelConvert->pImage,m_pPixelConvert->nImageSize);
+						memcpy_s((byte *)d3d_rect.pBits, d3d_rect.Pitch*Desc.Height, m_pPixelConvert->pImage, m_pPixelConvert->nImageSize);
 				}
 				SaveRunTime();
 				hr = m_pDirect3DSurfaceRender->UnlockRect();

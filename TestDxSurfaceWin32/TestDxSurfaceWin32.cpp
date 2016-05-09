@@ -93,7 +93,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
-
+	char szText[32] = { 0 };
+	memcpy_s(szText, 32, szYUVFile, strlen(szYUVFile));
 	//InitCommonControls();
 	hInst = hInstance;
 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG), NULL, (DLGPROC)WndProc);
@@ -494,7 +495,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SYSTEMTIME sysTime;
 				GetLocalTime(&sysTime);
 				char szYUVFile[512] = { 0 };
-				sprintf(pYUVFrame->szFileName, "YVU_192.168.3.29_%04d%02d%02d_%02d%02d%02d.jpg",
+				swprintf(pYUVFrame->szFileName, L"YVU_192.168.3.29_%04d%02d%02d_%02d%02d%02d.jpg",
 					sysTime.wYear,
 					sysTime.wMonth,
 					sysTime.wDay,
