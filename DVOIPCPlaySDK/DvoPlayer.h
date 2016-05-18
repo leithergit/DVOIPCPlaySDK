@@ -22,6 +22,7 @@
 #include <process.h>
 #include <Shlwapi.h>
 #include <MMSystem.h>
+#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
 #pragma comment(lib, "winmm.lib")
 #include "DVOMedia.h"
 #include "DVOIPCPlaySDK.h"
@@ -1260,15 +1261,15 @@ public:
 		if (hWnd && IsWindow(hWnd))
 		{// 必采要有窗口才会播放视频和声音
 			m_hWnd = hWnd;
-			OSVERSIONINFOEX osVer;
-			osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-			GetVersionEx((OSVERSIONINFO *)&osVer);
+// 			OSVERSIONINFOEX osVer;
+// 			osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+// 			GetVersionEx((OSVERSIONINFO *)&osVer);
 			if (TimeSpanEx(g_dfProcessLoadTime) < 15)
 			{// 进程启动15秒内，不从缓存中取CDxSurface 对象
-				if (osVer.dwMajorVersion < 6)
-					m_pDxSurface = _New CDxSurface();
-				else
+				if (IsWindowsVistaOrGreater())
 					m_pDxSurface = _New CDxSurfaceEx();
+				else
+					m_pDxSurface = _New CDxSurface();
 			}
 			else
 				m_pDxSurface = nullptr;
@@ -3189,11 +3190,11 @@ public:
 						break;				
 // 					if (pThis->m_pfnCaptureFrame)					
 // 						pThis->m_pfnCaptureFrame(pThis, (byte *)Parser.pHeader, Parser.nFrameSize, pThis->m_pUserCaptureFrame);				
-					if (!pThis->m_hWnd)		// 没有窗口句柄，则不放入播放队列
-					{
-						bFrameInput = true;
-						continue;
-					}
+// 					if (!pThis->m_hWnd)		// 没有窗口句柄，则不放入播放队列
+// 					{
+// 						bFrameInput = true;
+// 						continue;
+// 					}
 								
 					nInputResult = pThis->InputStream((byte *)Parser.pHeader, Parser.nFrameSize);
 					switch (nInputResult)
@@ -3232,10 +3233,10 @@ public:
 			ZeroMemory(&pBuffer[nDataLength],nBufferSize - nDataLength);
 #endif
 			// 若是单纯解析数据线程，则需要暂缓读取数据
-			if (!pThis->m_hWnd )
-			{
-				Sleep(10);
-			}
+// 			if (!pThis->m_hWnd )
+// 			{
+// 				Sleep(10);
+// 			}
 		}
 		return 0;
 	}

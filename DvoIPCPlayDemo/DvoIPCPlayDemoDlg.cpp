@@ -950,6 +950,8 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 		{
 
 		}
+			
+		
 			break;
 		case IDC_RADIO_INSIDE_NETSDK:
 		{

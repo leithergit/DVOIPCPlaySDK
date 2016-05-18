@@ -5,6 +5,8 @@
 #include <time.h>
 /// DVO录像文件格式
 #define DVO_TAG                 0x44564F4D //"MOVD"
+#define GSJ_TAG					0x48574D49 //"IMWH"
+#define DVO_IPC_SDK_GSJ_HEADER			   0xfde8
 #define DVO_IPC_SDK_VERSION_2015_09_07     0x62
 #define DVO_IPC_SDK_VERSION_2015_10_20     0x63		///< 版本升级,2015-10-20 因为DVO_MEDIAINFO增加nFps字段,该字段之占用了之前的nCameraType
 													///< 字段的位置,为区别这种差别,以版本号区分之,当版本号为0x62时,若遇到fps为0或1，则强制
@@ -18,11 +20,16 @@
 enum FrameType
 {
 	FRAME_UNKNOWN	 = -1,
-	FRAME_P			 = 0,
-	FRAME_B			 = 1,
+	FRAME_IDR		 = 1,
 	FRAME_I			 = 2,
-	FRAME_AUDIO		 = 3,
-	Frame_DATA		 = 4,
+	FRAME_P			 = 3,
+	FRAME_B			 = 4,
+	FRAME_JPEG		 = 5,
+	FRAME_G711A		 = 6,
+	FRAME_G711U		 = 7,
+	FRAME_G726		 = 8,
+	FRAME_AAC		 = 9,
+	Frame_DATA		 = 10
 };
 
 /// @brief 编码类型
@@ -30,12 +37,12 @@ enum DVO_CODEC
 {
 	CODEC_UNKNOWN = -1,
 	CODEC_H264		 = 0x00,
-	CODEC_H265		 = 0x01,
-	CODEC_MJPEG		 = 0x02,
-	CODEC_G711U		 = 0x10,
-	CODEC_G711A		 = 0x11,		
-	CODEC_G726		 = 0x13,
-	CODEC_AAC		 = 0x14
+	CODEC_MJPEG		 = 0x01,
+	CODEC_H265		 = 0x02,
+	CODEC_G711A		 = FRAME_G711A,
+	CODEC_G711U		 = FRAME_G711U,
+	CODEC_G726		 = FRAME_G726,
+	CODEC_AAC		 = FRAME_AAC
 };
 
 #pragma pack(push)
@@ -52,7 +59,7 @@ struct 	DVO_MEDIAINFO
 	~DVO_MEDIAINFO()
 	{
 	}
-	unsigned int 	nMediaTag;		///< 头标志 固定为   0x44564F4D 即字符串"MOVD"
+	unsigned int 	nMediaTag;		///< 头标志 固定为   0x44564F4D 即字符串"MOVD",对于老版的录像文件亦有可能为GSJ_TAG，即“IMWH”
 	long			nSDKversion;	///< 固定值为	DVO_IPC_SDK_VERSION
 									///< 版本升级,2015-12-26
 									///< 因为DVO_MEDIAINFO增加nFps字段,该字段之占用了之前的nCameraType
@@ -60,8 +67,8 @@ struct 	DVO_MEDIAINFO
 									///< nFps=25,否则使用DVO_MEDIAINFO中的nFps字段
 	DVO_CODEC		nVideoCodec;	///< 视频编码类型
 	DVO_CODEC		nAudioCodec;	///< 音频编码类型
-	int				nVideoWidth;	///< 视频图像宽度
-	int				nVideoHeight;	///< 视频图像高度
+	int				nVideoWidth;	///< 视频图像宽度，可设置为0
+	int				nVideoHeight;	///< 视频图像高度，可设置为0
 	unsigned char	nFps;			///< 帧率
 	unsigned char	nCameraType;	///< 相机类型DVO相机为0，安讯士相机为1 fps
 	unsigned char	reserved1[2];	///< 保留,必须置0
@@ -80,8 +87,8 @@ struct DVOFrameHeader
 	~DVOFrameHeader()
 	{
 	}
-	long	nLength;				///< 帧数据长度,以字节为单位
-	long	nType;					///< 取值于枚举类型FrameType 
+	long	nLength;				///< 码流数据长度,以字节为单位
+	long	nType;					///< 取值于枚举类型FrameType
 	__int64	nTimestamp;				///< 时间戳,单位微秒
 	long	nFrameTag;				///< DVO_TAG
 	long	nFrameUTCTime;			///< 收到帧的utc时间
@@ -95,8 +102,13 @@ struct DVOFrameHeaderEx:public DVOFrameHeader
 		nFrameTag		 = DVO_TAG;
 		nFrameUTCTime	 = (long)time(NULL);
 	}
-	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数
+	unsigned int	nFrameID;		///< 帧序号,视频帧和音频帧分别独立计数,从0开始计数,即第一帧nFrameID为0
+#ifndef _DEBUG
 	unsigned int	nReserver[3];	///< 保留字段,建议置0
+#else
+	unsigned int	nReserver;		///< 保留字段,建议置0
+	double          dfRecvTime;
+#endif
 };
 #pragma pack(pop)
 

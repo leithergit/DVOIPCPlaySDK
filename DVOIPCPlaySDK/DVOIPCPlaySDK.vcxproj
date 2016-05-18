@@ -82,7 +82,7 @@
     </Link>
     <PostBuildEvent>
       <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,"D:\Git\VCASysPC SDK V1.4.4.CF7D0DF_UDP\BIN\DEMO\x86",E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DRelease|Win32'">
@@ -117,7 +117,7 @@ for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlayS
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DVOIPCPLAYSDK_EXPORTS;_ENABLE_FFMPEG_STAITC_LIB;_XKEYCHECK_H;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;E:\FFMPEG\static\include;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;E:\FFMPEG\static\include;..\faad2-2.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StructMemberAlignment>Default</StructMemberAlignment>
     </ClCompile>
@@ -125,7 +125,7 @@ for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlayS
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;E:\MinGW\lib;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\FFMPEG\static\lib;E:\DVO\DVOIPCPlaySDK\faad2-2.7\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\DVO\DVOIPCPlaySDK\dvoipcnetsdk;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;E:\MinGW\lib;E:\MinGW\lib\gcc\mingw32\4.8.1;E:\FFMPEG\static\lib;..\faad2-2.7\include;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
@@ -133,7 +133,7 @@ for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlayS
     </Link>
     <PostBuildEvent>
       <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,"C:\Program Files (x86)\DiveoTech\610",E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,"D:\Git\VCASysPC SDK V1.4.4.CF7D0DF_UDP\BIN\DEMO\x86","C:\Program Files (x86)\DiveoTech\610",E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

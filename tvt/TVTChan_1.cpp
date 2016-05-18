@@ -45,7 +45,12 @@ BOOL CTVTChan_1::StartPlayer()
     {
         return true;
     } 
-    m_hPlayHandle = dvoplay_OpenStream(m_hWnd,NULL,0,128,NULL);
+	DVO_MEDIAINFO mediaheader;
+	mediaheader.nVideoWidth = 1280;
+	mediaheader.nVideoHeight = 960;
+	mediaheader.nVideoCodec = CODEC_H264;
+	mediaheader.nAudioCodec = CODEC_G711U;
+    m_hPlayHandle = dvoplay_OpenStream(m_hWnd,nullptr,0,128,NULL);
 	
     bool bEnableHaccel=false;
 

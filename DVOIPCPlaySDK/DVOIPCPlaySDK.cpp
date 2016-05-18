@@ -107,7 +107,7 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileA(IN HWND hWnd, IN char *szFile
 ///	GetLastError的返回值
 DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFileName, FilePlayProc pPlayCallBack, void *pUserPtr, char *szLogFile)
 {
-	if (!hWnd || !IsWindow(hWnd) || !szFileName || !PathFileExistsW(szFileName))
+	if (!szFileName || !PathFileExistsW(szFileName))
 		return nullptr;
 	char szFilenameA[MAX_PATH] = { 0 };
 	WideCharToMultiByte(CP_ACP, 0, szFileName, -1, szFilenameA, MAX_PATH, NULL, NULL);
@@ -123,7 +123,7 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFil
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考GetLastError的返回值
 DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache, char *szLogFile)
 {
- 	if ((hWnd && !IsWindow(hWnd)) || !szStreamHeader || !nHeaderSize)
+ 	if ((hWnd && !IsWindow(hWnd))/* || !szStreamHeader || !nHeaderSize*/)
  		return nullptr;
 	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd,nullptr,szLogFile);
 	if (!pPlayer)

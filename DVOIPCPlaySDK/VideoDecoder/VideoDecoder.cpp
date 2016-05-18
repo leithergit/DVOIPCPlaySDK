@@ -5,6 +5,7 @@
 #include "gpu_memcpy_sse4.h"
 #include <ppl.h>
 #include <assert.h>
+#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
 
 #pragma comment ( lib, "d3d9.lib" )
 #pragma comment ( lib, "d3dx9.lib" )
@@ -196,10 +197,45 @@ CAvRegister CVideoDecoder::AvRegister;
 CVideoDecoder::CVideoDecoder(void)
 {
 	ZeroMemory(&m_dxva, sizeof(m_dxva));
-	OSVERSIONINFOEX osVer;
-	osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);  
-	GetVersionEx((OSVERSIONINFO *)&osVer);
-	dwOvMajorVersion = osVer.dwMajorVersion;
+// 	OSVERSIONINFOEX osVer;
+// 	osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);  
+// 	GetVersionEx((OSVERSIONINFO *)&osVer);
+// 	dwOvMajorVersion = osVer.dwMajorVersion;
+	/*
+	Function	Description
+	IsWindowsXPOrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows XP version.
+	IsWindowsXPSP1OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows XP with Service Pack 1 (SP1) version.
+	IsWindowsXPSP2OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows XP with Service Pack 2 (SP2) version.
+	IsWindowsXPSP3OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows XP with Service Pack 3 (SP3) version.
+	IsWindowsVistaOrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows Vista version.
+	IsWindowsVistaSP1OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows Vista with Service Pack 1 (SP1) version.
+	IsWindowsVistaSP2OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows Vista with Service Pack 2 (SP2) version.
+	IsWindows7OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows 7 version.
+	IsWindows7SP1OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows 7 with Service Pack 1 (SP1) version.
+	IsWindows8OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows 8 version.
+	IsWindows8Point1OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows 8.1 version.
+	For Windows 10, IsWindows8Point1OrGreater returns false unless the application contains a manifest that includes a compatibility section that contains the GUIDs that designate Windows 8.1 and/or Windows 10.
+	IsWindows10OrGreater
+	Indicates if the current OS version matches, or is greater than, the Windows 10 version.
+	For Windows 10, IsWindows10OrGreater returns false unless the application contains a manifest that includes a compatibility section that contains the GUID that designates Windows 10.
+	IsWindowsServer
+	Indicates if the current OS is a Windows Server release. Applications that need to distinguish between server and client versions of Windows should call this function.
+	IsWindowsVersionOrGreater
+	Note  You should only use this function if the other provided version helper functions do not fit your scenario.
+
+	Indicates if the current OS version matches, or is greater than, the provided version information. This function is useful in confirming a version of Windows Server that doesn't share a version number with a client release.
+	*/
 }
 
 CVideoDecoder::~CVideoDecoder(void)
@@ -266,7 +302,7 @@ STDMETHODIMP CVideoDecoder::FreeD3DResources()
 
 STDMETHODIMP CVideoDecoder::LoadDXVA2Functions()
 {
-	if (dwOvMajorVersion < 6)		// 必须要Windows Vista及以上的操作系统
+	if (IsWindowsVistaOrGreater() < 6)		// 必须要Windows Vista及以上的操作系统
 		return E_FAIL;
 	m_dxva.dxva2lib = ::LoadLibraryA("dxva2.dll");
 	if (m_dxva.dxva2lib == nullptr) 

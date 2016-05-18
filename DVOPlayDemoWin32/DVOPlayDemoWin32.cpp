@@ -14,8 +14,8 @@
 #include "../DVOIPCPlaySDK/Utility.h"
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 #include "../dvoipcnetsdk/dvoipcnetsdk.h"
-#pragma  comment(lib,"../debug/dvoipcnetsdk.lib")
-#pragma comment(lib, "../Debug/DVOIPCPlaySDK.lib")
+#pragma  comment(lib,"dvoipcnetsdk.lib")
+#pragma comment(lib, "DVOIPCPlaySDK.lib")
 #pragma comment(lib,"Winmm.lib")
 #pragma comment(lib,"Shlwapi.lib")
 using namespace std;
@@ -36,8 +36,8 @@ TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 int		g_nSnapIndex = 0;
 int		g_nSnapShotCount = 0;
 int		g_nSnapShotedCount = 0;
-HWND	g_hListMessage = nullptr;
-HWND	g_hListCamera = nullptr;
+HWND	g_hListMessage = NULL;
+HWND	g_hListCamera = NULL;
 vector<string> g_vIPCamera;
 #ifdef EnableDlgItem
 #undef EnableDlgItem
@@ -68,12 +68,12 @@ public:
 		DVO_PLAYHANDLE	hPlayer;
 		DWORD			dwLastStreamTime;
 		int				nReOpenStream;		// 重新打开码流的次数
-		volatile bool bThreadRecvIPCStream = false;
+		volatile bool bThreadRecvIPCStream ;
 		DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
-		DWORD		nVideoFrames = 0;
-		DWORD		nAudioFrames = 0;
-		double		dfTimeRecv1 = 0.0f;
-		double		dfTimeRecv2 = 0.0f;
+		DWORD		nVideoFrames/* = 0*/;
+		DWORD		nAudioFrames/* = 0*/;
+		double		dfTimeRecv1 /*= 0.0f*/;
+		double		dfTimeRecv2/* = 0.0f*/;
 		HWND		hWndView;
 		int			nItem;
 		HANDLE		hYUVFile;
@@ -89,19 +89,20 @@ public:
 		TCHAR		szIpAddress[32];
 		TCHAR		szRecFilePath[MAX_PATH];
 		__int64		nTimeStamp[100];
-		int			nFirstID = 0;
+		int			nFirstID/* = 0*/;
 		int			nTimeCount;
 
 public:
 	PlayerContext(USER_HANDLE hUserIn,
 		REAL_HANDLE hStreamIn = -1,
-		DVO_PLAYHANDLE hPlayerIn = nullptr, int nCount = 1)
+		DVO_PLAYHANDLE hPlayerIn = NULL, int nCount = 1)
 	{
 		ZeroMemory(this, sizeof(PlayerContext));
 		nTimeCount = 0;
 		hUser = hUserIn;
 		hStream = -1;
 		hPlayer = hPlayerIn;
+		bThreadRecvIPCStream = false;
 	}
 	bool GetStreamInfo(int nStream,DVO_MEDIAINFO *pMediaHeader,int &nError)
 	{
@@ -198,13 +199,13 @@ public:
 		if (hPlayer)
 		{
 			dvoplay_Close(hPlayer);
-			hPlayer = nullptr;
+			hPlayer = NULL;
 		}
 		
 		if (hPlayerStream)
 		{
 			dvoplay_Close(hPlayerStream);
-			hPlayerStream = nullptr;
+			hPlayerStream = NULL;
 		}
 		
 		if (hUser != -1)
@@ -218,8 +219,9 @@ public:
 
 
 
-shared_ptr<PlayerContext> m_pPlayContext[STREAM_COUNT] = { nullptr, nullptr, nullptr, nullptr };
+shared_ptr<PlayerContext> m_pPlayContext[STREAM_COUNT];/* = { NULL, NULL, NULL, NULL }*/;
 BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK FilePlayDialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam);
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPTSTR    lpCmdLine,
@@ -252,6 +254,7 @@ int RectHeight(RECT &rt)
 {
 	return (rt.bottom - rt.top);
 }
+
 void CenterWindow(HWND hAlternateOwner)
 {
 	// determine owner window to center against
@@ -338,7 +341,7 @@ BOOL ReOpenStream(int nIndex , int nStream,HWND hWnd)
 		if (m_pPlayContext[nIndex]->hPlayer)
 		{
 			dvoplay_Close(m_pPlayContext[nIndex]->hPlayer);
-			m_pPlayContext[nIndex]->hPlayer = nullptr;
+			m_pPlayContext[nIndex]->hPlayer = NULL;
 			m_pPlayContext[nIndex]->hStream = -1;
 		}
 		//Sleep(100);
@@ -387,7 +390,7 @@ BOOL ReOpenStream(int nIndex , int nStream,HWND hWnd)
 		}
 		HWND hVideo = GetDlgItem(hWnd, IDC_VIDEO_FRAME1 + nIndex);
 		sprintf(szText, "dvoipcplaysdk_%s", g_vIPCamera[nIndex].c_str());
-		//m_pPlayContext[nIndex]->hPlayer = dvoplay_OpenStream(nullptr, (byte *)&MediaHeader, sizeof(MediaHeader), 128, "dvoipcplaysdk");
+		//m_pPlayContext[nIndex]->hPlayer = dvoplay_OpenStream(NULL, (byte *)&MediaHeader, sizeof(MediaHeader), 128, "dvoipcplaysdk");
 		m_pPlayContext[nIndex]->hPlayer = dvoplay_OpenStream(hVideo, (byte *)&MediaHeader, sizeof(MediaHeader), 128, szText);
 		if (!m_pPlayContext[nIndex]->hPlayer)
 		{
@@ -414,9 +417,9 @@ BOOL SnapShot(int nIndex,HWND hDlg)
 		_tcscat(szPath,  _T("\\ScreenSave"));
 		if (!PathFileExists(szPath))
 		{
-			if (!CreateDirectory(szPath, nullptr))
+			if (!CreateDirectory(szPath, NULL))
 			{
-				sprintf(szText, "%s 无法创建保存截图文件的目录,请确主是否有足够的权限[%d].", __FUNCTION__, nIndex);
+				sprintf(szText, "%s 无法创建保存截图文件的目录,请确认是否有足够的权限[%d].", __FUNCTION__, nIndex);
 				ListBox_InsertString(g_hListMessage,0, szText);
 				return FALSE;
 			}
@@ -445,362 +448,406 @@ BOOL SnapShot(int nIndex,HWND hDlg)
 	}
 	return FALSE;
 }
-BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
+BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 {
-	BOOL fReturn = TRUE;
-	switch (uMsg)
-	{
-	case WM_INITDIALOG:
-	{
+	CenterWindow(hDlg);
+	SetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, "admin");
+	SetDlgItemText(hDlg, IDC_EDIT_PASSWORD, "admin");
+	SetDlgItemText(hDlg, IDC_IPADDRESS, "192.168.3.127");
+	SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOT_COUNT, "-1");
+	SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOT_INTERVAL, "10");
+	SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOTED_COUNT, "0");
+	HWND hStreamCombo = GetDlgItem(hDlg, IDC_COMBO_STREAM);
+	ComboBox_AddString(hStreamCombo, "0");
+	ComboBox_AddString(hStreamCombo, "1");
+	ComboBox_AddString(hStreamCombo, "2");
+	ComboBox_AddString(hStreamCombo, "3");
+	ComboBox_SetCurSel(hStreamCombo, 0);
+	g_hListMessage = GetDlgItem(hDlg, IDC_LIST_MESSAGE);
+	g_hListCamera = GetDlgItem(hDlg, IDC_LIST_CAMERA);
+	CheckDlgButton(hDlg, IDC_RADIO_PLAYSTREAM, BST_CHECKED);
+	LV_COLUMN column;
+	column.mask = LVCF_TEXT | LVCF_FMT | LVCF_WIDTH;
+	column.pszText = "序号";
+	column.fmt = LVCFMT_LEFT;
+	column.cx = 50;
+	ListView_InsertColumn(g_hListCamera, 0, &column);
 
-		CenterWindow(hDlg);
-		SetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, "admin");
-		SetDlgItemText(hDlg, IDC_EDIT_PASSWORD, "admin");
-		SetDlgItemText(hDlg, IDC_IPADDRESS, "192.168.3.127");
-		SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOT_COUNT, "-1");
-		SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOT_INTERVAL, "10");
-		SetDlgItemText(hDlg, IDC_EDIT_SNAPSHOTED_COUNT, "0");
-		HWND hStreamCombo = GetDlgItem(hDlg, IDC_COMBO_STREAM);
-		ComboBox_AddString(hStreamCombo, "0");
-		ComboBox_AddString(hStreamCombo, "1");
-		ComboBox_AddString(hStreamCombo, "2");
-		ComboBox_AddString(hStreamCombo, "3");
-		ComboBox_SetCurSel(hStreamCombo, 0);
-		g_hListMessage = GetDlgItem(hDlg, IDC_LIST_MESSAGE);
-		g_hListCamera = GetDlgItem(hDlg, IDC_LIST_CAMERA);
-		CheckDlgButton(hDlg, IDC_RADIO_PLAYSTREAM, BST_CHECKED);
-		LV_COLUMN column;
-		column.mask = LVCF_TEXT | LVCF_FMT | LVCF_WIDTH;
-		column.pszText = "序号";
-		column.fmt = LVCFMT_LEFT;
-		column.cx = 50;
-		ListView_InsertColumn(g_hListCamera, 0, &column);
+	column.mask = LVCF_TEXT | LVCF_FMT | LVCF_WIDTH;
+	column.pszText = "IP";
+	column.fmt = LVCFMT_LEFT;
+	column.cx = 100;
+	ListView_InsertColumn(g_hListCamera, 1, &column);
+	return TRUE;
 
-		column.mask = LVCF_TEXT | LVCF_FMT | LVCF_WIDTH;
-		column.pszText = "IP";
-		column.fmt = LVCFMT_LEFT;
-		column.cx = 100;
-		ListView_InsertColumn(g_hListCamera, 1, &column);
-	}
-		break;
-	case WM_CLOSE:
-	{
-		for (int i = 0; i < g_vIPCamera.size();i ++)
+}
+void OnDestroy(HWND hDlg)
+{
+	ClearD3DCache();
+}
+void OnClose(HWND hDlg)
+{
+	for (int i = 0; i < g_vIPCamera.size();i ++)
+		m_pPlayContext[i].reset();
+	EndDialog(hDlg, IDOK);
+}
+
+void OnButtonAddList(HWND hDlg)
+{
+	char szIPCamera[32] = { 0 };
+	char szText[64] = { 0 };
+	GetDlgItemText(hDlg, IDC_IPADDRESS, szIPCamera, 32);
+	g_vIPCamera.push_back(szIPCamera);
+	sprintf(szText, "%d", g_vIPCamera.size());
+	LVITEM item;
+	item.mask = LVIF_TEXT;
+	item.state = 0;
+	item.stateMask = 0;
+	item.iImage = 0;
+	item.lParam = 0;
+	item.pszText =  szText;
+	item.iItem = g_vIPCamera.size() - 1;
+	item.iSubItem = 0;
+	ListView_InsertItem(g_hListCamera, &item);
+	item.pszText = szIPCamera;
+	item.iSubItem = 1;
+	ListView_SetItem(g_hListCamera, &item);
+}
+
+void OnButtonConnect(HWND hDlg)
+{
+
+	CHAR szAccount[32] = { 0 };
+	CHAR szPassowd[32] = { 0 };
+	CHAR szIPAddress[32] = { 0 };
+	GetDlgItemText(hDlg,IDC_EDIT_ACCOUNT, szAccount, 32);
+	GetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, szPassowd, 32);
+	DVO2_NET_Init(true);
+	int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL,0,0);
+	for (int i = 0; i < g_vIPCamera.size();i ++)
+		if (m_pPlayContext[i])
 			m_pPlayContext[i].reset();
-		EndDialog(hDlg, IDOK);
-		break;
+
+	app_net_tcp_sys_logo_info_t LoginInfo;
+	int nError = 0;
+	USER_HANDLE hUser = -1;
+	for (int i = 0; i < g_vIPCamera.size(); i++)
+	{
+		hUser = DVO2_NET_Login(g_vIPCamera[i].c_str(), 6001, szAccount, szPassowd, &LoginInfo, &nError, 5000);
+		if (hUser != -1)
+		{
+			m_pPlayContext[i] = shared_ptr<PlayerContext>(new PlayerContext (-1, -1, NULL, 1));
+			m_pPlayContext[i]->hUser = hUser;
+			m_pPlayContext[i]->hStream = -1;
+			m_pPlayContext[i]->hPlayer = NULL;
+		}
+		else
+		{
+			m_pPlayContext[i].reset();
+			ListBox_InsertString(g_hListMessage,0, "连接相机失败");
+		}
 	}
-	case WM_COMMAND:
+	EnableDlgItem(hDlg, IDC_BUTTON_DISCONNECT, true);
+	EnableDlgItem(hDlg, IDC_BUTTON_CONNECT, false);
+	EnableDlgItem(hDlg, IDC_EDIT_ACCOUNT, false);
+	EnableDlgItem(hDlg, IDC_EDIT_PASSWORD, false);
+	EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, true);
+	EnableDlgItem(hDlg, IDC_IPADDRESS, false);
+}
+void OnButtonDisConnect(HWND hDlg)
+{
+	for (int i = 0; i < g_vIPCamera.size(); i++)
+		if (m_pPlayContext[i])
+			m_pPlayContext[i].reset();
+	EnableDlgItem(hDlg, IDC_BUTTON_DISCONNECT, false);
+	EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, false);
+	EnableDlgItem(hDlg, IDC_BUTTON_CONNECT, true);
+	EnableDlgItem(hDlg, IDC_EDIT_ACCOUNT, true);
+	EnableDlgItem(hDlg, IDC_EDIT_PASSWORD, true);
+	EnableDlgItem(hDlg, IDC_IPADDRESS, true);
+	EnableDlgItem(hDlg, IDC_COMBO_STREAM, true);
+	DVO2_NET_Release();
+}
 
-		switch (wParam)
+void OnButtonSwitchStream(HWND hDlg)
+{
+//KillTimer(hDlg, ID_TIMER_CHECKSTREAM);
+	g_nSnapIndex = 0;
+	if (m_pPlayContext[g_nSnapIndex] && m_pPlayContext[g_nSnapIndex]->hPlayer)
+	{
+		EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), FALSE);
+		char szText[128] = { 0 };
+		int nCount = ListBox_GetCount(g_hListMessage);
+		if (nCount > 1024)
 		{
-		case IDOK:
-			EndDialog(hDlg, IDOK);
-			break;
-		case IDC_BUTTON_ADDLIST:
-		{
-			char szIPCamera[32] = { 0 };
-			char szText[64] = { 0 };
-			GetDlgItemText(hDlg, IDC_IPADDRESS, szIPCamera, 32);
-			g_vIPCamera.push_back(szIPCamera);
-			sprintf(szText, "%d", g_vIPCamera.size());
-			LVITEM item;
-			item.mask = LVIF_TEXT;
-			item.state = 0;
-			item.stateMask = 0;
-			item.iImage = 0;
-			item.lParam = 0;
-			item.pszText =  szText;
-			item.iItem = g_vIPCamera.size() - 1;
-			item.iSubItem = 0;
-			ListView_InsertItem(g_hListCamera, &item);
-			item.pszText = szIPCamera;
-			item.iSubItem = 1;
-			ListView_SetItem(g_hListCamera, &item);
-
-			break;
+			for (int i = 0; i < nCount; i++)
+				ListBox_DeleteString(g_hListMessage, 0);
 		}
-		case IDC_BUTTON_CONNECT:
+
+		sprintf(szText, "正在进行第[%d]路截图……", g_nSnapIndex);
+		ListBox_InsertString(g_hListMessage, 0, szText);
+
+		int nError = 0;
+		int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
+		if (nStream == 1)	// 副码流切到主码流
+			nStream = 0;
+		else				// 主码流切换到副码流	
+			nStream = 1;
+		if (!ReOpenStream(g_nSnapIndex, nStream, hDlg))
 		{
-			CHAR szAccount[32] = { 0 };
-			CHAR szPassowd[32] = { 0 };
-			CHAR szIPAddress[32] = { 0 };
-			GetDlgItemText(hDlg,IDC_EDIT_ACCOUNT, szAccount, 32);
-			GetDlgItemText(hDlg, IDC_EDIT_ACCOUNT, szPassowd, 32);
-			DVO2_NET_Init(true);
-			int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL,0,0);
-			for (int i = 0; i < g_vIPCamera.size();i ++)
-				if (m_pPlayContext[i])
-					m_pPlayContext[i].reset();
-			
-			app_net_tcp_sys_logo_info_t LoginInfo;
-			int nError = 0;
-			USER_HANDLE hUser = -1;
-			for (int i = 0; i < g_vIPCamera.size(); i++)
+			EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
+			return ;
+		}
+		//Sleep(2000);
+		//EventDelay(NULL, 2000);
+		if (SnapShot(g_nSnapIndex, hDlg))
+		{
+			g_nSnapShotedCount++;
+			SetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOTED_COUNT, g_nSnapShotedCount, FALSE);
+		}
+		if (nStream == 1)	// 副码流切到主码流
+			nStream = 0;
+		else				// 主码流切换到副码流	
+			nStream = 1;
+		//Sleep(100);
+		ReOpenStream(g_nSnapIndex, nStream, hDlg);
+		EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
+		g_nSnapIndex++;
+		g_nSnapIndex = g_nSnapIndex%g_vIPCamera.size();
+		//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100, NULL);
+	}
+}
+
+void OnButtonPlayStream(HWND hDlg)
+{
+	char szText[128] = { 0 };
+	int nStream = SendDlgItemMessage(hDlg,IDC_COMBO_STREAM, CB_GETCURSEL,0,0);
+	for (int i = 0; i < g_vIPCamera.size();i ++)
+		if (m_pPlayContext[i])
+		{
+			DVO_MEDIAINFO MediaHeader;
+			bool bEnableWnd = false;
+			if (m_pPlayContext[i]->hStream == -1)
 			{
-				hUser = DVO2_NET_Login(g_vIPCamera[i].c_str(), 6001, szAccount, szPassowd, &LoginInfo, &nError, 5000);
-				if (hUser != -1)
-				{
-					m_pPlayContext[i] = make_shared<PlayerContext>(-1, -1, nullptr, 1);
-					m_pPlayContext[i]->hUser = hUser;
-					m_pPlayContext[i]->hStream = -1;
-					m_pPlayContext[i]->hPlayer = nullptr;
-				}
-				else
-				{
-					m_pPlayContext[i].reset();
-					ListBox_InsertString(g_hListMessage,0, "连接相机失败");
-				}
-			}
-			EnableDlgItem(hDlg, IDC_BUTTON_DISCONNECT, true);
-			EnableDlgItem(hDlg, IDC_BUTTON_CONNECT, false);
-			EnableDlgItem(hDlg, IDC_EDIT_ACCOUNT, false);
-			EnableDlgItem(hDlg, IDC_EDIT_PASSWORD, false);
-			EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, true);
-			EnableDlgItem(hDlg, IDC_IPADDRESS, false);
-			break;
-		}
-		case IDC_BUTTON_DISCONNECT:
-		{
-			for (int i = 0; i < g_vIPCamera.size(); i++)
-				if (m_pPlayContext[i])
-					m_pPlayContext[i].reset();
-			EnableDlgItem(hDlg, IDC_BUTTON_DISCONNECT, false);
-			EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, false);
-			EnableDlgItem(hDlg, IDC_BUTTON_CONNECT, true);
-			EnableDlgItem(hDlg, IDC_EDIT_ACCOUNT, true);
-			EnableDlgItem(hDlg, IDC_EDIT_PASSWORD, true);
-			EnableDlgItem(hDlg, IDC_IPADDRESS, true);
-			EnableDlgItem(hDlg, IDC_COMBO_STREAM, true);
-			DVO2_NET_Release();
-			break;
-		}
-		case IDC_BUTTON_SWITCSTREAM:
-		{
-			//KillTimer(hDlg, ID_TIMER_CHECKSTREAM);
-			g_nSnapIndex = 0;
-			if (m_pPlayContext[g_nSnapIndex] && m_pPlayContext[g_nSnapIndex]->hPlayer)
-			{
-				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), FALSE);
-				char szText[128] = { 0 };
-				int nCount = ListBox_GetCount(g_hListMessage);
-				if (nCount > 1024)
-				{
-					for (int i = 0; i < nCount; i++)
-						ListBox_DeleteString(g_hListMessage, 0);
-				}
-
-				sprintf(szText, "正在进行第[%d]路截图……", g_nSnapIndex);
-				ListBox_InsertString(g_hListMessage, 0, szText);
-
 				int nError = 0;
-				int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
-				if (nStream == 1)	// 副码流切到主码流
-					nStream = 0;
-				else				// 主码流切换到副码流	
-					nStream = 1;
-				if (!ReOpenStream(g_nSnapIndex, nStream, hDlg))
+				REAL_HANDLE hStreamHandle = DVO2_NET_StartRealPlay(m_pPlayContext[i]->hUser,
+					0,
+					nStream,
+					DVO_TCP,
+					0,
+					NULL,
+					(fnDVOCallback_RealAVData_T)StreamCallBack,
+					(void *)m_pPlayContext[i].get(),
+					&nError);
+				if (hStreamHandle == -1)
 				{
-					EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
-					return 0;
+					sprintf(szText, "连接码流[%d]失败,Error = %d.", i,nError);
+					ListBox_InsertString(g_hListMessage,0, szText);
+					continue;
 				}
-				//Sleep(2000);
-				//EventDelay(nullptr, 2000);
-				if (SnapShot(g_nSnapIndex, hDlg))
+				m_pPlayContext[i]->hStream = hStreamHandle;
+				EnableDlgItem(hDlg,IDC_COMBO_STREAM, false);
+
+				if (!m_pPlayContext[i]->hPlayer)
 				{
-					g_nSnapShotedCount++;
-					SetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOTED_COUNT, g_nSnapShotedCount, FALSE);
-				}
-				if (nStream == 1)	// 副码流切到主码流
-					nStream = 0;
-				else				// 主码流切换到副码流	
-					nStream = 1;
-				//Sleep(100);
-				ReOpenStream(g_nSnapIndex, nStream, hDlg);
-				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
-				g_nSnapIndex++;
-				g_nSnapIndex = g_nSnapIndex%g_vIPCamera.size();
-				//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100, nullptr);
-			}
-			break;
-		}
-		case IDC_BUTTON_PLAYSTREAM:
-		{
-			char szText[128] = { 0 };
-			int nStream = SendDlgItemMessage(hDlg,IDC_COMBO_STREAM, CB_GETCURSEL,0,0);
-			for (int i = 0; i < g_vIPCamera.size();i ++)
-			if (m_pPlayContext[i])
-			{
-				DVO_MEDIAINFO MediaHeader;
-				bool bEnableWnd = false;
-				if (m_pPlayContext[i]->hStream == -1)
-				{
-					int nError = 0;
-					REAL_HANDLE hStreamHandle = DVO2_NET_StartRealPlay(m_pPlayContext[i]->hUser,
-						0,
-						nStream,
-						DVO_TCP,
-						0,
-						NULL,
-						(fnDVOCallback_RealAVData_T)StreamCallBack,
-						(void *)m_pPlayContext[i].get(),
-						&nError);
-					if (hStreamHandle == -1)
+					if (!m_pPlayContext[i]->GetStreamInfo(nStream, &MediaHeader,nError))
 					{
-						sprintf(szText, "连接码流[%d]失败,Error = %d.", i,nError);
+						sprintf(szText, "获取码流信息失败[%d],Error = %d.", i,nError);
 						ListBox_InsertString(g_hListMessage,0, szText);
 						continue;
 					}
-					m_pPlayContext[i]->hStream = hStreamHandle;
-					EnableDlgItem(hDlg,IDC_COMBO_STREAM, false);
-					
-					if (!m_pPlayContext[i]->hPlayer)
-					{
-						if (!m_pPlayContext[i]->GetStreamInfo(nStream, &MediaHeader,nError))
+					if (IsDlgButtonChecked(hDlg, IDC_RADIO_PLAYSTREAM) == BST_CHECKED)
+					{// 播放并解码
+						HWND hVideo = GetDlgItem(hDlg, (IDC_VIDEO_FRAME1 + i));
+						sprintf(szText, "dvoipcplaysdk_%s", g_vIPCamera[i].c_str());
+						m_pPlayContext[i]->hPlayer = dvoplay_OpenStream(hVideo, (byte *)&MediaHeader, sizeof(MediaHeader), 128, szText);
+						if (!m_pPlayContext[i]->hPlayer)
 						{
-							sprintf(szText, "获取码流信息失败[%d],Error = %d.", i,nError);
+							sprintf(szText, "打开流播放句柄失败[%d].", i);
 							ListBox_InsertString(g_hListMessage,0, szText);
 							continue;
 						}
-						if (IsDlgButtonChecked(hDlg, IDC_RADIO_PLAYSTREAM) == BST_CHECKED)
-						{// 播放并解码
-							HWND hVideo = GetDlgItem(hDlg, (IDC_VIDEO_FRAME1 + i));
-							sprintf(szText, "dvoipcplaysdk_%s", g_vIPCamera[i].c_str());
-							m_pPlayContext[i]->hPlayer = dvoplay_OpenStream(hVideo, (byte *)&MediaHeader, sizeof(MediaHeader), 128, szText);
-							if (!m_pPlayContext[i]->hPlayer)
-							{
-								sprintf(szText, "打开流播放句柄失败[%d].", i);
-								ListBox_InsertString(g_hListMessage,0, szText);
-								continue;
-							}
-						}
-						if (IsDlgButtonChecked(hDlg, IDC_RADIO_DECODE) == BST_CHECKED)
-						{// 仅解码
-							m_pPlayContext[i]->hPlayer = dvoplay_OpenStream(nullptr, (byte *)&MediaHeader, sizeof(MediaHeader), 128, szText);
-							if (!m_pPlayContext[i]->hPlayer)
-							{
-								sprintf(szText, "打开流播放句柄失败[%d].", i);
-								ListBox_InsertString(g_hListMessage,0, szText);
-								continue;
-							}
-						}
-						//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100,nullptr);
-						dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
-						if (IsDlgButtonChecked(hDlg,IDC_CHECK_SAVEYUV) == BST_CHECKED)
-						{
-							SYSTEMTIME sysTime;
-							GetLocalTime(&sysTime);
-							char szYUVFile[512] = { 0 };
-							sprintf(szYUVFile, "YVU_%s_%04d%02d%02d_%02d%02d%02d.YUV",
-								g_vIPCamera[i].c_str(),
-								sysTime.wYear,
-								sysTime.wMonth,
-								sysTime.wDay,
-								sysTime.wHour,
-								sysTime.wMinute,
-								sysTime.wSecond);
-							m_pPlayContext[i]->hYUVFile = CreateFileA(szYUVFile,
-								GENERIC_WRITE,
-								0,
-								NULL,
-								OPEN_ALWAYS,
-								FILE_ATTRIBUTE_ARCHIVE,
-								NULL);
-							if (m_pPlayContext[i]->hYUVFile != INVALID_HANDLE_VALUE)
-							{
-								sprintf(szText, "YVU数据将被保存到文件%s中.", szYUVFile);
-								ListBox_InsertString(g_hListMessage,0, szText);
-							}
-							else
-							{
-								sprintf(szText, "打开文件%s失败，YVU数据将无法保存.", szYUVFile);
-								ListBox_InsertString(g_hListMessage,0, szText);
-							}
-							dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
-						}
-						dvoplay_Start(m_pPlayContext[i]->hPlayer, false, true);
 					}
-					m_pPlayContext[i]->dwLastStreamTime = timeGetTime();
-				}
-			}
-			EnableDlgItem(hDlg, IDC_BUTTON_SNAPSHOT, TRUE);
-			EnableDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT, TRUE);
-			EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, FALSE);
-			EnableDlgItem(hDlg, IDC_BUTTON_STOPPLAY, TRUE);
-			break;
-		}
-		case IDC_BUTTON_STOPPLAY:
-		{
-			KillTimer(hDlg, ID_TIMER_CHECKSTREAM);
-			KillTimer(hDlg, ID_TIMER_SNAPSHOT);
-			for (int i = 0; i < g_vIPCamera.size(); i++)
-				if (m_pPlayContext[i])
-				{
-					DVO2_NET_StopRealPlay(m_pPlayContext[i]->hStream);
-					m_pPlayContext[i]->hStream = -1;
-					EnableDlgItem(hDlg, IDC_COMBO_STREAM, TRUE);
-					if (m_pPlayContext[i]->hPlayer)
+					if (IsDlgButtonChecked(hDlg, IDC_RADIO_DECODE) == BST_CHECKED)
+					{// 仅解码
+						m_pPlayContext[i]->hPlayer = dvoplay_OpenStream(NULL, (byte *)&MediaHeader, sizeof(MediaHeader), 128, szText);
+						if (!m_pPlayContext[i]->hPlayer)
+						{
+							sprintf(szText, "打开流播放句柄失败[%d].", i);
+							ListBox_InsertString(g_hListMessage,0, szText);
+							continue;
+						}
+					}
+					//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100,NULL);
+					dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
+					if (IsDlgButtonChecked(hDlg,IDC_CHECK_SAVEYUV) == BST_CHECKED)
 					{
-						dvoplay_Stop(m_pPlayContext[i]->hPlayer);
-						//dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
-						dvoplay_Close(m_pPlayContext[i]->hPlayer);
-						if (m_pPlayContext[i]->hYUVFile)
+						SYSTEMTIME sysTime;
+						GetLocalTime(&sysTime);
+						char szYUVFile[512] = { 0 };
+						sprintf(szYUVFile, "YVU_%s_%04d%02d%02d_%02d%02d%02d.YUV",
+							g_vIPCamera[i].c_str(),
+							sysTime.wYear,
+							sysTime.wMonth,
+							sysTime.wDay,
+							sysTime.wHour,
+							sysTime.wMinute,
+							sysTime.wSecond);
+						m_pPlayContext[i]->hYUVFile = CreateFileA(szYUVFile,
+							GENERIC_WRITE,
+							0,
+							NULL,
+							OPEN_ALWAYS,
+							FILE_ATTRIBUTE_ARCHIVE,
+							NULL);
+						if (m_pPlayContext[i]->hYUVFile != INVALID_HANDLE_VALUE)
 						{
-							CloseHandle(m_pPlayContext[i]->hYUVFile);
-							m_pPlayContext[i]->hYUVFile = nullptr;
+							sprintf(szText, "YVU数据将被保存到文件%s中.", szYUVFile);
+							ListBox_InsertString(g_hListMessage,0, szText);
 						}
-						m_pPlayContext[i]->hPlayer = nullptr;
+						else
+						{
+							sprintf(szText, "打开文件%s失败，YVU数据将无法保存.", szYUVFile);
+							ListBox_InsertString(g_hListMessage,0, szText);
+						}
+						dvoplay_SetCallBack(m_pPlayContext[i]->hPlayer, YUVCapture, _CaptureYUV, m_pPlayContext[i].get());
 					}
+					dvoplay_Start(m_pPlayContext[i]->hPlayer, false, true);
 				}
-			EnableDlgItem(hDlg, IDC_BUTTON_SNAPSHOT, FALSE);
-			EnableDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT, FALSE);
-			EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, TRUE);
-			EnableDlgItem(hDlg, IDC_BUTTON_STOPPLAY, FALSE);
-			
+				m_pPlayContext[i]->dwLastStreamTime = timeGetTime();
+			}
+		}
+		EnableDlgItem(hDlg, IDC_BUTTON_SNAPSHOT, TRUE);
+		EnableDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT, TRUE);
+		EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, FALSE);
+		EnableDlgItem(hDlg, IDC_BUTTON_STOPPLAY, TRUE);
+}
+
+void OnButtonStopPlay(HWND hDlg)
+{
+	KillTimer(hDlg, ID_TIMER_CHECKSTREAM);
+	KillTimer(hDlg, ID_TIMER_SNAPSHOT);
+	for (int i = 0; i < g_vIPCamera.size(); i++)
+		if (m_pPlayContext[i])
+		{
+			DVO2_NET_StopRealPlay(m_pPlayContext[i]->hStream);
+			m_pPlayContext[i]->hStream = -1;
+			EnableDlgItem(hDlg, IDC_COMBO_STREAM, TRUE);
+			if (m_pPlayContext[i]->hPlayer)
+			{
+				dvoplay_Stop(m_pPlayContext[i]->hPlayer);
+				//dvoplay_Refresh(m_pPlayContext[i]->hPlayer);
+				dvoplay_Close(m_pPlayContext[i]->hPlayer);
+				if (m_pPlayContext[i]->hYUVFile)
+				{
+					CloseHandle(m_pPlayContext[i]->hYUVFile);
+					m_pPlayContext[i]->hYUVFile = NULL;
+				}
+				m_pPlayContext[i]->hPlayer = NULL;
+			}
+		}
+		EnableDlgItem(hDlg, IDC_BUTTON_SNAPSHOT, FALSE);
+		EnableDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT, FALSE);
+		EnableDlgItem(hDlg, IDC_BUTTON_PLAYSTREAM, TRUE);
+		EnableDlgItem(hDlg, IDC_BUTTON_STOPPLAY, FALSE);
+}
+void OnButtonSwitchSnapshot(HWND hDlg)
+{
+	if (m_pPlayContext[0] && m_pPlayContext[0]->hPlayer)
+	{
+		BOOL bTranslated;
+		g_nSnapIndex = 0;
+		g_nSnapShotedCount = 0;
+		g_nSnapShotCount = GetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOT_COUNT, &bTranslated, TRUE);
+		int nInterval = GetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOT_INTERVAL, &bTranslated, FALSE);
+		SetTimer(hDlg, ID_TIMER_SNAPSHOT, nInterval * 1000,NULL);
+		EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT), FALSE);
+		EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_STOPSNAPSHOT), TRUE);
+		EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCSTREAM), FALSE);
+
+	}
+}
+
+void OnButtonStopSnapshot(HWND hDlg)
+{
+	KillTimer(hDlg, ID_TIMER_SNAPSHOT);
+	EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
+	EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT), TRUE);
+	EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_STOPSNAPSHOT), FALSE);
+}
+
+void OnButtonPlayFile(HWND hDlg)
+{
+	ShowWindow(hDlg,SW_HIDE);
+	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_FILEPLAY), NULL, (DLGPROC)FilePlayDialogProc);
+	ShowWindow(hDlg,SW_SHOW);
+}
+LRESULT OnCommand(HWND hDlg, UINT nID, HWND hWndCtrl, UINT nCodeNotify)
+{
+	switch (nID)
+	{
+	case IDOK:
+		EndDialog(hDlg, IDOK);
+		break;
+	case IDC_BUTTON_ADDLIST:
+		{
+			OnButtonAddList(hDlg);
 			break;
 		}
-		case IDC_BUTTON_SNAPSHOT:
+	case IDC_BUTTON_CONNECT:
+		{
+			OnButtonConnect(hDlg);
+			break;
+		}
+	case IDC_BUTTON_DISCONNECT:
+		{
+			OnButtonDisConnect(hDlg);
+			break;
+		}
+	case IDC_BUTTON_SWITCSTREAM:
+		{
+			OnButtonSwitchStream(hDlg);
+			break;
+		}
+	case IDC_BUTTON_PLAYSTREAM:
+		{
+			OnButtonPlayStream(hDlg);
+			break;
+		}
+	case IDC_BUTTON_STOPPLAY:
+		{
+			OnButtonStopPlay(hDlg);
+			break;
+		}
+	case IDC_BUTTON_SNAPSHOT:
 		{
 			SnapShot(0,hDlg);
 			break;
 		}
-		case IDC_BUTTON_SWITCHSNAPSHOT:
+	case IDC_BUTTON_SWITCHSNAPSHOT:
 		{
-			if (m_pPlayContext[0] && m_pPlayContext[0]->hPlayer)
-			{
-				BOOL bTranslated;
-				g_nSnapIndex = 0;
-				g_nSnapShotedCount = 0;
-				g_nSnapShotCount = GetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOT_COUNT, &bTranslated, TRUE);
-				int nInterval = GetDlgItemInt(hDlg, IDC_EDIT_SNAPSHOT_INTERVAL, &bTranslated, FALSE);
-				SetTimer(hDlg, ID_TIMER_SNAPSHOT, nInterval * 1000,nullptr);
-				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT), FALSE);
-				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_STOPSNAPSHOT), TRUE);
-				EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCSTREAM), FALSE);
-				
-				break;
-			}
-		}
-		case IDC_BUTTON_STOPSNAPSHOT:
-		{
-			KillTimer(hDlg, ID_TIMER_SNAPSHOT);
-			EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SNAPSHOT), TRUE);
-			EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_SWITCHSNAPSHOT), TRUE);
-			EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_STOPSNAPSHOT), FALSE);
+			OnButtonSwitchSnapshot(hDlg);
 			break;
 		}
-		}
-		break;
-	case WM_DESTROY:
-	{
-		ClearD3DCache();
-	}
-		break;
-	case WM_TIMER:
-	{
-		switch (wParam)
+	case IDC_BUTTON_STOPSNAPSHOT:
 		{
-		case ID_TIMER_CHECKSTREAM:
+			OnButtonStopSnapshot(hDlg);
+			break;
+		}
+	case IDC_BUTTON_FILEPLAY:
+		{
+			OnButtonPlayFile(hDlg);
+			break;
+		}
+	}
+	return 0;
+}
+
+UINT OnTimer(HWND hDlg,UINT nEvent)
+{
+	switch (nEvent)
+	{
+	case ID_TIMER_CHECKSTREAM:
 		{
 			if (m_pPlayContext[0] && m_pPlayContext[0]->hPlayer)
 			{
@@ -827,8 +874,8 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 				TraceMsgA("Try go Reopen IPC Video Stream [%d].\n", m_pPlayContext[0]->nReOpenStream);
 			}
 		}
-			break;
-		case ID_TIMER_SNAPSHOT:
+		break;
+	case ID_TIMER_SNAPSHOT:
 		{
 			if (m_pPlayContext[g_nSnapIndex] && m_pPlayContext[g_nSnapIndex]->hPlayer)
 			{
@@ -846,10 +893,10 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					for (int i = 0; i < nCount;i ++)
 						ListBox_DeleteString(g_hListMessage,0);
 				}
-				
+
 				sprintf(szText, "正在进行第[%d]路截图……", g_nSnapIndex);
 				ListBox_InsertString(g_hListMessage,0, szText);
-				
+
 				int nError = 0;
 				int nStream = SendDlgItemMessage(hDlg, IDC_COMBO_STREAM, CB_GETCURSEL, 0, 0);
 				if (nStream == 1)	// 副码流切到主码流
@@ -862,7 +909,7 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 					return 0;
 				}
 				//Sleep(2000);
-				//EventDelay(nullptr, 2000);
+				//EventDelay(NULL, 2000);
 				if (SnapShot(g_nSnapIndex,hDlg))
 				{
 					g_nSnapShotedCount++;
@@ -879,15 +926,38 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT uMsg,WPARAM wParam, LPARAM lParam)
 				g_nSnapIndex = g_nSnapIndex%g_vIPCamera.size();
 			}
 		}
-		default:
-			break;
-		}
 	}
-		break;
-	default:
-		fReturn = FALSE;
+	return 0;
+}
+BOOL CALLBACK DialogProc(HWND hwnd, UINT message,WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+		HANDLE_MSG(hwnd, WM_INITDIALOG, OnInitDialog);
+		HANDLE_MSG(hwnd, WM_COMMAND, OnCommand);
+		HANDLE_MSG(hwnd, WM_CLOSE, OnClose);
+		HANDLE_MSG(hwnd, WM_DESTROY, OnDestroy);
+		HANDLE_MSG(hwnd, WM_TIMER, OnTimer);
 	}
-	return fReturn;
+	
+	return 0;
+}
+BOOL OnInitDialogFilePlay(HWND hDlg, HWND hWndFocus, LPARAM lParam)
+{
+	return 0;
+}
+
+BOOL CALLBACK FilePlayDialogProc(HWND hDlg, UINT message,WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+		HANDLE_MSG(hDlg, WM_INITDIALOG, OnInitDialogFilePlay);
+		//HANDLE_MSG(hwnd, WM_COMMAND, OnCommand);
+		HANDLE_MSG(hDlg, WM_CLOSE, OnClose);
+		HANDLE_MSG(hDlg, WM_DESTROY, OnDestroy);
+		//HANDLE_MSG(hwnd, WM_TIMER, OnTimer);
+	}	
+	return 0;
 }
 
 void  __stdcall StreamCallBack(IN USER_HANDLE  lUserID,
@@ -975,11 +1045,11 @@ void __stdcall _CaptureYUV(DVO_PLAYHANDLE hPlayHandle,
 	if (pContext->hYUVFile)
 	{
 		DWORD dwBytesWrite = 0;
-		if (!WriteFile(pContext->hYUVFile, pYUV, nSize, &dwBytesWrite, nullptr))
+		if (!WriteFile(pContext->hYUVFile, pYUV, nSize, &dwBytesWrite, NULL))
 		{
 			ListBox_InsertString(g_hListMessage,0, "写入YVU数据失败");
 		}
 		CloseHandle(pContext->hYUVFile);
-		pContext->hYUVFile = nullptr;
+		pContext->hYUVFile = NULL;
 	}
 }
