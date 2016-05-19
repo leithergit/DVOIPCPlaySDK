@@ -18,6 +18,7 @@
 #pragma comment(lib, "DVOIPCPlaySDK.lib")
 #pragma comment(lib,"Winmm.lib")
 #pragma comment(lib,"Shlwapi.lib")
+#pragma comment(lib,"comctl32.lib")
 using namespace std;
 using namespace std::tr1;
 #define MAX_LOADSTRING 100
@@ -231,7 +232,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	hInst = hInstance;
+	InitCommonControls();
 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DVOIPCPLAY), NULL, (DLGPROC)DialogProc);
+	//int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_FILEPLAY), NULL, (DLGPROC)FilePlayDialogProc);
 	nResult = GetLastError();
 	
 	return (int)0;
@@ -931,6 +934,7 @@ UINT OnTimer(HWND hDlg,UINT nEvent)
 }
 BOOL CALLBACK DialogProc(HWND hwnd, UINT message,WPARAM wParam, LPARAM lParam)
 {
+//	TraceMsgA("%s message = %04X.\n",__FUNCTION__,message);
 	switch (message)
 	{
 		HANDLE_MSG(hwnd, WM_INITDIALOG, OnInitDialog);
