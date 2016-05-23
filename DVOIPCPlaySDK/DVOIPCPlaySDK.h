@@ -139,6 +139,8 @@ enum DVO_CALLBACK
 #define		DVO_Error_SnapShotProcessStartFailed	(-31)///< 截图进程启动失败
 #define		DVO_Error_SnapShotFailed	 	(-32)	///< 截图进程未运行
 #define		DVO_Error_PlayerHasStop			(-33)		///< 播放器已经启动，不能执行初始化或其它设置操作
+#define		DVO_Error_InvlaidCacheSize		(-34)		///< 播放器已经启动，不能执行初始化或其它设置操作
+
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
 #define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
@@ -275,11 +277,11 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenFileW(IN HWND hWnd, IN WCHAR *szFil
 ///	@param [in]		hWnd			显示图像的窗口
 /// @param [in]		szStreamHeader	DVO私有格式的录像文件头,播放相机实时码流时，应设置为null
 /// @param [in]		nHeaderSize		DVO录像文件头的长度播放相机实时码流时，应设置为0
-/// @param [in]		nMaxFramesCache	流播放时允许最大视频帧数缓存数量
+/// @param [in]		nMaxFramesCache	流播放时允许最大视频帧数缓存数量,该值必须大于里，否则将返回null
 /// @param [in]		szLogFile		日志文件名,若为null，则不开启日志
 ///	@return			若操作成功，返回一个DVO_PLAYHANDLE类型的播放句柄，所有后续播
 ///	放函数都要使用些接口，若操作失败则返回NULL,错误原因可参考GetLastError的返回值
-DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache = 128, char *szLogFile = nullptr);
+DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStreamHeader, int nHeaderSize, IN int nMaxFramesCache = 100, char *szLogFile = nullptr);
 
 /// @brief			关闭播放句柄
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄

@@ -1246,7 +1246,9 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 						return;
 					}
 					SendDlgItemMessage(IDC_SLIDER_PLAYER, TBM_SETPOS, TRUE, 0);
+					
 					SetTimer(ID_PLAYEVENT,_PlayInterval, nullptr);
+					//this->OnBnClickedButtonPause();
 				}
 				else
 				{

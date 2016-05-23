@@ -15,6 +15,7 @@
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 #include "DVOSnapshot.h"
 #include "./dump/DumpFile.h"
+#include <VersionHelpers.h> // Windows SDK 8.1 ≤≈”–‡∏
 using namespace std;
 using namespace std::tr1;
 
@@ -227,13 +228,11 @@ BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 	g_bWindowShowed = false;
 	if (!g_pDxSurface)
 	{
-		OSVERSIONINFOEX osVer;
-		osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-		GetVersionEx((OSVERSIONINFO *)&osVer);
-		//if (osVer.dwMajorVersion < 6)
+		if (IsWindowsVistaOrGreater())
+			g_pDxSurface = new CDxSurfaceEx();
+		else
 			g_pDxSurface = new CDxSurface();
-// 		else
-// 			g_pDxSurface = new CDxSurfaceEx();
+ 			
 		g_pDxSurface->InitD3D(GetDlgItem(hDlg, IDC_STATIC_FRAME), g_nVideoWidth, g_nVideoHeight, TRUE);
 	}
 	g_hEditText = GetDlgItem(hDlg, IDC_EDIT_TEXT);

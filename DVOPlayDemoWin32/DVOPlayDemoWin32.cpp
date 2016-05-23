@@ -14,8 +14,8 @@
 #include "../DVOIPCPlaySDK/Utility.h"
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 #include "../dvoipcnetsdk/dvoipcnetsdk.h"
-#pragma  comment(lib,"dvoipcnetsdk.lib")
-#pragma comment(lib, "DVOIPCPlaySDK.lib")
+#pragma  comment(lib,"../dvoipcnetsdk/dvoipcnetsdk.lib")
+#pragma comment(lib, "../debug/DVOIPCPlaySDK.lib")
 #pragma comment(lib,"Winmm.lib")
 #pragma comment(lib,"Shlwapi.lib")
 #pragma comment(lib,"comctl32.lib")

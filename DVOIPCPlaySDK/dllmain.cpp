@@ -87,7 +87,7 @@ void RemoveAllDxSurface()
 	}
 }
 
-DWORD WINAPI Thread_ClosePlayer(void *);
+DWORD WINAPI Thread_Helper(void *);
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -105,10 +105,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		InitializeCriticalSection(&g_csPlayerHandles);
 		g_nPlayerHandles = 0;
 #endif
-		CDvoPlayer::CheckSnapshotWnd(g_hSnapShotWnd);
+		//CDvoPlayer::CheckSnapshotWnd(g_hSnapShotWnd);
 		g_bThread_ClosePlayer = true;
 		g_hEventThreadExit = CreateEvent(nullptr, true, false, nullptr);
-		g_hThread_ClosePlayer = CreateThread(nullptr, 0, Thread_ClosePlayer, nullptr, 0, 0);
+		g_hThread_ClosePlayer = CreateThread(nullptr, 0, Thread_Helper, nullptr, 0, 0);
 	}
 		break;
 	case DLL_THREAD_ATTACH:
@@ -117,6 +117,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		break;
 	case DLL_PROCESS_DETACH:
 	{
+// 		HWND hSnapWnd = FindWindow(nullptr, _T("DVO SnapShot"));
+// 		if (hSnapWnd)
+// 			PostMessage(hSnapWnd, WM_QUIT,0,0);
+		
 		g_bThread_ClosePlayer = false;
 		DWORD dwExitCode = 0;
 		GetExitCodeThread(g_hThread_ClosePlayer, &dwExitCode);
@@ -144,13 +148,27 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	return TRUE;
 }
 
-DWORD WINAPI Thread_ClosePlayer(void *)
+void PreventScreenSave()
+{
+	INPUT input;
+	memset(&input, 0, sizeof(INPUT));
+	input.type = INPUT_MOUSE;
+	input.mi.dwFlags = MOUSEEVENTF_MOVE;
+	SendInput(1, &input, sizeof(INPUT));
+}
+DWORD WINAPI Thread_Helper(void *)
 {
 //#ifdef _DEBUG
 	DWORD dwTime = timeGetTime();
+	DWORD dwLastPreventTime = timeGetTime();
 //#endif
 	while (g_bThread_ClosePlayer)
 	{
+		if ((timeGetTime() - dwLastPreventTime) > 30*1000)
+		{
+			PreventScreenSave();
+			dwLastPreventTime = timeGetTime();
+		}
 		RemoveTimeoutDxSurface();
 		EnterCriticalSection(&g_csListPlayertoFree);
 		if (g_listPlayertoFree.size() > 0)

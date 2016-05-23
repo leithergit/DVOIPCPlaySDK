@@ -55,8 +55,6 @@ extern "C" {
 #endif
 #pragma warning(pop)
 
-using namespace  std;
-using namespace  std::tr1;
 #pragma warning(push)
 #pragma warning(disable:4244)
 #ifdef __cplusplus
@@ -75,6 +73,8 @@ extern "C" {
 //#pragma comment ( lib, "d3dx9.lib" )
 #pragma comment(lib,"winmm.lib")
 
+using namespace  std;
+using namespace  std::tr1;
 #ifndef SafeDelete
 #define SafeDelete(p)       { if(p) { delete (p);     (p)=NULL; } }
 #endif
@@ -1344,8 +1344,9 @@ _Failed:
 				}
 				else				
 				{
-					DxTraceMsg("%s ResetDevice Failed.\nhr=%x", __FUNCTION__,hr);
-					return false;
+					DxTrace("%s ResetDevice Failed,Not Try to Reinit D3D.\n",__FUNCTION__);
+					DxCleanup();
+					return InitD3D(m_d3dpp.hDeviceWindow, m_nVideoWidth, m_nVideoHeight, m_bFullScreen);
 				}
 			}
 			else
@@ -1354,7 +1355,6 @@ _Failed:
 				return false;
 			}			
 		}
-		
 				
 		return true;
 	}
