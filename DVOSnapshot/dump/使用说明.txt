@@ -1,0 +1,51 @@
+只需要一个头文件，即可捕获程序崩溃生成dump转储文件，方便调试崩溃。
+
+
+
+
+
+1.在工程中加入:
+DumpFile.h
+
+2.在程序初始化的cpp中:
+#include "DumpFile.h"
+
+3. 在主程序初始化函数中的开始位置加入:
+  DeclareDumpFile();
+
+举例：
+3.1 控制台程序
+#include "DumpFile.h"
+
+int main()
+{
+  DeclareDumpFile();
+
+  //begin do something
+
+  
+
+}
+
+3.2 MFC程序
+#include "DumpFile.h"
+
+BOOL CYourApp::InitInstance()
+{
+    DeclareDumpFile();
+
+  //begin do something
+
+}
+
+4.生成的dump转储文件使用
+   生成的dump转储文件存放路径在exe的当前目录，转储文件名与exe同名，并加上崩溃时的日期时间。
+比如流媒体服务器程序：MediaServer.exe
+崩溃时会产生的dump转储文件为MediaServer_2015-02-13T23-25-59.dmp。
+即表示在2015-02-13 23：25：59时，MediaServer.exe崩溃了被捕获后产生了这个转储文件。
+
+把“MediaServer_2015-02-13T23-25-59.dmp”拿回到开发的机器上，放到同一版本的exe目录中，直接使用VC打开该文件进行调试。
+也可使用windbg打开该dump文件进行调试。
+
+注意：exe需要编译生成对应的pdb符号文件，最好exe所用到的dll或ocx，也能提供版本一致的pdb文件，方便调试定位崩溃的堆栈函数。
+
