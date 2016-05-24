@@ -2766,3 +2766,11 @@ TCHAR *GetOsVersion()
 		return _T("");
 	}
 }
+
+DWORD GetOsMajorVersion()
+{
+	OSVERSIONINFOEX osVer;
+	osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+	GetVersionEx((OSVERSIONINFO *)&osVer);
+	return osVer.dwMajorVersion;
+}

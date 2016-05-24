@@ -22,7 +22,7 @@
 #include <process.h>
 #include <Shlwapi.h>
 #include <MMSystem.h>
-#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
+//#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
 #pragma comment(lib, "winmm.lib")
 #include "DVOMedia.h"
 #include "DVOIPCPlaySDK.h"
@@ -1260,12 +1260,10 @@ public:
 		if (hWnd && IsWindow(hWnd))
 		{// 必采要有窗口才会播放视频和声音
 			m_hWnd = hWnd;
-// 			OSVERSIONINFOEX osVer;
-// 			osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-// 			GetVersionEx((OSVERSIONINFO *)&osVer);
 			if (TimeSpanEx(g_dfProcessLoadTime) < 15)
 			{// 进程启动15秒内，不从缓存中取CDxSurface 对象
-				if (IsWindowsVistaOrGreater())
+				//if (IsWindowsVistaOrGreater())
+				if (GetOsMajorVersion() >= 6)
 					m_pDxSurface = _New CDxSurfaceEx();
 				else
 					m_pDxSurface = _New CDxSurface();
@@ -3839,7 +3837,7 @@ public:
 					bCacheDxSurface = true;
 				else
 				{
-					if (IsWindowsVistaOrGreater())
+					if (GetOsMajorVersion() >= 6)
 						pThis->m_pDxSurface = _New CDxSurfaceEx();
 					else
 						pThis->m_pDxSurface = _New CDxSurface();
@@ -4227,18 +4225,18 @@ public:
 		double TPlayArray[50] = { 0 };
 		int nPlayCount = 0;
 #endif
-		WaitForSingleObject(pThis->m_hEventDecodeStart,2000);
+		UINT nFramesPlayed = 0;
+		WaitForSingleObject(pThis->m_hEventDecodeStart,1000);
 		::EnterCriticalSection(&pThis->m_csAudioCache);
-		TraceMsgA("%s Audio Cache Size = %d.\n", __FUNCTION__, pThis->m_listAudioCache.size());
+		pThis->m_nAudioCache = pThis->m_listAudioCache.size();
 		::LeaveCriticalSection(&pThis->m_csAudioCache);
+		TraceMsgA("%s Audio Cache Size = %d.\n", __FUNCTION__, pThis->m_nAudioCache);
 		time_t tLastFrameTime = 0;
+		double dfDecodeStart = GetExactTime();
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			if (pThis->m_bPause)
 			{
-// 				::EnterCriticalSection(&pThis->m_csAudioCache);
-// 				pThis->m_listAudioCache.clear();
-// 				::LeaveCriticalSection(&pThis->m_csAudioCache);
 				if (pThis->m_pDsBuffer->IsPlaying())
 					pThis->m_pDsBuffer->StopPlay();
 				Sleep(100);
@@ -4262,19 +4260,8 @@ public:
 				pThis->m_pDsBuffer->StopPlay();
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
-				
 			bool bPopFrame = false;
-// 			if (dfLastPlayTime != 0.0f && !pThis->m_bIpcStream)
-// 			{
-// 				while (pThis->m_bThreadPlayAudioRun)
-// 				{
-// 					dfTimeSpan = TimeSpanEx(dfLastPlayTime);
-// 					if (dfTimeSpan * 10000 < (nAudioFrameInterval))
-// 						Sleep(20);
-// 					else
-// 						break;
-// 				}
-// 			}
+
 			::EnterCriticalSection(&pThis->m_csAudioCache);
 			if (pThis->m_listAudioCache.size() > 0)
 			{
@@ -4284,34 +4271,31 @@ public:
 			}
 			pThis->m_nAudioCache = pThis->m_listAudioCache.size();
 			::LeaveCriticalSection(&pThis->m_csAudioCache);
+
 			if (!bPopFrame)
 			{
 				Sleep(10);
 				continue;
 			}
-				
-			if (pThis->m_pDsBuffer->IsPlaying() &&
-				pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
+			nFramesPlayed++;
+			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
 			{
-				if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize))
-					pThis->OutputMsg("%s Write PCM Failed.\n", __FUNCTION__);
-				SetEvent(pThis->m_hAudioFrameEvent[nFrameEvent++ % 2]);
-// #ifdef _DEBUG
-// 				TPlayArray[nPlayCount++] = FramePtr->FrameHeader()->nTimestamp - tLastFrameTime;
-// 				dfT1 = GetExactTime();
-// 				if (nPlayCount >= 50)
-// 				{
-// 					pThis->OutputMsg("%sPlay Interval:\n", __FUNCTION__);
-// 					for (int i = 0; i < nPlayCount; i++)
-// 					{
-// 						pThis->OutputMsg("%.3f\t", TPlayArray[i]);
-// 						if ((i+1) % 10 == 0) 
-// 							pThis->OutputMsg("\n");
-// 					}
-// 					pThis->OutputMsg(".\n");
-// 					nPlayCount = 0;
-// 				}
-// #endif
+				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
+			}
+			if (pThis->m_pDsBuffer->IsPlaying())
+			{
+				if (pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
+				{
+					if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize))
+						pThis->OutputMsg("%s Write PCM Failed.\n", __FUNCTION__);
+					SetEvent(pThis->m_hAudioFrameEvent[nFrameEvent++ % 2]);
+				}
+				else
+					TraceMsgA("%s Audio Decode Failed Is.\n", __FUNCTION__);
+			}
+			else
+			{
+				TraceMsgA("%s m_pDsBuffer Is Not Readey.\n", __FUNCTION__);
 			}
 			dfLastPlayTime = GetExactTime();
 			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;

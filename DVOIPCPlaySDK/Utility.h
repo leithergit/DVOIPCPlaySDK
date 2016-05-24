@@ -468,3 +468,4 @@ stdshared_ptr<char> W2AString(IN LPCWSTR pText,int& OUT nReturnLength);
 stdshared_ptr<WCHAR> A2WString(IN LPCSTR pText,int& OUT nReturnLength);
 
 TCHAR *GetOsVersion();
+DWORD GetOsMajorVersion();
