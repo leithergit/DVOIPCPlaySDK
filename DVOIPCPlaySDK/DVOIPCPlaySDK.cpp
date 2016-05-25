@@ -127,7 +127,7 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStream
  		return nullptr;
 	if (0 == nMaxFramesCache)
 	{
-		SetLastError(DVO_Error_InvlaidCacheSize);
+		SetLastError(DVO_Error_InvalidCacheSize);
 		return nullptr;
 	}
 	CDvoPlayer *pPlayer = _New CDvoPlayer(hWnd,nullptr,szLogFile);

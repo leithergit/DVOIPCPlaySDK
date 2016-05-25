@@ -4136,17 +4136,13 @@ public:
 	{
 		CDvoPlayer *pThis = (CDvoPlayer *)p;
 		int nAudioFrameInterval = pThis->m_fPlayInterval / 2;
-		double dfT1 = GetExactTime() - nAudioFrameInterval;
-		double dfTimeSpan = 0.0f;		
+
 		DWORD nResult = 0;
 		int nTimeSpan = 0;
-		DWORD dwSleepPricision = GetSleepPricision();
-		int nFrameInterval = 40;
 		StreamFramePtr FramePtr;
 		int nAudioError = 0;
 		byte *pPCM = nullptr;
 		shared_ptr<CAudioDecoder> pAudioDecoder = make_shared<CAudioDecoder>();
-		bool bAudioDecoderInitialized = false;
 		int nPCMSize = 0;
 		int nDecodeSize = 0;
 		__int64 nFrameEvent = 0;
@@ -4220,11 +4216,7 @@ public:
 			nPCMSize = nDecodeSize;
 		}
 		double dfLastPlayTime = 0.0f;
-#ifdef _DEBUG
-		double dfTPlay = GetExactTime();
-		double TPlayArray[50] = { 0 };
-		int nPlayCount = 0;
-#endif
+		double dfPlayTimeSpan = 0.0f;
 		UINT nFramesPlayed = 0;
 		WaitForSingleObject(pThis->m_hEventDecodeStart,1000);
 		::EnterCriticalSection(&pThis->m_csAudioCache);
@@ -4233,6 +4225,7 @@ public:
 		TraceMsgA("%s Audio Cache Size = %d.\n", __FUNCTION__, pThis->m_nAudioCache);
 		time_t tLastFrameTime = 0;
 		double dfDecodeStart = GetExactTime();
+		DWORD dwOsMajorVersion = GetOsMajorVersion();
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			if (pThis->m_bPause)
@@ -4243,7 +4236,7 @@ public:
 				continue;
 			}
 
-			nTimeSpan = (int)((GetExactTime() - dfT1) * 1000);
+			nTimeSpan = (int)((GetExactTime() - dfLastPlayTime) * 1000);
 			if (pThis->m_fPlayRate != 1.0f)
 			{// 只有正常倍率才播放声音
 				if (pThis->m_pDsBuffer->IsPlaying())
@@ -4282,6 +4275,14 @@ public:
 			{
 				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
 			}
+
+			if (nFramesPlayed < 50 && dwOsMajorVersion < 6)
+			{// 修正在XP系统中，前50帧会被瞬间丢掉的问题
+				if (((TimeSpanEx(dfLastPlayTime) + dfPlayTimeSpan)*1000) < nAudioFrameInterval)
+					Sleep(nAudioFrameInterval - (TimeSpanEx(dfLastPlayTime)*1000));
+			}
+
+			dfPlayTimeSpan = GetExactTime();
 			if (pThis->m_pDsBuffer->IsPlaying())
 			{
 				if (pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
@@ -4293,13 +4294,9 @@ public:
 				else
 					TraceMsgA("%s Audio Decode Failed Is.\n", __FUNCTION__);
 			}
-			else
-			{
-				TraceMsgA("%s m_pDsBuffer Is Not Readey.\n", __FUNCTION__);
-			}
+			dfPlayTimeSpan = TimeSpanEx(dfPlayTimeSpan);
 			dfLastPlayTime = GetExactTime();
 			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
-			dfT1 = GetExactTime();
 		}
 		if (pPCM)
 			delete[]pPCM;

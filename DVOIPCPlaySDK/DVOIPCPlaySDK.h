@@ -139,7 +139,7 @@ enum DVO_CALLBACK
 #define		DVO_Error_SnapShotProcessStartFailed	(-31)///< 截图进程启动失败
 #define		DVO_Error_SnapShotFailed	 	(-32)	///< 截图进程未运行
 #define		DVO_Error_PlayerHasStop			(-33)		///< 播放器已经启动，不能执行初始化或其它设置操作
-#define		DVO_Error_InvlaidCacheSize		(-34)		///< 播放器已经启动，不能执行初始化或其它设置操作
+#define		DVO_Error_InvalidCacheSize		(-34)		///< 播放器已经启动，不能执行初始化或其它设置操作
 
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
 
