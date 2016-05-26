@@ -9,6 +9,7 @@
 #include <memory>
 #include <Shlwapi.h>
 #include <commctrl.h>
+#include <CommDlg.h>
 #include <string>
 #include <vector>
 #include "../DVOIPCPlaySDK/Utility.h"
@@ -946,19 +947,125 @@ BOOL CALLBACK DialogProc(HWND hwnd, UINT message,WPARAM wParam, LPARAM lParam)
 	
 	return 0;
 }
+DVO_PLAYHANDLE	g_hFilePlay = nullptr;
 BOOL OnInitDialogFilePlay(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 {
+
 	return 0;
 }
 
+void OnFilePlayClose(HWND hDlg)
+{
+	if (g_hFilePlay)
+	{
+		dvoplay_Close(g_hFilePlay);
+		g_hFilePlay = nullptr;
+	}
+	EndDialog(hDlg, IDOK);
+}
+
+void OnFilePlayDestroy(HWND hDlg)
+{
+
+}
+
+LRESULT OnFilePlayCommand(HWND hDlg, UINT nID, HWND hWndCtrl, UINT nCodeNotify)
+{
+	switch (nID)
+	{
+	case IDOK:
+		EndDialog(hDlg, IDOK);
+		break;
+	case IDC_BUTTON_PLAYFILE:
+		{
+			TCHAR  szFilter[] = _T("录像视频文件 (*.mp4)|*.mp4|H.264录像文件(*.H264)|*.H264|H.265录像文件(*.H265)|*.H265|All Files (*.*)|*.*||");
+
+			TCHAR strFileName[MAX_PATH] = _T("");  
+			TCHAR strPath[MAX_PATH] = _T("");  
+			/*
+			typedef struct tagOFNA {
+			DWORD        lStructSize;
+			HWND         hwndOwner;
+			HINSTANCE    hInstance;
+			LPCSTR       lpstrFilter;
+			LPSTR        lpstrCustomFilter;
+			DWORD        nMaxCustFilter;
+			DWORD        nFilterIndex;
+			LPSTR        lpstrFile;
+			DWORD        nMaxFile;
+			LPSTR        lpstrFileTitle;
+			DWORD        nMaxFileTitle;
+			LPCSTR       lpstrInitialDir;
+			LPCSTR       lpstrTitle;
+			DWORD        Flags;
+			WORD         nFileOffset;
+			WORD         nFileExtension;
+			LPCSTR       lpstrDefExt;
+			LPARAM       lCustData;
+			LPOFNHOOKPROC lpfnHook;
+			LPCSTR       lpTemplateName;
+			#ifdef _MAC
+			LPEDITMENU   lpEditInfo;
+			LPCSTR       lpstrPrompt;
+			#endif
+			#if (_WIN32_WINNT >= 0x0500)
+			void *        pvReserved;
+			DWORD        dwReserved;
+			DWORD        FlagsEx;
+			#endif // (_WIN32_WINNT >= 0x0500)
+			} OPENFILENAMEA,
+			*/
+			OPENFILENAME ofn = {
+				sizeof(OPENFILENAME),	//DWORD        lStructSize;
+				hDlg,					//HWND         hwndOwner;
+				hInst,					//HINSTANCE    hInstance;
+				szFilter,				//LPCSTR       lpstrFilter;
+				NULL,					//LPSTR        lpstrCustomFilter;
+				0,						//DWORD        nMaxCustFilter;
+				1,						//DWORD        nFilterIndex;
+				strFileName,			//LPSTR        lpstrFile;
+				MAX_PATH,				//DWORD        nMaxFile;
+				NULL,					//LPSTR        lpstrFileTitle;
+				0,						//DWORD        nMaxFileTitle;
+				strPath,				//LPCSTR       lpstrInitialDir;
+				_T("请选择要播放的文件"),// LPCSTR       lpstrTitle;
+				OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST |OFN_HIDEREADONLY | OFN_NOREADONLYRETURN,   //DWORD        Flags;
+				0,						//WORD         nFileOffset;
+				0,						//WORD         nFileExtension;
+				_T(".mp4"),				//LPCSTR       lpstrDefExt;
+				0,						//LPARAM       lCustData;
+				NULL,					//LPOFNHOOKPROC lpfnHook;
+				NULL, 					//LPCSTR       lpTemplateName;
+				NULL,					//void *        pvReserved;
+				0,						//DWORD        dwReserved;
+				0						//DWORD        FlagsEx;
+			};
+			if( !GetOpenFileName( &ofn ))
+			{  
+				return 0;  
+			} 
+
+			HWND hVideoFrame = GetDlgItem(hDlg,IDC_STATIC_FRAME);
+			ShowWindow(hVideoFrame,SW_SHOW);
+			g_hFilePlay = dvoplay_OpenFile(hVideoFrame,ofn.lpstrFile);
+			if (!g_hFilePlay)
+			{
+				MessageBox(hDlg,"打开文件失败",_T("提示"),MB_OK|MB_ICONSTOP);
+			}
+			dvoplay_Start(g_hFilePlay,true);
+		}
+	
+	}
+	return 0;
+}
 BOOL CALLBACK FilePlayDialogProc(HWND hDlg, UINT message,WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
 		HANDLE_MSG(hDlg, WM_INITDIALOG, OnInitDialogFilePlay);
-		//HANDLE_MSG(hwnd, WM_COMMAND, OnCommand);
-		HANDLE_MSG(hDlg, WM_CLOSE, OnClose);
-		HANDLE_MSG(hDlg, WM_DESTROY, OnDestroy);
+		HANDLE_MSG(hDlg, WM_COMMAND, OnFilePlayCommand);
+		HANDLE_MSG(hDlg, WM_CLOSE, OnFilePlayClose);
+		HANDLE_MSG(hDlg, WM_DESTROY, OnFilePlayDestroy);
 		//HANDLE_MSG(hwnd, WM_TIMER, OnTimer);
 	}	
 	return 0;

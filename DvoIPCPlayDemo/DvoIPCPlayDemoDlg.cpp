@@ -1209,6 +1209,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 				bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 				bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
 				bool bEnableLog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);
+				bool bEnableHaccel = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLEHACCEL);
 				if (bIsStreamPlay != BST_CHECKED)
 				{
 					//m_pPlayContext->hPlayer[0] = dvoplay_OpenFile(m_pPlayContext->hWndView, (CHAR *)(LPCTSTR)strFilePath,(FilePlayProc)PlayerCallBack,m_pPlayContext.get(),bEnableLog?"dvoipcplaysdk":nullptr);
@@ -1238,7 +1239,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlayfile()
 					_stprintf_s(szPlayText, 64, _T("%02d:%02d:%02d"), nHour, nMinute, nSecond);
 					SetDlgItemText(IDC_STATIC_TOTALTIME, szPlayText);
 
-					if (dvoplay_Start(m_pPlayContext->hPlayer[0], !bEnableAudio, bFitWindow) != DVO_Succeed)
+					if (dvoplay_Start(m_pPlayContext->hPlayer[0], !bEnableAudio, bFitWindow, bEnableHaccel) != DVO_Succeed)
 					{
 						m_wndStatus.SetWindowText(_T("无法启动播放器"));
 						m_wndStatus.SetAlarmGllitery();
