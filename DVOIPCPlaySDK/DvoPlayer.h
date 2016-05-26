@@ -82,10 +82,10 @@ struct DxSurfaceWrap
 			return nullptr;
 		}
 	}
-	bool CompareSize(int nWidth,int nHeight)
+	bool CompareSizeAndFormat(int nWidth, int nHeight, D3DFORMAT nPixFormat)
 	{
 		if (pDxSurface)
-			return (MAKELONG(nWidth, nHeight) == pDxSurface->GetVideoSize());
+			return (MAKEUINT64(MAKELONG(nWidth, nHeight), nPixFormat) == pDxSurface->GetVideoSizeAndFormat());
 		else
 			return false;
 	}
@@ -230,7 +230,6 @@ private:
 	HWND m_hWnd;
 };
 
-
 /// @struct StreamFrame
 /// StreamFrame仅用于流媒体播放的数据帧
 struct StreamFrame
@@ -343,16 +342,6 @@ struct StreamFrame
 	}
 };
 
-// class IsIFrame
-// {
-// public:
-// 	bool operator()(StreamFramePtr FramePtr)
-// 	{
-// 		return (FramePtr->FrameHeader()->nType == FRAME_I);	
-// 	}
-// };
-
-
 #define _Frame_PERIOD			30.0f		///< 一个帧率区间
 
 /// @brief 解析DVO私有帧结构体
@@ -463,7 +452,7 @@ extern volatile bool g_bThread_ClosePlayer/* = false*/;
 extern list<DVO_PLAYHANDLE > g_listPlayertoFree;
 extern CRITICAL_SECTION  g_csListPlayertoFree;
 extern double	g_dfProcessLoadTime ;
-extern CDxSurface* GetDxInCache(int nWidth, int nHeight);
+extern CDxSurface* GetDxInCache(int nWidth, int nHeight, D3DFORMAT nPixFormat);
 extern void PutDxCache(CDxSurface *pDxSurface);
 extern CDxSurfaceEx* g_dx;
 extern HWND g_hSnapShotWnd;
@@ -1492,7 +1481,9 @@ public:
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
 #endif
 		m_bPause = false;
-		m_bFitWindow = bFitWindow;		
+		m_bFitWindow = bFitWindow;	
+		if (GetOsMajorVersion() >= 6)
+			m_bEnableHaccel = bEnableHaccel;
 		
 // 		if (!m_hWnd || !IsWindow(m_hWnd))
 // 		{
@@ -1955,7 +1946,15 @@ public:
 			return DVO_Error_PlayerHasStart;
 		else
 		{
-			m_bEnableHaccel = bEnableHaccel;
+			if (bEnableHaccel)
+			{
+				if (GetOsMajorVersion() >= 6)
+					m_bEnableHaccel = bEnableHaccel;
+				else
+					return DVO_Error_UnsupportHaccel;
+			}
+			else
+				m_bEnableHaccel = bEnableHaccel;
 			return DVO_Succeed;
 		}
 	}
@@ -3832,7 +3831,10 @@ public:
 			bool bCacheDxSurface = false;		// 是否为缓存中取得的Surface对象
 			if (!pThis->m_pDxSurface)
 			{
-				pThis->m_pDxSurface = GetDxInCache(pThis->m_nVideoWidth, pThis->m_nVideoHeight);
+				D3DFORMAT nPixFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				if (pThis->m_bEnableHaccel)
+					nPixFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
+				pThis->m_pDxSurface = GetDxInCache(pThis->m_nVideoWidth, pThis->m_nVideoHeight, nPixFormat);
 				if (pThis->m_pDxSurface)
 					bCacheDxSurface = true;
 				else

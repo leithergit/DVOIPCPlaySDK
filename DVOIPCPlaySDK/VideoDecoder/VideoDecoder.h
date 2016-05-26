@@ -509,7 +509,7 @@ public:
 	// 当nCodec不为AV_CODEC_ID_NONE时，nWidth和nHeight不可为0
 	bool InitDecoder(AVCodecID nCodec = AV_CODEC_ID_NONE, int nWidth = 0,int nHeight = 0,bool bEnableHaccel = false)
 	{
-		AVCodecID nCodecID = AV_CODEC_ID_NONE;
+		AVCodecID nCodecID = nCodec;
 		AVCodec*  pAvCodec = nullptr;
 		if (!m_bProbeSucceed)
 			DestroyDecoder();
@@ -592,6 +592,8 @@ public:
 				
 		if (bEnableHaccel)
 		{
+			m_dwSurfaceWidth = nWidth;
+			m_dwSurfaceHeight = nHeight;
 			HRESULT hr = InitD3D(nAdapter);
 			if (FAILED(hr))
 			{

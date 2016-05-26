@@ -23,12 +23,12 @@ UINT	g_nPlayerHandles = 0;
 
 double	g_dfProcessLoadTime = 0.0f;
 HWND	g_hSnapShotWnd = nullptr;
-CDxSurface* GetDxInCache(int nWidth, int nHeight)
+CDxSurface* GetDxInCache(int nWidth, int nHeight, D3DFORMAT nD3DFormat /*= (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2')*/)
 {
 	CAutoLock lock(&g_csListDxCache);
 	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
 	{
-		if ((*it)->CompareSize(nWidth,nHeight))
+		if ((*it)->CompareSizeAndFormat(nWidth, nHeight, nD3DFormat))
 		{
 			CDxSurface *pDxSurface = (*it)->Strip();		// °şÀëDxSurface¶ÔÏó
 #ifdef _DEBUG

@@ -22,7 +22,7 @@
     <Filter Include="Audio">
       <UniqueIdentifier>{2640b961-8dce-4c07-b9de-0e3dec06d1b3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Audio\dvoipcnetsdk">
+    <Filter Include="dvoipcnetsdk">
       <UniqueIdentifier>{cbd111a5-9c08-4c4e-b692-3c6054aa24aa}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -103,13 +103,13 @@
       <Filter>Audio</Filter>
     </ClInclude>
     <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk.h">
-      <Filter>Audio\dvoipcnetsdk</Filter>
+      <Filter>dvoipcnetsdk</Filter>
     </ClInclude>
     <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk_def.h">
-      <Filter>Audio\dvoipcnetsdk</Filter>
+      <Filter>dvoipcnetsdk</Filter>
     </ClInclude>
     <ClInclude Include="dvoipcnetsdk\ipcMsgHead.h">
-      <Filter>Audio\dvoipcnetsdk</Filter>
+      <Filter>dvoipcnetsdk</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

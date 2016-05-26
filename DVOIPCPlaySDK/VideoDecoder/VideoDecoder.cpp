@@ -732,6 +732,7 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 			goto done;
 		}
 
+		// 测试是否能创建DXVA解码渲染对象
 		LPDIRECT3DSURFACE9 pSurfaces[DXVA2_MAX_SURFACES] = { 0 };
 		UINT numSurfaces = max(config.ConfigMinRenderTargetBuffCount, 1);
 		hr = m_pDXVADecoderService->CreateSurface(m_dwSurfaceWidth, m_dwSurfaceHeight, numSurfaces, output, D3DPOOL_DEFAULT, 0, DXVA2_VideoDecoderRenderTarget, pSurfaces, nullptr);
@@ -740,19 +741,33 @@ HRESULT CVideoDecoder::SetD3DDeviceManager(IDirect3DDeviceManager9 *pDevManager)
 			goto done;
 		}
 
+		// 测试是否能创建DXVA解码器
 		IDirectXVideoDecoder *decoder = nullptr;
 		hr = m_pDXVADecoderService->CreateVideoDecoder(input, &desc, &config, pSurfaces, numSurfaces, &decoder);
 
-		// Release resources, decoder and surfaces
-		SafeRelease(decoder);
-		int i = DXVA2_MAX_SURFACES;
-		while (i > 0) {
-			SafeRelease(pSurfaces[--i]);
+		if (FAILED(hr)) 
+		{
+			DxTraceMsg("%s Creation of decoder failed with hr: %X.\n", __FUNCTION__, hr);
+			int i = 0;
+			while (i < DXVA2_MAX_SURFACES)
+			{
+				SafeRelease(pSurfaces[i]);
+				i++;
+			}
+			
+			goto done;
 		}
 
-		if (FAILED(hr)) {
-			DxTraceMsg("%s Creation of decoder failed with hr: %X.\n", __FUNCTION__, hr);
-			goto done;
+		// Release resources, decoder and surfaces
+		SafeRelease(decoder);
+		int i = 0;
+		while (i < DXVA2_MAX_SURFACES)
+		{
+			// 危险的宏定义
+			// 在宏定义的参数中，尽量不要使用类似++，--之类的操作符，因为这类
+			// 操作符可能会在宏定义中被展开多次，从而执行多次，导致代码执行错误
+			SafeRelease(pSurfaces[i]);		// 不要把i写成i++
+			i++;
 		}
 	}
 

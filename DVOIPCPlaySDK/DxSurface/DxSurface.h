@@ -14,6 +14,7 @@
 #include "DxTrace.h"
 #include "../AutoLock.h"
 #include "../Runlog.h"
+#include "../Utility.h"
 #ifdef _DEBUG
 #include "../TimeUtility.h"
 #endif
@@ -782,9 +783,10 @@ public:
 #endif
 	}
 	// 取视频尺寸,低16 bit为宽度，高16bit为高度
-	DWORD GetVideoSize()
+	
+	UINT64 GetVideoSizeAndFormat()
 	{
-		return MAKELONG(m_nVideoWidth, m_nVideoHeight);
+		return MAKEUINT64(MAKELONG(m_nVideoWidth, m_nVideoHeight), m_nD3DFormat);
 	}
 	// D3dDirect9Ex下，该成员不再有效
 	virtual bool RestoreDevice()
@@ -2471,7 +2473,7 @@ _Failed:
 						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
-					gpu_memcpy(DstRect.pBits, SrcRect.pBits, SrcRect.Pitch*SrcSurfaceDesc.Height);
+					gpu_memcpy(DstRect.pBits, SrcRect.pBits, SrcRect.Pitch*SrcSurfaceDesc.Height*3/2);
 					/*
 					// Y分量图像
 					uint8_t *pY = (uint8_t*)DstRect.pBits;
