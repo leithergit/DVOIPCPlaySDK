@@ -54,12 +54,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;..\VCASDK\src\publib\inc;..\VCASDK\src\inc;..\VCASDK\src\common;..\VCASDK\SRC\Common\ixml\inc;..\VCASDK\SRC\Common\ixml\src\inc;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;D:\boost_1_57;E:\DVO\Git\play\DVOIPCPlaySDK;E:\DVO\Git\play\MulMonitor;..\VCASDK\src\publib\inc;..\VCASDK\src\inc;..\VCASDK\src\common;..\VCASDK\SRC\Common\ixml\inc;..\VCASDK\SRC\Common\ixml\src\inc;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;E:\DVO\Git\play\Release;E:\DVO\Git\play\MulMonitor;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -81,13 +81,14 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;E:\DVO\Git\play\DVOIPCPlaySDK;E:\DVO\Git\play\MulMonitor;D:\boost_1_57;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
+      <AdditionalLibraryDirectories>E:\DVO\Git\play\Release;E:\DVO\Git\play\MulMonitor;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -107,7 +108,6 @@
     <ClInclude Include="..\MulMonitor\MultiMonitorAPI.h" />
     <ClInclude Include="..\tvt\TVTChan_1.h" />
     <ClInclude Include="AutoLock.h" />
-    <ClInclude Include="DialogVCALoad.h" />
     <ClInclude Include="DirectDraw.h" />
     <ClInclude Include="DvoIPCPlayDemo.h" />
     <ClInclude Include="DvoIPCPlayDemoDlg.h" />
@@ -126,7 +126,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\tvt\TVTChan_1.cpp" />
-    <ClCompile Include="DialogVCALoad.cpp" />
     <ClCompile Include="DvoIPCPlayDemo.cpp" />
     <ClCompile Include="DvoIPCPlayDemoDlg.cpp" />
     <ClCompile Include="GlliteryStatic.cpp" />

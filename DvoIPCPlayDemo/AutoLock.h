@@ -1,4 +1,5 @@
 #pragma once
+#include <windows.h>
 #include <assert.h>
 /// @brief 可以自动加锁和解锁临界区的类
 ///

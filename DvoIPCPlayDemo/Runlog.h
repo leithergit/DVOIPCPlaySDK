@@ -10,9 +10,11 @@
 #endif // _MSC_VER > 1000
 #include <windows.h>
 #include <TCHAR.H>
-#include <memory>
+//#include <memory>
+#include <boost/smart_ptr.hpp>
 using namespace std;
-using namespace std::tr1;
+using namespace boost;
+//using namespace std::tr1;
 
 #ifndef byte
 #define byte unsigned char
@@ -25,8 +27,6 @@ using namespace std::tr1;
 // #else
 // #undef  __ENABLE_RUNLOG
 // #endif	
-
-
 
 
 void EnableRunlog(bool bEnable=true);
@@ -50,7 +50,7 @@ private:
 	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
 	bool m_bCanlog;
 	CHAR	m_szFileName[MAX_PATH];
-	shared_ptr<char>m_pLogBuffer;
+	boost::shared_ptr<char>m_pLogBuffer;
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };
@@ -72,7 +72,7 @@ private:
 	SYSTEMTIME m_systimeCreate;		// 日志创建或更换时间
 	bool m_bCanlog;
 	WCHAR	m_szFileName[MAX_PATH];
-	shared_ptr<WCHAR>m_pLogBuffer;
+	boost::shared_ptr<WCHAR>m_pLogBuffer;
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };

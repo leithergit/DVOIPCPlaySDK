@@ -3,10 +3,12 @@
 #include <assert.h>
 #include <vector>
 #include <map>
-#include <memory>
+//#include <memory>
+#include <boost/smart_ptr.hpp>
 #include "AutoLock.h"
 using namespace  std;
-using namespace  std::tr1;
+//using namespace  std::tr1;
+using namespace boost;
 
 #pragma warning(disable:4244 4018)
 #define		_GRID_LINE_WIDTH	2
@@ -40,10 +42,10 @@ struct PanelInfo
 	int nCol;
 	void *pCustumData;
 };
-typedef shared_ptr<PanelInfo> PanelInfoPtr;
+typedef boost::shared_ptr<PanelInfo> PanelInfoPtr;
 
 class CriticalSectionWrap;
-typedef shared_ptr<CriticalSectionWrap>CriticalSectionPtr;
+typedef boost::shared_ptr<CriticalSectionWrap>CriticalSectionPtr;
 class CriticalSectionWrap
 {
 public:
@@ -88,10 +90,10 @@ protected:
 	DECLARE_MESSAGE_MAP()
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 private:
-	UINT	m_nCols = 1, m_nRows = 1;
-	int		m_nCurSelected = -1;
+	UINT	m_nCols /*= 1*/, m_nRows/* = 1*/;
+	int		m_nCurSelected /*= -1*/;
 	vector <PanelInfoPtr>m_vecPanel;
-	int		m_nPannelUsed = 0;		//  已用空格数量
+	int		m_nPannelUsed/* = 0*/;		//  已用空格数量
 private:
 	void ResizePanel(int nWidth = 0, int nHeight = 0);
 
@@ -135,7 +137,7 @@ private:
 		{
 			
 			m_csPannelMap->Lock();
-			auto it = m_PanelMap.find(hPannel);
+			map<HWND, HWND>::iterator it = m_PanelMap.find(hPannel);
 			if (it != m_PanelMap.end())
 				m_PanelMap.erase(it);
 			m_PanelMap.insert(pair<HWND, HWND>(hPannel, m_hWnd));
@@ -147,8 +149,8 @@ private:
 public:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void OnPaint();
-	CPen *m_pSelectedPen = nullptr;
-	CPen *m_pUnSelectedPen = nullptr;
+	CPen *m_pSelectedPen/* = NULL*/;
+	CPen *m_pUnSelectedPen/* = NULL*/;
 	afx_msg void OnDestroy();
 	virtual BOOL Create(UINT nID, const RECT& rect,int nRow,int nCol,CWnd* pParentWnd,  CCreateContext* pContext = NULL);
 	LPRECT GetPanelRect(int nRow, int nCol)
@@ -156,7 +158,7 @@ public:
 		if ((nRow*m_nCols + nCol) < m_vecPanel.size())		
 			return &m_vecPanel[nRow*m_nCols + nCol]->rect;
 		else
-			return nullptr;
+			return NULL;
 	}
 
 	HWND GetPanelWnd(int nRow, int nCol)
@@ -164,7 +166,7 @@ public:
 		if ((nRow*m_nCols + nCol) < m_vecPanel.size())
 			return m_vecPanel[nRow*m_nCols + nCol]->hWnd;
 		else
-			return nullptr;
+			return NULL;
 	}
 
 	HWND GetPanelWnd(int nIndex)
@@ -172,7 +174,7 @@ public:
 		if (nIndex < m_vecPanel.size())
 			return m_vecPanel[nIndex]->hWnd;
 		else
-			return nullptr;
+			return NULL;
 	}
 
 	inline bool SetPanelParam(int nIndex, void *pParam)
@@ -196,7 +198,7 @@ public:
 		if (nIndex < m_vecPanel.size())
 			return m_vecPanel[nIndex]->pCustumData;
 		else
-			return nullptr;
+			return NULL;
 	}
 	void *GetPanelParam(int nRow, int nCol)
 	{
@@ -273,7 +275,7 @@ public:
 		{
 			_TraceMsgA("%P\tWM_LBUTTONDBLCLK.\n", hWnd);
 			m_csPannelMap->Lock();
-			auto it = m_PanelMap.find(hWnd);
+			map<HWND, HWND>::iterator it = m_PanelMap.find(hWnd);
 			if (it != m_PanelMap.end())			
 				::PostMessage(it->second, WM_TROGGLEFULLSCREEN, (WPARAM)hWnd, lParam);
 			m_csPannelMap->Unlock();

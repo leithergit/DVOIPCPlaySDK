@@ -5,6 +5,8 @@
 #include "autolock.h"
 using namespace std;
 using namespace std::tr1;
+//#include <boost/smart_ptr.hpp>
+//using namespace boost;
 // #include <mmstream.h>
 // #include <MMReg.h>
 
@@ -554,7 +556,7 @@ public:
 		if (!pDsBuffer)
 			return;
 		::EnterCriticalSection(&m_csListBuffer);
-		for (auto it = m_listDsBuffer.begin(); it != m_listDsBuffer.end();)
+		for (list<CDSoundBufferPtr>::iterator it = m_listDsBuffer.begin(); it != m_listDsBuffer.end();)
 			if ((*it).get() == pDsBuffer)
 			{
 				m_listDsBuffer.erase(it);

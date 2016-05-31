@@ -31,29 +31,26 @@
 #endif // _AFX_NO_AFXCMN_SUPPORT
 
 #include <afxcontrolbars.h>     // 功能区和控件条的 MFC 支持
-#include "../DVOIPCNETSDK/dvoipcnetsdk.h"
-#include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
+#include "dvoipcnetsdk.h"
+#include "DVOIPCPlaySDK.h"
 
-#ifdef _DEBUG
-#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk.lib")
-#pragma comment(lib, "../Debug/DVOIPCPlaySDK.lib")
-#else
-#pragma comment(lib, "../DVOIPCNETSDK/dvoipcnetsdk.lib")
-#pragma comment(lib, "../Release/DVOIPCPlaySDK.lib")
-#endif
+#pragma comment(lib, "dvoipcnetsdk.lib")
+#pragma comment(lib, "DVOIPCPlaySDK.lib")
 
-#include "../MulMonitor/MultiMonitorAPI.h"
-#pragma comment(lib,"../MulMonitor/MultiMonitorAPI.lib")
+#include "MultiMonitorAPI.h"
+#pragma comment(lib,"MultiMonitorAPI.lib")
 
 #include "Utility.h"
 #include "TimeUtility.h"
 #include "Markup.h"
 #include <list>
 #include <vector>
-#include <memory>
+//#include <memory>
 #include <WindowsX.h>
 using namespace std;
-using namespace std::tr1;
+//using namespace std::tr1;
+#include <boost/smart_ptr.hpp>
+using namespace boost;
 
 extern HANDLE g_hStdout;
 extern HANDLE g_hStdin;

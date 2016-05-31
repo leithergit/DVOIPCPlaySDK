@@ -10,11 +10,16 @@
 IMPLEMENT_DYNAMIC(CVideoFrame, CWnd)
 
 map<HWND, HWND>CVideoFrame::m_PanelMap;
-CriticalSectionPtr CVideoFrame::m_csPannelMap = make_shared<CriticalSectionWrap>();
+CriticalSectionPtr CVideoFrame::m_csPannelMap = boost::make_shared<CriticalSectionWrap>();
 
 CVideoFrame::CVideoFrame()
 {
-	
+	m_nCols = 1;
+	m_nRows = 1;
+	m_nCurSelected = -1;
+	m_nPannelUsed = 0;		//  已用空格数量
+	m_pSelectedPen = NULL;
+	m_pUnSelectedPen = NULL;
 }
 
 CVideoFrame::~CVideoFrame()
@@ -81,9 +86,9 @@ bool CVideoFrame::AdjustPanels(int nRow, int nCols)
 	if (m_vecPanel.size())
 	{
 		m_csPannelMap->Lock();		
-		for (auto it = m_vecPanel.begin(); it != m_vecPanel.end();)
+		for (vector<PanelInfoPtr>::iterator it = m_vecPanel.begin(); it != m_vecPanel.end();)
 		{
-			auto itFind = m_PanelMap.find((*it)->hWnd);
+			map<HWND, HWND>::iterator itFind = m_PanelMap.find((*it)->hWnd);
 			if (itFind != m_PanelMap.end())
 				m_PanelMap.erase(itFind);
 			it = m_vecPanel.erase(it);
@@ -303,7 +308,7 @@ void CVideoFrame::OnSize(UINT nType, int cx, int cy)
 {
 	CWnd::OnSize(nType, cx, cy);
 	ResizePanel(cx, cy);
-	for (auto it = m_vecPanel.begin(); it != m_vecPanel.end(); it++)
+	for (vector<PanelInfoPtr>::iterator it = m_vecPanel.begin(); it != m_vecPanel.end(); it++)
 		(*it)->UpdateWindow();
 }
 

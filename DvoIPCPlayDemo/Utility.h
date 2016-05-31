@@ -7,9 +7,12 @@
 #include <WinSock.h>
 #include <winioctl.h>
 #include <comutil.h>
-#include <memory>
-using namespace std;
-using namespace std::tr1;
+//#include <memory>
+
+//using namespace std;
+#include <boost/smart_ptr.hpp>
+using namespace boost;
+//using namespace std::tr1;
 
 #define IN
 #define OUT
@@ -456,7 +459,7 @@ INT_PTR MultiByteStrToUnicodeStr(UINT_PTR nCodePage, LPCSTR lpMultiByteStr, LPWS
 #define _AnsiString(UnicodeText,nLength)	(W2AString(UnicodeText,nLength).get())
 #define _UnicodeString(AnsiText,nLength)		(A2WString(AnsiText,nLength).get())
 
-#define stdshared_ptr		std::tr1::shared_ptr
+#define stdshared_ptr		boost::shared_ptr
 stdshared_ptr<char> UTF8String(IN LPCWSTR pText,int& OUT nReturnLength);
 stdshared_ptr<char> W2AString(IN LPCWSTR pText,int& OUT nReturnLength);
 stdshared_ptr<WCHAR> A2WString(IN LPCSTR pText,int& OUT nReturnLength);

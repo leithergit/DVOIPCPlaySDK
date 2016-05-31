@@ -4,11 +4,13 @@
 #include <time.h>
 #include <assert.h>
 #include <mmsystem.h>
-#include <thread>
-#include <chrono>
+#include <boost/smart_ptr.hpp>
+//#include <thread>
+//#include <chrono>
 #include "Runlog.h"
-using namespace std::this_thread;
-using namespace std::chrono;
+// using namespace std::this_thread;
+// using namespace std::chrono;
+using namespace boost;
 #ifdef _UNICODE
 #define GetDateTime			GetDateTimeW
 #define	_DateTime			DateTimeW
@@ -140,86 +142,86 @@ extern ETB g_etb;
 double  GetExactTime();
 
 /// @brief 线程休眠方式
-struct CThreadSleep
-{
-	enum SleepWay
-	{
-		Sys_Sleep = 0,		///< 直接调用系统函数Sleep
-		Wmm_Sleep = 1,		///< 使用多媒体时间提高精度
-		Std_Sleep = 2		///< 使C++11提供的线程休眠函数
-	};
-	CThreadSleep()
-	{
-		double dfSumSpan1 = 0.0f, dfSumSpan2 = 0.0f, dfSumSpan3 = 0.0f;
-		double dfT1 = 0.0f;
-		for (int i = 0; i < 32; i++)
-		{
-			dfT1 = GetExactTime();
-			Sleep(1);
-			dfSumSpan1 += TimeSpanEx(dfT1);
-
-			dfT1 = GetExactTime();
-			timeBeginPeriod(1); //设置精度为1毫秒
-			::Sleep(1); //当前线程挂起一毫秒
-			timeEndPeriod(1); //结束精度设置
-			dfSumSpan2 += TimeSpanEx(dfT1);
-
-			dfT1 = GetExactTime();
-			std::this_thread::sleep_for(std::chrono::nanoseconds(1));
-			dfSumSpan3 += TimeSpanEx(dfT1);
-		}
-		double dfSpanSum = dfSumSpan1;
-		
-		if (dfSumSpan1 <= dfSumSpan2)
-		{
-			nSleepWay = Sys_Sleep;
-		}
-		else
-		{
-			dfSpanSum = dfSumSpan2;
-			nSleepWay = Wmm_Sleep;
-		}
-		if (dfSumSpan3 < dfSpanSum)
-		{
-			nSleepWay = Std_Sleep;
-			dfSpanSum = dfSumSpan3;
-		}
-		nSleepPrecision = (DWORD)(1000 * dfSpanSum/32);
-	}
-	void operator ()(DWORD nTimems)
-	{
-		switch(nSleepWay)
-		{
-		case Sys_Sleep:
-			::Sleep(nTimems);
-			break;		
-		case Wmm_Sleep:
-		{
-			timeBeginPeriod(1); //设置精度为1毫秒
-			::Sleep(nTimems);	//当前线程挂起一毫秒
-			timeEndPeriod(1);	//结束精度设置
-		}
-			break;
-		case Std_Sleep:
-			std::this_thread::sleep_for(std::chrono::nanoseconds(nTimems*1000));
-			break;
-		default:
-			assert(false);
-			break;
-		}
-	}
-	inline DWORD GetPrecision()
-	{
-		return nSleepPrecision;
-	}
-
-private:
-	SleepWay	nSleepWay;
-	DWORD		nSleepPrecision;
-};
-
-extern CThreadSleep ThreadSleep;
-#define GetSleepPricision()	ThreadSleep.GetPrecision();
+// struct CThreadSleep
+// {
+// 	enum SleepWay
+// 	{
+// 		Sys_Sleep = 0,		///< 直接调用系统函数Sleep
+// 		Wmm_Sleep = 1,		///< 使用多媒体时间提高精度
+// 		Std_Sleep = 2		///< 使C++11提供的线程休眠函数
+// 	};
+// 	CThreadSleep()
+// 	{
+// 		double dfSumSpan1 = 0.0f, dfSumSpan2 = 0.0f, dfSumSpan3 = 0.0f;
+// 		double dfT1 = 0.0f;
+// 		for (int i = 0; i < 32; i++)
+// 		{
+// 			dfT1 = GetExactTime();
+// 			Sleep(1);
+// 			dfSumSpan1 += TimeSpanEx(dfT1);
+// 
+// 			dfT1 = GetExactTime();
+// 			timeBeginPeriod(1); //设置精度为1毫秒
+// 			::Sleep(1); //当前线程挂起一毫秒
+// 			timeEndPeriod(1); //结束精度设置
+// 			dfSumSpan2 += TimeSpanEx(dfT1);
+// 
+// 			dfT1 = GetExactTime();
+// 			std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+// 			dfSumSpan3 += TimeSpanEx(dfT1);
+// 		}
+// 		double dfSpanSum = dfSumSpan1;
+// 		
+// 		if (dfSumSpan1 <= dfSumSpan2)
+// 		{
+// 			nSleepWay = Sys_Sleep;
+// 		}
+// 		else
+// 		{
+// 			dfSpanSum = dfSumSpan2;
+// 			nSleepWay = Wmm_Sleep;
+// 		}
+// 		if (dfSumSpan3 < dfSpanSum)
+// 		{
+// 			nSleepWay = Std_Sleep;
+// 			dfSpanSum = dfSumSpan3;
+// 		}
+// 		nSleepPrecision = (DWORD)(1000 * dfSpanSum/32);
+// 	}
+// 	void operator ()(DWORD nTimems)
+// 	{
+// 		switch(nSleepWay)
+// 		{
+// 		case Sys_Sleep:
+// 			::Sleep(nTimems);
+// 			break;		
+// 		case Wmm_Sleep:
+// 		{
+// 			timeBeginPeriod(1); //设置精度为1毫秒
+// 			::Sleep(nTimems);	//当前线程挂起一毫秒
+// 			timeEndPeriod(1);	//结束精度设置
+// 		}
+// 			break;
+// 		case Std_Sleep:
+// 			std::this_thread::sleep_for(std::chrono::nanoseconds(nTimems*1000));
+// 			break;
+// 		default:
+// 			assert(false);
+// 			break;
+// 		}
+// 	}
+// 	inline DWORD GetPrecision()
+// 	{
+// 		return nSleepPrecision;
+// 	}
+// 
+// private:
+// 	SleepWay	nSleepWay;
+// 	DWORD		nSleepPrecision;
+// };
+// 
+// extern CThreadSleep ThreadSleep;
+// #define GetSleepPricision()	ThreadSleep.GetPrecision();
 
 #define  _LockOverTime 100
 #define  SaveWaitTime()	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__);
@@ -275,7 +277,7 @@ using namespace  std;
 class CLineRunTime
 {
 public:
-	CLineRunTime(CRunlogA *plog = nullptr)
+	CLineRunTime(CRunlogA *plog = NULL)
 	{
 		pRunlog = plog;
 	}
@@ -300,7 +302,7 @@ public:
 	}
 	void SaveLineTime(char *szFile, int nLine)
 	{
-		shared_ptr<LineTime> pLineTime = make_shared<LineTime>(szFile, nLine);
+		boost::shared_ptr<LineTime> pLineTime = boost::make_shared<LineTime>(szFile, nLine);
 		pTimeArray.push_back(pLineTime);
 	}
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
@@ -322,6 +324,6 @@ public:
 		va_end(args);
 	}
 public:
-	vector<shared_ptr<LineTime>> pTimeArray;
-	CRunlogA *pRunlog = nullptr;
+	vector<boost::shared_ptr<LineTime>> pTimeArray;
+	CRunlogA *pRunlog ;
 };

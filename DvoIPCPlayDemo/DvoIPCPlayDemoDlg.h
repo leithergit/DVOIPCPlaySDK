@@ -6,16 +6,18 @@
 
 #include "VideoFrame.h"
 #include "AutoLock.h"
-#include <memory>
+//#include <memory>
+#include <boost/smart_ptr.hpp>
 #include "GlliteryStatic.h"
 #include "fullscreen.h"
 #include "SocketClient.h"
-#include "DirectDraw.h"
+//#include "DirectDraw.h"
 #include "../tvt/TVTChan_1.h"
 #include "../dvoipcnetsdk/ipcMsgHead.h"
 
 using namespace std;
-using namespace std::tr1;
+//using namespace std::tr1;
+using namespace boost;
 
 #define _Frame_PERIOD			30.0f		///< 一个帧率区间
 #define WM_UPDATE_STREAMINFO	WM_USER + 1024
@@ -132,21 +134,21 @@ struct PlayerContext
 public:
 	StreamInfo*	pStreamInfo;
 	USER_HANDLE hUser;
-	
-	REAL_HANDLE hStream;
-	CSocketClient *pClient;
-	volatile bool bThreadRecvIPCStream = false;
-	HANDLE hThreadRecvStream = nullptr;
-	fnDVOCallback_RealAVData_T pStreamCallBack = nullptr;;
 	int nPlayerCount;
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
-	shared_ptr<byte>pYuvBuffer = nullptr;
-	int nYuvBufferSize = 0;
-	DWORD		nVideoFrames = 0;
-	DWORD		nAudioFrames = 0;
-	double		dfTimeRecv1 = 0.0f;
-	double		dfTimeRecv2 = 0.0f;
+	
+	REAL_HANDLE hStream;
+	CSocketClient *pClient;
+	volatile bool bThreadRecvIPCStream/* = false*/;
+	HANDLE hThreadRecvStream/* = NULL*/;
+	fnDVOCallback_RealAVData_T pStreamCallBack/* = NULL*/;
+	boost::shared_ptr<byte>pYuvBuffer /*= NULL*/;
+	int nYuvBufferSize/* = 0*/;
+	DWORD		nVideoFrames/* = 0*/;
+	DWORD		nAudioFrames/* = 0*/;
+	double		dfTimeRecv1/* = 0.0f*/;
+	double		dfTimeRecv2/* = 0.0f*/;
 	
 	HWND		hWndView;
 	int			nItem;
@@ -164,23 +166,34 @@ public:
 	TCHAR		szIpAddress[32];
 	TCHAR		szRecFilePath[MAX_PATH];
 	__int64		nTimeStamp[100];
-	int			nFirstID = 0;
+	int			nFirstID/* = 0*/;
 	int			nTimeCount;
 
 	CRITICAL_SECTION csRecFile;
 public:
 	PlayerContext(USER_HANDLE hUserIn,
 		REAL_HANDLE hStreamIn = -1,
-		DVO_PLAYHANDLE hPlayerIn = nullptr,int nCount = 1)
+		DVO_PLAYHANDLE hPlayerIn = NULL,int nCount = 1)
 	{
 		ZeroMemory(this, sizeof(PlayerContext));
 		pStreamInfo = new StreamInfo();
+		bThreadRecvIPCStream = false;
+		hThreadRecvStream = NULL;
+		pStreamCallBack = NULL;
+		pYuvBuffer.reset();
+		nYuvBufferSize = 0;
+		nVideoFrames = 0;
+		nAudioFrames = 0;
+		dfTimeRecv1 = 0.0f;
+		dfTimeRecv2 = 0.0f;
+
 		nTimeCount = 0;
 		hUser = hUserIn;
 		hStream = hStreamIn;
 		nPlayerCount = nCount;
 		hPlayer[0] = hPlayerIn;
 		InitializeCriticalSection(&csRecFile);
+
 	}
 	~PlayerContext()
 	{
@@ -198,12 +211,12 @@ public:
 		if (hPlayerStream)
 		{
 			dvoplay_Close(hPlayerStream);
-			hPlayerStream = nullptr;
+			hPlayerStream = NULL;
 		}
 		if (pClient)
 		{
 			delete pClient;
-			pClient = nullptr;
+			pClient = NULL;
 		}
 		if (hUser != -1)
 		{
@@ -219,7 +232,7 @@ public:
 	{
 		bThreadRecvIPCStream = true;
 		pStreamCallBack = pCallBack;
-		hThreadRecvStream = CreateThread(nullptr, 0, ThreadRecvIPCStream, this, 0, nullptr);
+		hThreadRecvStream = CreateThread(NULL, 0, ThreadRecvIPCStream, this, 0, NULL);
 	}
 	void StopRecv()
 	{
@@ -228,7 +241,7 @@ public:
 			bThreadRecvIPCStream = false;
 			WaitForSingleObject(hThreadRecvStream, INFINITE);
 			CloseHandle(hThreadRecvStream);
-			hThreadRecvStream = nullptr;
+			hThreadRecvStream = NULL;
 		}
 	}
 	
@@ -292,7 +305,7 @@ public:
 				return;
 			CAutoLock lock(&csRecFile);
 			pRecFile = new CFile(szRecFilePath, CFile::modeCreate | CFile::modeWrite);
-			tRecStartTime = time(nullptr);
+			tRecStartTime = time(NULL);
 		}
 		catch (/*std::exception* e*/CException *e)
 		{
@@ -439,10 +452,10 @@ public:
 	int			m_nListTop;				// List宽度的Top坐标
 	TCHAR		m_szRecordPath[MAX_PATH];
 	int			m_nMonitorCount;		//  当前已经连接显示器的数量
-	CVideoFrame *m_pVideoWndFrame = nullptr;
+	CVideoFrame *m_pVideoWndFrame/* = NULL*/;
 	CGlliteryStatic m_wndStatus;
 	double	m_dfLastUpdate;
-	bool	m_bRefreshPlayer = true;
+	bool	m_bRefreshPlayer/* = true*/;
 	bool SaveSetting();
 	bool LoadSetting();
 	static CFile *m_pVldReport;
@@ -454,7 +467,7 @@ public:
 	afx_msg void OnBnClickedButtonPlaystream();
 	afx_msg void OnBnClickedButtonRecord();
 	afx_msg void OnBnClickedButtonPlayfile();
-	list<shared_ptr<PlayerContext>>m_listPlayer;
+	list<boost::shared_ptr<PlayerContext>>m_listPlayer;
 	// 相机实时码流捕捉回调函数
 	static void  __stdcall StreamCallBack(IN USER_HANDLE  lUserID,
 										IN REAL_HANDLE lStreamHandle,
@@ -464,12 +477,12 @@ public:
 										IN void*       pUser);
 
 	static void __stdcall PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
-	shared_ptr<PlayerInfo>	m_pPlayerInfo;
+	boost::shared_ptr<PlayerInfo>	m_pPlayerInfo;
 	afx_msg void OnNMClickListConnection(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg LRESULT OnUpdateStreamInfo(WPARAM, LPARAM);
 	afx_msg LRESULT OnUpdatePlayInfo(WPARAM, LPARAM);
 	afx_msg void OnNMCustomdrawListStreaminfo(NMHDR *pNMHDR, LRESULT *pResult);
-	shared_ptr<PlayerContext>m_pPlayContext;
+	boost::shared_ptr<PlayerContext>m_pPlayContext;
 	afx_msg void OnBnClickedCheckEnableaudio();
 	afx_msg void OnBnClickedCheckFitwindow();
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
@@ -477,14 +490,14 @@ public:
 	afx_msg void OnCbnSelchangeComboPlayspeed();
 	afx_msg void OnBnClickedButtonPause();
 	afx_msg void OnHotKey(UINT nHotKeyId, UINT nKey1, UINT nKey2);
-	HWND m_hFullScreen = nullptr;
-	UINT m_nOriMonitorIndex = 0;
 	FullScreenWnd m_FullScreen;
-	void *m_hIOCP = nullptr;
-	bool m_bClickPlayerSlide = false;
-	shared_ptr<CDirectDraw> m_pDDraw = nullptr;
-	shared_ptr<ImageSpace> m_pYUVImage = nullptr;
-	bool m_bEnableVCA = false;
+	
+	HWND m_hFullScreen/* = NULL*/;
+	UINT m_nOriMonitorIndex/* = 0*/;	
+	void *m_hIOCP/* = NULL*/;
+	bool m_bClickPlayerSlide/* = false*/;
+	//shared_ptr<CDirectDraw> m_pDDraw/* = NULL*/;
+	//shared_ptr<ImageSpace> m_pYUVImage/* = NULL*/;
 	vector<WndPostionInfo> m_vWndPostionInfo;
 	void SaveWndPosition(UINT *nDlgItemIDArray, UINT nItemCount, DockType nDock, RECT rtDialogClientRect);
 	/// @brief		解码后YVU数据回调
@@ -500,35 +513,34 @@ public:
 										void *pUserPtr)
 	{
 		CDvoIPCPlayDemoDlg *pThis = (CDvoIPCPlayDemoDlg *)pUserPtr;
-		if (!pThis->m_bEnableVCA ||
-			!pThis->m_pPlayContext->hPlayer[0])
+		if (!pThis->m_pPlayContext->hPlayer[0])
 		{
 			return;
 		}
-		if (!pThis->m_pDDraw)
-		{
-			PlayerInfo pi;
-			if (dvoplay_GetPlayerInfo(pThis->m_pPlayContext->hPlayer[0], &pi) != DVO_Succeed)
-			{
-				assert(false);
-				return;
-			}
-			//构造表面  
-			DDSURFACEDESC2 ddsd = { 0 };
-			FormatYV12::Build(ddsd, pi.nVideoWidth, pi.nVideoHeight);
-			pThis->m_pDDraw = make_shared<CDirectDraw>();
-			pThis->m_pDDraw->Create<FormatYV12>(pThis->m_pVideoWndFrame->GetPanelWnd(1), ddsd);
-			pThis->m_pYUVImage = make_shared<ImageSpace>();
-			pThis->m_pYUVImage->dwLineSize[0] = nWidth;
-			pThis->m_pYUVImage->dwLineSize[1] = nWidth >> 1;
-			pThis->m_pYUVImage->dwLineSize[2] = nWidth >> 1;
-		}
-		pThis->m_pYUVImage->pBuffer[0] = (PBYTE)pY;
-		pThis->m_pYUVImage->pBuffer[1] = (PBYTE)pU;
-		pThis->m_pYUVImage->pBuffer[2] = (PBYTE)pV;
-		//g_pVca->ProcessYuv(pY, pU, pV, nStrideY, nStrideUV, nWidth, nHeight);
-
-		pThis->m_pDDraw->Draw(*pThis->m_pYUVImage,true);
+// 		if (!pThis->m_pDDraw)
+// 		{
+// 			PlayerInfo pi;
+// 			if (dvoplay_GetPlayerInfo(pThis->m_pPlayContext->hPlayer[0], &pi) != DVO_Succeed)
+// 			{
+// 				assert(false);
+// 				return;
+// 			}
+// 			//构造表面  
+// 			DDSURFACEDESC2 ddsd = { 0 };
+// 			FormatYV12::Build(ddsd, pi.nVideoWidth, pi.nVideoHeight);
+// 			pThis->m_pDDraw = make_shared<CDirectDraw>();
+// 			pThis->m_pDDraw->Create<FormatYV12>(pThis->m_pVideoWndFrame->GetPanelWnd(1), ddsd);
+// 			pThis->m_pYUVImage = make_shared<ImageSpace>();
+// 			pThis->m_pYUVImage->dwLineSize[0] = nWidth;
+// 			pThis->m_pYUVImage->dwLineSize[1] = nWidth >> 1;
+// 			pThis->m_pYUVImage->dwLineSize[2] = nWidth >> 1;
+// 		}
+// 		pThis->m_pYUVImage->pBuffer[0] = (PBYTE)pY;
+// 		pThis->m_pYUVImage->pBuffer[1] = (PBYTE)pU;
+// 		pThis->m_pYUVImage->pBuffer[2] = (PBYTE)pV;
+// 		//g_pVca->ProcessYuv(pY, pU, pV, nStrideY, nStrideUV, nWidth, nHeight);
+// 
+// 		pThis->m_pDDraw->Draw(*pThis->m_pYUVImage,true);
 		// todo:把YUV数据整合为YV12数据，并交给VCA引擎进行分析，把分析交给VCA Render渲染，再把渲染结果还到pY,pU,pV当中
 
 	}
@@ -557,18 +569,18 @@ public:
 			m_FullScreen.Restore();			
 			::SetParent(m_hFullScreen, m_pVideoWndFrame->GetSafeHwnd());
 			dvoplay_Reset(m_pPlayContext->hPlayer[0], m_hFullScreen);
-			m_hFullScreen = nullptr;
+			m_hFullScreen = NULL;
 			ShowWindow(SW_SHOW);
 		}
 		return 0;
 	}
-	bool m_bPuased = false;
-	volatile bool m_bThreadStream = false;
-	HANDLE  m_hThreadSendStream = nullptr;
-	HANDLE  m_hThreadPlayStream = nullptr;
-	int		m_nRow = 1;
-	int		m_nCol = 1;
-	ATOM m_nHotkeyID = 0;
+	bool m_bPuased/* = false*/;
+	volatile bool m_bThreadStream /*= false*/;
+	HANDLE  m_hThreadSendStream/* = NULL*/;
+	HANDLE  m_hThreadPlayStream /*= NULL*/;
+	int		m_nRow/* = 1*/;
+	int		m_nCol/* = 1*/;
+	ATOM m_nHotkeyID/* = 0*/;
 	struct DvoStream
 	{
 		DvoStream(byte *pBuffer,int nBufferSize)
@@ -586,7 +598,7 @@ public:
 		byte *pStream;
 		int  nStreamSize;
 	};
-	typedef shared_ptr<DvoStream> DvoStreamPtr;
+	typedef boost::shared_ptr<DvoStream> DvoStreamPtr;
 	CRITICAL_SECTION m_csListStream;
 	list<DvoStreamPtr> m_listStream;	// 流播放队列
 	// 发送数据流
@@ -594,7 +606,7 @@ public:
 	int SendStream(byte *pFrameBuffer, int nFrameSize)
 	{
 		CAutoLock lock(&m_csListStream);
-		DvoStreamPtr pStream = make_shared<DvoStream>(pFrameBuffer, nFrameSize);
+		DvoStreamPtr pStream = boost::make_shared<DvoStream>(pFrameBuffer, nFrameSize);
 		m_listStream.push_back(pStream);
 		return m_listStream.size();
 	}
@@ -622,9 +634,9 @@ public:
 		if (!pThis->m_pPlayContext || 
 			!pThis->m_pPlayContext->hPlayer )
 			return 0;
-		shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
+		boost::shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
 		
-		byte *pFrameBuffer = nullptr;
+		byte *pFrameBuffer = NULL;
 		UINT nFrameSize = 0;
 				
 		int nDvoError = 0;
@@ -663,7 +675,7 @@ public:
 		if (!pThis->m_pPlayContext ||
 			!pThis->m_pPlayContext->hPlayerStream)
 			return 0;
-		shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
+		boost::shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
 		int nDvoError = 0;
 		int nStreamListSize = 0;
 		DvoStreamPtr pStream;
@@ -709,7 +721,8 @@ public:
 	afx_msg void OnBnClickedButtonStopforword();
 	afx_msg void OnBnClickedButtonSeeknextframe();
 	afx_msg void OnBnClickedCheckEnablelog();
-	afx_msg void OnBnClickedCheckEnablevca();
 	afx_msg void OnNMReleasedcaptureSliderPlayer(NMHDR *pNMHDR, LRESULT *pResult);
+	//afx_msg void OnBnClickedCheckRefreshplayer();
+	afx_msg void OnBnClickedCheckEnablehaccel();
 	afx_msg void OnBnClickedCheckRefreshplayer();
 };

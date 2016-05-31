@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <assert.h>
 #include <WinSock.h>
-#include <memory>
+//#include <memory>
 #include "TimeUtility.h"
 #pragma comment (lib,"Ws2_32")
 
 using namespace std;
 ETB g_etb;
-CThreadSleep ThreadSleep;
+//CThreadSleep ThreadSleep;
 
 //取得精确时间,单位秒
 double  GetExactTime()

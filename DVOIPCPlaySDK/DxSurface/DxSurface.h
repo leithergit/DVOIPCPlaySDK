@@ -75,6 +75,8 @@ extern "C" {
 #pragma comment(lib,"winmm.lib")
 
 using namespace  std;
+//#include <boost/smart_ptr.hpp>
+//using namespace boost;
 using namespace  std::tr1;
 #ifndef SafeDelete
 #define SafeDelete(p)       { if(p) { delete (p);     (p)=NULL; } }

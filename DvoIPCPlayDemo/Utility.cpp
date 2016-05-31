@@ -7,12 +7,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include <Shlwapi.h>
-#include <memory>
+//#include <memory>
 //#include "AutoPtrArray.h"
-//#include <boost/smart_ptr.hpp>
+#include <boost/smart_ptr.hpp>
 using namespace std;
-using namespace std::tr1;
-//using namespace boost;
+//using namespace std::tr1;
+using namespace boost;
 
 #pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib,"shlwapi.lib")

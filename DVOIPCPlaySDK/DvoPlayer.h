@@ -43,8 +43,12 @@
 #define _New	new (std::nothrow)
 #endif
 
+//#include <boost/smart_ptr.hpp>
 using namespace std;
-using namespace std::tr1;
+//using namespace boost;
+
+
+//using namespace std::tr1;
 #pragma comment(lib,"ws2_32")
 #pragma warning (disable:4018)
 
@@ -907,42 +911,13 @@ private:
 	/// @brief 渲染一帧
 	void RenderFrame(AVFrame *pAvFrame)
 	{
-#ifdef _DEBUG
-		if (dfTRender == 0.0f)
-			dfTRender = GetExactTime();
-		m_nRenderFrames ++;
-		if (m_nRenderFrames  && m_nRenderFrames % 25 == 0)
-		{
-			m_nRenderFPS = m_nRenderFrames / TimeSpanEx(dfTRender);
-		}
-		char *szStatus = "Succeed";
-#endif
-		//CAutoLock lock(&m_csDxSurface, false,__FILE__, __FUNCTION__, __LINE__);
 		RECT rtRender;
 		GetWindowRect(m_hWnd, &rtRender);
 		ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
 		ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
 
 		if (m_bFitWindow)
-		{
-			DWORD dwTNow = timeGetTime();
-			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd);
-			DWORD dwTimeSpan = timeGetTime() - dwTNow;
-			if (dwTimeSpan > 200)
-			{
-				DxTraceMsg("%s %d(%s) Render Time = %d.\n", __FILE__, __LINE__, __FUNCTION__, dwTimeSpan);
-			}
-#ifdef _DEBUG
-			
-			if (!bFlag)
-				szStatus = "Failed";
-			if (((timeGetTime() - m_OuputTime.nRender) >= 10000 ) && pAvFrame->width >= 640)
-			{
-				OutputMsg("%s \tObject:%d\tRender Succeed\tWidth = %d\n", __FUNCTION__, m_nObjIndex,pAvFrame->width);
-				m_OuputTime.nRender = timeGetTime();
-			}
-#endif
-		}
+			m_pDxSurface->Render(pAvFrame, m_hWnd);
 		else
 		{
 			int nWndWidth = rtRender.right - rtRender.left;
@@ -969,17 +944,7 @@ private:
 					rtRender.right -= nOverWidth / 2;
 				}
 			}
-			bool bFlag = m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
-#ifdef _DEBUG
-			if (!bFlag)
-				szStatus = "Failed";
-// 			if ((timeGetTime() - m_OuputTime.nRender) >= 5000)
-// 			{
-// 				OutputMsg("%s \tObject:%d. Render Succeed\n", __FUNCTION__, m_nObjIndex);
-// 				m_OuputTime.nRender = timeGetTime();
-// 			}
-#endif
-
+			m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
 		}
 	}
 	// 二分查找
@@ -3653,6 +3618,52 @@ public:
 		}
 	};
 
+	struct TimeTrace
+	{
+		char szName[128];
+		char szFunction[128];
+		double dfTimeArray[100];
+		int	   nTimeCount;
+		TimeTrace(char *szNameT,char *szFunctionT)
+		{
+			ZeroMemory(this, sizeof(TimeTrace));
+			strcpy(szName, szNameT);
+			strcpy(szFunction, szFunctionT);
+		}
+		void Zero()
+		{
+			ZeroMemory(this, sizeof(TimeTrace));
+		}
+		inline void AddTime(double dfTime)
+		{
+			dfTimeArray[nTimeCount++] = dfTime;
+		}
+		void OutputTime(bool bReset = true)
+		{
+			char szOutputText[1024] = { 0 };
+			double dfAvg = 0.0f;
+			TraceMsgA("%s %s Interval:\n", szFunction,szName);
+			for (int i = 0; i < nTimeCount; i++)
+			{
+				sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
+				dfAvg += dfTimeArray[i];
+				if ((i + 1) % 25 == 0)
+				{
+					TraceMsgA("%s %s\n", szFunction, szOutputText);
+					ZeroMemory(szOutputText, 1024);
+				}
+			}
+			TraceMsgA("%s Avg %s = %.6f.\n", szFunction,szName, dfAvg / nTimeCount);
+			if (bReset)
+				nTimeCount = 0;
+		}
+	};
+	void TraceTimeSpan(TimeTrace *pTimeTrace, double dfTimeSpan)
+	{
+		pTimeTrace->AddTime(dfTimeSpan);
+		if (pTimeTrace->nTimeCount >= 100)
+			pTimeTrace->OutputTime();
+	}
 	static UINT __stdcall ThreadPlayVideo(void *p)
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
@@ -3701,7 +3712,7 @@ public:
 				{
 					Sleep(5);
 					CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-					for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();it ++)
+					for (list<StreamFramePtr>::iterator it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();it ++)
 					{
 						if (StreamFrame::IsIFrame(*it))
 							if (bProbeSucced = pThis->ProbeStream((byte *)(*it)->Framedata(pThis->m_nSDKVersion), (*it)->FrameHeader()->nLength))
@@ -3914,9 +3925,10 @@ public:
 #ifdef _DEBUG 
 		pThis->OutputMsg("%s \tObject:%d Start Decoding.\n", __FUNCTION__,pThis->m_nObjIndex);
 #endif
+		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
+		TimeTrace RenderTimeTrace("RenderTime", __FUNCTION__);
+
 #ifdef _DEBUG
-		double TPlayArray[100] = { 0 };
-		int nPlayCount = 0;
 		int nFrames = 0;
 		int nFirstID = 0;
 		time_t dfDelayArray[100] = { 0 };
@@ -3930,6 +3942,7 @@ public:
 		bool bDecodeSucceed = false;
 		double dfDecodeTimespan = 0.0f;	// 解码所耗费时间
 		double dfDecodeITimespan = 0.0f; // I帧解码和显示所耗费时间
+		double dfTimeDecodeStart = 0.0f;
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -3937,14 +3950,15 @@ public:
 				Sleep(100);
 				continue;
 			}
+			dfDecodeStartTime = GetExactTime();
 			if (!pThis->m_bIpcStream)
 			{// 文件或流媒体播放，可调节播放速度
 				bool bPopFrame = false;
 				// 查找时间上最匹配的帧,并删除不匹配的非I帧
 				int nSkipFrames = 0;
-				dfDecodeStartTime = GetExactTime();
+				
 				CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-				for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
+				for (list<StreamFramePtr>::iterator it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 				{
 					time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
 					if (tFrameSpan / pThis->m_fPlayRate >= max(pThis->m_fPlayInterval/**pThis->m_fPlayRate*/, FrameStat.dfAvgDecodeTime * 1000)
@@ -4027,7 +4041,11 @@ public:
 					continue;
 				}
 				av_packet_unref(pAvPacket);
+				dfDecodeTimespan = TimeSpanEx(dfDecodeStartTime);
 			}
+			DecodeTimeTrace.AddTime(dfDecodeTimespan);
+			if (DecodeTimeTrace.nTimeCount >= 100)
+				DecodeTimeTrace.OutputTime();
 #ifdef _DEBUG
 			if (pThis->m_bSeekSetDetected)
 			{
@@ -4076,14 +4094,13 @@ public:
  			{
 				SetEvent(pThis->m_hEvnetYUVReady);
 				SetEvent(pThis->m_hEventDecodeStart);
-				//pThis->ProcessSnapshotRequire(pAvFrame);
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
-				//TraceMsgA("%s m_nCurVideoFrame = %d\tm_tCurFrameTimeStamp = %d.\n", __FUNCTION__, pThis->m_nCurVideoFrame, pThis->m_tCurFrameTimeStamp);
 				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)pThis->m_nCurVideoFrame);
 				if (pThis->m_pDxSurface)
 				{
-					if (1.0f == pThis->m_fPlayRate  && 
+					if (!pThis->m_bIpcStream &&
+						1.0f == pThis->m_fPlayRate  && 
 						pThis->m_bEnableAudio && 
 						pThis->m_hAudioFrameEvent[0] &&
 						pThis->m_hAudioFrameEvent[1])
@@ -4109,28 +4126,13 @@ public:
 			}
 			av_frame_unref(pAvFrame);
 			dfRenderTimeSpan = TimeSpanEx(dfRenderStartTime);
-// #ifdef _DEBUG
-// 			fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
-// 			TPlayArray[nPlayCount++] = fTimeSpan;
-// 			if (nPlayCount >= 50)
-// 			{
-// 				char szOutputText[1024];
-// 				double dfAvg = 0.0f;
-// 				TraceMsgA("%sPlay Interval:\n", __FUNCTION__);
-// 				for (int i = 0; i < nPlayCount; i++)
-// 				{
-// 					//TraceMsgA("%.6f\t", TPlayArray[i]);
-// 					sprintf(&szOutputText[strlen(szOutputText)], "%.6f\t", TPlayArray[i]);
-// 					dfAvg += TPlayArray[i];
-// 					if ((i + 1) % 10 == 0)
-// 						TraceMsgA("%s\n",szOutputText);
-// 					szOutputText[0] = 0;
-// 				}
-// 				TraceMsgA("AveTime = %.6f.\n", dfAvg / nPlayCount);
-// 				nPlayCount = 0;
-// 			}
-// #endif
 			dfRenderTime = GetExactTime();
+//#ifdef _DEBUG
+			fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
+			RenderTimeTrace.AddTime(dfRenderTimeSpan);
+			if (RenderTimeTrace.nTimeCount  >= 100)
+				RenderTimeTrace.OutputTime();
+//#endif
 		}
 		return 0;
 	}
@@ -4273,10 +4275,10 @@ public:
 				continue;
 			}
 			nFramesPlayed++;
-			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
-			{
-				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
-			}
+// 			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
+// 			{
+// 				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
+// 			}
 
 			if (nFramesPlayed < 50 && dwOsMajorVersion < 6)
 			{// 修正在XP系统中，前50帧会被瞬间丢掉的问题
