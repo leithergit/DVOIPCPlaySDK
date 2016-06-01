@@ -35,7 +35,7 @@
 #include "DSoundPlayer.hpp"
 #include "AudioDecoder.h"
 #include "Runlog.h"
-//#include "DirectDraw.h"
+#include "DirectDraw.h"
 
 #ifdef _DEBUG
 #define _New	new
@@ -498,6 +498,8 @@ private:
 	CDSoundBuffer* m_pDsBuffer;
 	DxSurfaceInitInfo	m_DxInitInfo;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
+	CDirectDraw *m_pDDraw;
+	shared_ptr<ImageSpace> m_pYUVImage = NULL;
 // 	bool		m_bDxReset;				///< 是否重置DxSurface
 // 	HWND		m_hDxReset;
 // 	CRITICAL_SECTION m_csDxSurface;
@@ -515,6 +517,7 @@ private:
 // 	int			*m_pSkipFramesArray;	///< 快速播放时要用到的跳帧表
 // 	CRITICAL_SECTION	m_csSkipFramesArray;
 	int			m_nSkipFrames;			///< 跳帧表中的元素数量
+	bool		m_bEnableD3DCache;		///< 是否启用D3D缓存
 	double		m_dfLastTimeVideoPlay;	///< 前一次视频播放的时间
 	double		m_dfTimesStart;			///< 开始播放的时间
 	bool		m_bEnableHaccel;		///< 是否启用硬解码
@@ -902,7 +905,67 @@ private:
 		else
 			return DVO_Error_MaxFrameSizeNotEnough;
 	}
-
+	bool InitD3D()
+	{
+		// 初始显示组件
+		if (GetOsMajorVersion() < 6)
+		{
+			if (m_pDDraw)
+			{
+				//构造DirectDraw表面  
+				DDSURFACEDESC2 ddsd = { 0 };
+				FormatYV12::Build(ddsd, m_nVideoWidth, m_nVideoHeight);
+				//m_pDDraw = _New CDirectDraw>;
+				m_pDDraw->Create<FormatYV12>(m_hWnd, ddsd);
+				m_pYUVImage = make_shared<ImageSpace>();
+				m_pYUVImage->dwLineSize[0] = m_nVideoWidth;
+				m_pYUVImage->dwLineSize[1] = m_nVideoWidth >> 1;
+				m_pYUVImage->dwLineSize[2] = m_nVideoWidth >> 1;
+			}
+			return true;
+		}
+		else
+		{
+			// 使用线程内CDxSurface对象显示图象
+			if (m_pDxSurface)		// D3D设备尚未初始化
+			{
+				DxSurfaceInitInfo &InitInfo = m_DxInitInfo;
+				InitInfo.nSize = sizeof(DxSurfaceInitInfo);
+				InitInfo.nFrameWidth = m_nVideoWidth;
+				InitInfo.nFrameHeight = m_nVideoHeight;
+				if (m_bEnableHaccel)
+					InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
+				else
+				{
+					///if (GetOsMajorVersion() < 6)
+					///	InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;		// 在XP环境下，某些集成显示在显示YV12象素会，会导致CPU占用率缓慢上升，这可能是D3D9或该集成显示的一个BUG
+					///else
+					InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+				}
+				InitInfo.bWindowed = TRUE;
+				//if (!pWndDxInit->GetSafeHwnd())
+				InitInfo.hPresentWnd = m_hWnd;
+				//else
+				//	InitInfo.hPresentWnd = pWndDxInit->GetSafeHwnd();
+				m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
+				if (!m_pDxSurface->InitD3D(InitInfo.hPresentWnd,
+					InitInfo.nFrameWidth,
+					InitInfo.nFrameHeight,
+					InitInfo.bWindowed,
+					InitInfo.nD3DFormat))
+				{
+					OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
+#ifdef _DEBUG
+					OutputMsg("%s \tObject:%d DxSurface failed,Line %d Time = %d.\n", __FUNCTION__, m_nObjIndex, __LINE__, timeGetTime() - m_nLifeTime);
+#endif
+					return false;
+				}
+				return true;
+			}
+			else
+				return false;
+		}
+	}
 #ifdef _DEBUG
 	int m_nRenderFPS = 0;
 	int m_nRenderFrames = 0;
@@ -912,12 +975,26 @@ private:
 	void RenderFrame(AVFrame *pAvFrame)
 	{
 		RECT rtRender;
+		
 		GetWindowRect(m_hWnd, &rtRender);
 		ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
 		ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
 
 		if (m_bFitWindow)
-			m_pDxSurface->Render(pAvFrame, m_hWnd);
+		{
+			if (m_pDxSurface)
+				m_pDxSurface->Render(pAvFrame, m_hWnd);
+			else if (m_pDDraw)
+			{
+				m_pYUVImage->pBuffer[0] = (PBYTE)pAvFrame->data[0];
+				m_pYUVImage->pBuffer[1] = (PBYTE)pAvFrame->data[1];
+				m_pYUVImage->pBuffer[2] = (PBYTE)pAvFrame->data[2];
+				m_pYUVImage->dwLineSize[0] = pAvFrame->linesize[0];
+				m_pYUVImage->dwLineSize[1] = pAvFrame->linesize[1];
+				m_pYUVImage->dwLineSize[2] = pAvFrame->linesize[2];
+				m_pDDraw->Draw(*m_pYUVImage,nullptr,true);
+			}
+		}
 		else
 		{
 			int nWndWidth = rtRender.right - rtRender.left;
@@ -944,7 +1021,18 @@ private:
 					rtRender.right -= nOverWidth / 2;
 				}
 			}
-			m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+			if (m_pDxSurface)
+				m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+			else if (m_pDDraw)
+			{
+				m_pYUVImage->pBuffer[0] = (PBYTE)pAvFrame->data[0];
+				m_pYUVImage->pBuffer[1] = (PBYTE)pAvFrame->data[1];
+				m_pYUVImage->pBuffer[2] = (PBYTE)pAvFrame->data[2];
+				m_pYUVImage->dwLineSize[0] = pAvFrame->linesize[0];
+				m_pYUVImage->dwLineSize[1] = pAvFrame->linesize[1];
+				m_pYUVImage->dwLineSize[2] = pAvFrame->linesize[2];
+				m_pDDraw->Draw(*m_pYUVImage, &rtRender, true);
+			}
 		}
 	}
 	// 二分查找
@@ -1220,7 +1308,7 @@ public:
 				if (GetOsMajorVersion() >= 6)
 					m_pDxSurface = _New CDxSurfaceEx();
 				else
-					m_pDxSurface = _New CDxSurface();
+					m_pDDraw = _New CDirectDraw();
 			}
 			else
 				m_pDxSurface = nullptr;
@@ -1234,7 +1322,7 @@ public:
 #ifdef _DEBUG
 		OutputMsg("%s \tReady to Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 #endif
-		StopPlay();
+		StopPlay(m_bEnableD3DCache);
 		/*
 		if (m_hWnd)
 		{
@@ -1274,13 +1362,20 @@ public:
 		}
 		if (m_pDxSurface)
 		{
-			if (m_pDxSurface->IsInited())
+			if (m_pDxSurface->IsInited() && m_bEnableD3DCache)
 			{
 				PutDxCache(m_pDxSurface);
 				OutputMsg("%s nVideoWidth = %d\tnVideoHeight = %d\n",__FUNCTION__, m_nVideoWidth, m_nVideoHeight);
 			}
-//			delete m_pDxSurface;
- 			m_pDxSurface = nullptr;
+			else
+			{
+				delete m_pDxSurface;
+				m_pDxSurface = nullptr;
+			}
+		}
+		if (m_pDDraw)
+		{
+			delete m_pDDraw;
 		}
 		if (m_hCacheFulled)
 		{
@@ -1395,7 +1490,10 @@ public:
 		else
 			return DVO_Error_InsufficentMemory;
 	}
-
+	inline bool GetD3DCache()
+	{
+		return m_bEnableD3DCache;
+	}
 	int SetMaxFrameSize(int nMaxFrameSize = 256*1024)
 	{
 		if (m_hThreadParser || m_hThreadPlayVideo)
@@ -1817,7 +1915,7 @@ public:
 		return 0;
 	}
 
-	bool StopPlay(DWORD nTimeout = 1000)
+	bool StopPlay(bool bCacheD3DCache = true,DWORD nTimeout = 1000)
 	{
 #ifdef _DEBUG
 		TraceFunction();
@@ -1832,6 +1930,7 @@ public:
 		m_bThreadSummaryRun = false;
 		HANDLE hArray[4] = { 0 };
 		int nHandles = 0;
+		m_bEnableD3DCache = bCacheD3DCache;
 		
 		m_bPause = false;
 		if (m_hThreadParser)
@@ -2176,7 +2275,14 @@ public:
 				else
 					return DVO_Error_SnapShotFailed;
 			}
-			else
+			else if (m_pDDraw)
+			{
+//				if (m_pDDraw->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat))
+// 					return DVO_Succeed;
+// 				else
+// 					return DVO_Error_SnapShotFailed;
+
+			}
 				return DVO_Error_WindowNotAssigned;
 		}
 		else
@@ -3550,44 +3656,7 @@ public:
 		else
 			return 0;
 	}
-	bool InitD3D()
-	{
-		// 初始显示组件
-		// 使用线程内CDxSurface对象显示图象
-		if (m_pDxSurface)		// D3D设备尚未初始化
-		{
-			DxSurfaceInitInfo &InitInfo = m_DxInitInfo;
-			InitInfo.nSize = sizeof(DxSurfaceInitInfo);
-			InitInfo.nFrameWidth = m_nVideoWidth;
-			InitInfo.nFrameHeight = m_nVideoHeight;
-			if (m_bEnableHaccel)
-				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
-			else
-				InitInfo.nD3DFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
-				//InitInfo.nD3DFormat = D3DFMT_A8R8G8B8;
-			InitInfo.bWindowed = TRUE;
-			//if (!pWndDxInit->GetSafeHwnd())
-			InitInfo.hPresentWnd = m_hWnd;
-			//else
-			//	InitInfo.hPresentWnd = pWndDxInit->GetSafeHwnd();
-			m_pDxSurface->DisableVsync();		// 禁用垂直同步，播放帧才有可能超过显示器的刷新率，从而达到高速播放的目的
-			if (!m_pDxSurface->InitD3D(InitInfo.hPresentWnd,
-				InitInfo.nFrameWidth,
-				InitInfo.nFrameHeight,
-				InitInfo.bWindowed,
-				InitInfo.nD3DFormat))
-			{
-				OutputMsg("%s Initialize DxSurface failed.\n", __FUNCTION__);
-#ifdef _DEBUG
-				OutputMsg("%s \tObject:%d DxSurface failed,Line %d Time = %d.\n", __FUNCTION__, m_nObjIndex, __LINE__, timeGetTime() - m_nLifeTime);
-#endif
-				return false;
-			}
-			return true;
-		}
-		else
-			return false;
-	}
+
 	/// @brief			实现指时时长的延时
 	/// @param [in]		dwDelay		延时时长，单位为ms
 	/// @param [in]		bStopFlag	处理停止的标志,为false时，则停止延时
@@ -3840,41 +3909,44 @@ public:
 		if (pThis->m_hWnd)
 		{
 			bool bCacheDxSurface = false;		// 是否为缓存中取得的Surface对象
-			if (!pThis->m_pDxSurface)
+			if (GetOsMajorVersion() < 6)
 			{
-				D3DFORMAT nPixFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
-				if (pThis->m_bEnableHaccel)
-					nPixFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
-				pThis->m_pDxSurface = GetDxInCache(pThis->m_nVideoWidth, pThis->m_nVideoHeight, nPixFormat);
-				if (pThis->m_pDxSurface)
-					bCacheDxSurface = true;
-				else
-				{
-					if (GetOsMajorVersion() >= 6)
-						pThis->m_pDxSurface = _New CDxSurfaceEx();
-					else
-						pThis->m_pDxSurface = _New CDxSurface();
-						
-				}
+				if (!pThis->m_pDDraw)
+					pThis->m_pDDraw = _New CDirectDraw();
+				pThis->InitD3D();
 			}
-			if (!bCacheDxSurface)
+			else
 			{
-				nRetry = 0;
-				while (pThis->m_bThreadPlayVideoRun)
+				if (!pThis->m_pDxSurface)
 				{
-					if (!pThis->InitD3D())
-					{
-						nRetry++;
-						Delay(2500, pThis->m_bThreadPlayVideoRun);
-						if (nRetry >= 3)
-						{
-							if (pThis->m_hWnd)
-								::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
-							return 0;
-						}
-					}
+					D3DFORMAT nPixFormat = (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2');
+					if (pThis->m_bEnableHaccel)
+						nPixFormat = (D3DFORMAT)MAKEFOURCC('N', 'V', '1', '2');
+					pThis->m_pDxSurface = GetDxInCache(pThis->m_nVideoWidth, pThis->m_nVideoHeight, nPixFormat);
+					if (pThis->m_pDxSurface)
+						bCacheDxSurface = true;
 					else
-						break;
+						pThis->m_pDxSurface = _New CDxSurfaceEx();
+				}
+				if (!bCacheDxSurface)
+				{
+					nRetry = 0;
+					while (pThis->m_bThreadPlayVideoRun)
+					{
+						if (!pThis->InitD3D())
+						{
+							nRetry++;
+							Delay(2500, pThis->m_bThreadPlayVideoRun);
+							if (nRetry >= 3)
+							{
+								if (pThis->m_hWnd)
+									::PostMessage(pThis->m_hWnd, WM_DVOPLAYER_MESSAGE, DVOPLAYER_INITDECODERFAILED, 0);
+								return 0;
+							}
+						}
+						else
+							break;
+					}
 				}
 			}
 
@@ -4016,16 +4088,28 @@ public:
 			{// IPC 码流，则直接播放
 				bool bPopFrame = false;
 				CAutoLock lock(&pThis->m_csVideoCache);
-				if (pThis->m_listVideoCache.size() > 0)
+				
+				if (pThis->m_listVideoCache.size() > 1 )
+				{
+					while(pThis->m_listVideoCache.size() > 0)
+					{
+						FramePtr = pThis->m_listVideoCache.front();
+						if (!StreamFrame::IsIFrame(FramePtr))
+							pThis->m_listVideoCache.pop_front();
+						else
+							break;                             
+					}
+					bPopFrame = true;
+				}
+				else if (pThis->m_listVideoCache.size() > 0)
 				{
 					FramePtr = pThis->m_listVideoCache.front();
 					pThis->m_listVideoCache.pop_front();
 					bPopFrame = true;
 				}
-				
+				lock.Unlock();
 				if (!bPopFrame)
 				{
-					lock.Unlock();
 					Sleep(10);
 					continue;
 				}
@@ -4043,9 +4127,9 @@ public:
 				av_packet_unref(pAvPacket);
 				dfDecodeTimespan = TimeSpanEx(dfDecodeStartTime);
 			}
-			DecodeTimeTrace.AddTime(dfDecodeTimespan);
-			if (DecodeTimeTrace.nTimeCount >= 100)
-				DecodeTimeTrace.OutputTime();
+			//DecodeTimeTrace.AddTime(dfDecodeTimespan);
+			//if (DecodeTimeTrace.nTimeCount >= 100)
+			//	DecodeTimeTrace.OutputTime();
 #ifdef _DEBUG
 			if (pThis->m_bSeekSetDetected)
 			{
@@ -4097,7 +4181,8 @@ public:
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
  				pThis->m_tCurFrameTimeStamp = FramePtr->FrameHeader()->nTimestamp;
 				pThis->ProcessYUVFilter(pAvFrame, (LONGLONG)pThis->m_nCurVideoFrame);
-				if (pThis->m_pDxSurface)
+// 				if (pThis->m_pDxSurface ||
+// 					pThis->m_pDDraw)
 				{
 					if (!pThis->m_bIpcStream &&
 						1.0f == pThis->m_fPlayRate  && 
@@ -4129,9 +4214,9 @@ public:
 			dfRenderTime = GetExactTime();
 //#ifdef _DEBUG
 			fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
-			RenderTimeTrace.AddTime(dfRenderTimeSpan);
-			if (RenderTimeTrace.nTimeCount  >= 100)
-				RenderTimeTrace.OutputTime();
+			//RenderTimeTrace.AddTime(dfRenderTimeSpan);
+			//if (RenderTimeTrace.nTimeCount  >= 100)
+			//	RenderTimeTrace.OutputTime();
 //#endif
 		}
 		return 0;

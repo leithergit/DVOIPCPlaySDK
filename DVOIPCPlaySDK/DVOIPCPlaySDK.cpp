@@ -168,13 +168,13 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStream
 
 /// @brief			关闭播放句柄
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in]		bRefresh		关闭播放器时，是否刷新画面
+/// @param [in]		bCacheD3d		是否启用D3D设备缓存，若播放时始终只在同一个窗口进行，则建议启用D3D缓存，否则应关闭D3D缓存
 ///	-# true			刷新画面以背景色填充
 ///	-# false			不刷新画面,保留最后一帧的图像
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			关闭播放句柄会导致播放进度完全终止，相关内存全部被释放,要再度播放必须重新打开文件或流数据
-DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh = true*/)
+DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle, bool bCacheD3d/* = true*/)
 {
 	TraceFunction();
 	if (!hPlayHandle)
@@ -188,7 +188,7 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle/*bool bRefresh
 	DxTraceMsg("%s DvoPlayer Object:%d.\n", __FUNCTION__, pPlayer->m_nObjIndex);
 	
 #endif
-	if (!pPlayer->StopPlay())
+	if (!pPlayer->StopPlay(bCacheD3d))
 	{
 		EnterCriticalSection(&g_csListPlayertoFree);
 		g_listPlayertoFree.push_back(hPlayHandle);

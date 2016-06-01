@@ -254,6 +254,7 @@ struct LineTime
 #define DeclareRunTime()			
 #endif
 
+#define _MaxLineTime	10
 #include <vector>
 using namespace  std;
 class CLineRunTime
@@ -271,14 +272,14 @@ public:
 			return;
 		else if (nSize < 2 )
 			dwTotalSpan = timeGetTime() - pTimeArray[0]->nTime;
-		if (dwTotalSpan >= _LockOverTime * 2)
+		if (dwTotalSpan >= _MaxLineTime)
 		{
 			OutputMsg("%s @File:%s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
 		}
 		for (int i = 1; i < nSize;i ++)
 		{
 			DWORD dwSpan = pTimeArray[i]->nTime - pTimeArray[i - 1]->nTime;
-			if (dwSpan >= _LockOverTime)
+			if (dwSpan >= _MaxLineTime)
 				OutputMsg("%s @File:%s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
 		}
 	}
@@ -485,7 +486,7 @@ public:
 	{
 		if (!pImage)
 			return -1;
-		DxTrace("@File:%s %s pSrcFrame(%d,%d)->LineSize(%d,%d,%d).\n", __FILE__, __FUNCTION__, pSrcFrame->width, pSrcFrame->height, pSrcFrame->linesize[0], pSrcFrame->linesize[1], pSrcFrame->linesize[2]);
+		//DxTrace("@File:%s %s pSrcFrame(%d,%d)->LineSize(%d,%d,%d).\n", __FILE__, __FUNCTION__, pSrcFrame->width, pSrcFrame->height, pSrcFrame->linesize[0], pSrcFrame->linesize[1], pSrcFrame->linesize[2]);
 		if (nGQP != nGQ)
 		{
 			// 转换算法调整
@@ -1398,6 +1399,7 @@ _Failed:
 	virtual bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
 	{
 		//TraceMemory();
+		DeclareRunTime();
 		if (!pAvFrame)
 			return false;
 		CTryLock Trylock;
@@ -1409,9 +1411,10 @@ _Failed:
 			hRenderWnd = hWnd;
 		if (m_d3dpp.Windowed && !IsNeedRender(hRenderWnd)  )
 			return true;
-			
+		SaveRunTime();
 		if (!HandelDevLost())
 			return false;
+		SaveRunTime();
 		// HandelDevLost仍无法使用m_pDirect3DDevice，则直接返回false
 		if (!m_pDirect3DDevice)
 			return false;
@@ -1498,12 +1501,14 @@ _Failed:
 			}
 		case AV_PIX_FMT_YUV420P:
 		case AV_PIX_FMT_YUVJ420P:		
-			{// 软解码帧，只支持YUV420P格式					
+			{// 软解码帧，只支持YUV420P格式		
+				SaveRunTime();
 				TransferSnapShotSurface(pAvFrame);
 				D3DLOCKED_RECT d3d_rect;
 				D3DSURFACE_DESC Desc;
 				hr = m_pDirect3DSurfaceRender->GetDesc(&Desc);
 				hr |= m_pDirect3DSurfaceRender->LockRect(&d3d_rect, NULL, D3DLOCK_DONOTWAIT);
+				SaveRunTime();
 				//DxTraceMsg("hr = %08X.\n",hr);
 				if (FAILED(hr))
 				{
@@ -1529,6 +1534,7 @@ _Failed:
 						memcpy((byte *)d3d_rect.pBits,m_pPixelConvert->pImage,m_pPixelConvert->nImageSize);
 				}
 				hr = m_pDirect3DSurfaceRender->UnlockRect();
+				SaveRunTime();
 				if (FAILED(hr))
 				{
 					DxTraceMsg("%s line(%d) IDirect3DSurface9::UnlockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
@@ -1540,8 +1546,10 @@ _Failed:
 
 				IDirect3DSurface9 * pBackSurface = NULL;	
 				m_pDirect3DDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+				SaveRunTime();
 				m_pDirect3DDevice->BeginScene();
 				hr = m_pDirect3DDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackSurface);
+				SaveRunTime();
 				if (FAILED(hr))
 				{
 					m_pDirect3DDevice->EndScene();
@@ -1552,9 +1560,11 @@ _Failed:
 				RECT dstrt = { 0, 0, Desc.Width, Desc.Height };
 				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
 				hr = m_pDirect3DDevice->StretchRect(m_pDirect3DSurfaceRender, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
+				SaveRunTime();
 				
 				SafeRelease(pBackSurface);
 				m_pDirect3DDevice->EndScene();
+				SaveRunTime();
 #ifdef _DEBUG
 				double dfT2 = GetExactTime();
 				//DxTraceMsg("%s TimeSpan(T2-T1)\t%.6f\n",__FUNCTION__,dfT2 - dfT1);
@@ -1579,8 +1589,9 @@ _Failed:
 		double dfT3 = GetExactTime();
 #endif
 		// Present(RECT* pSourceRect,CONST RECT* pDestRect,HWND hDestWindowOverride,CONST RGNDATA* pDirtyRegion)
-		
+		SaveRunTime();
 		hr = m_pDirect3DDevice->Present(NULL, pRenderRt, hRenderWnd, NULL);
+		SaveRunTime();
 		
 #ifdef _DEBUG
 		double dfT4 = GetExactTime();

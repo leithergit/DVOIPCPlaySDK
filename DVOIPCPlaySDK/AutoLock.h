@@ -19,7 +19,6 @@
 ///
 #define _OuputLockTime
 #define _LockOverTime	100
-
 struct MYCRITICAL_SECTION :public CRITICAL_SECTION
 {
 	MYCRITICAL_SECTION()

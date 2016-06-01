@@ -179,7 +179,7 @@ DWORD WINAPI Thread_Helper(void *)
 			for (auto it = g_listPlayer.begin(); it != g_listPlayer.end();)
 			{
 				CDvoPlayer *pDvoPlayer = (CDvoPlayer *)(*it);
-				if (pDvoPlayer->StopPlay())
+				if (pDvoPlayer->StopPlay(pDvoPlayer->GetD3DCache()))
 				{
 					delete pDvoPlayer;
 					it = g_listPlayer.erase(it);
