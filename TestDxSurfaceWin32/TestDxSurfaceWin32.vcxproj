@@ -84,6 +84,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\DVOIPCPlaySDK\DirectDraw.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\DxSurface\DxSurface.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\DxSurface\DxTrace.h" />
     <ClInclude Include="..\DVOIPCPlaySDK\DxSurface\gpu_memcpy_sse4.h" />

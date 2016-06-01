@@ -15,6 +15,7 @@
 #include "../DVOIPCPlaySDK/DxSurface/DxSurface.h"
 #include "../DVOIPCPlaySDK/Utility.h"
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
+#include "../DVOIPCPlaySDK/DirectDraw.h"
 using namespace std;
 using namespace std::tr1;
 #define SafeRelease(p) { if(p) { (p)->Release(); (p)=NULL; } }
@@ -22,6 +23,8 @@ using namespace std::tr1;
 typedef IDirect3D9* WINAPI pDirect3DCreate9(UINT);
 typedef HRESULT WINAPI pDirect3DCreate9Ex(UINT, IDirect3D9Ex**);
 CDxSurfaceEx *g_pDxSurface = nullptr;
+CDirectDraw	 *g_pDDraw = nullptr;
+shared_ptr<ImageSpace> g_pYUVImage = nullptr;
 
 // #define __countof(array) (sizeof(array)/sizeof(array[0]))
 // #pragma warning (disable:4996)
@@ -82,9 +85,9 @@ IDirect3DDevice9Ex		*m_pDirect3DDeviceEx	= NULL;
 pDirect3DCreate9Ex		*m_pDirect3DCreate9Ex	= NULL;
 IDirect3DSurface9 *m_pDirect3DSurfaceRender = nullptr;
 D3DPRESENT_PARAMETERS m_d3dpp;
-int nVideoWidth = 1280;
-int nVideoHeight = 720;
-char *szYUVFile = "YVU_192.168.3.127_20160505_093408.YUV";
+int nVideoWidth = 352;
+int nVideoHeight = 288;
+char *szYUVFile = "YVU_192.168.3.127_20160601_152441.YUV";
 HANDLE g_hYUVFile = nullptr;
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -93,8 +96,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
-	char szText[32] = { 0 };
-	memcpy_s(szText, 32, szYUVFile, strlen(szYUVFile));
+// 	char szText[32] = { 0 };
+// 	memcpy_s(szText, 32, szYUVFile, strlen(szYUVFile));
 	//InitCommonControls();
 	hInst = hInstance;
 	int nResult = DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG), NULL, (DLGPROC)WndProc);
@@ -275,13 +278,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 
 			}
-			else
+			else if (IsDlgButtonChecked(hWnd, IDC_RADIO_DXSURFACE) == BST_CHECKED)
 			{
 				if (!g_pDxSurface)
 				{
 					g_pDxSurface = new CDxSurfaceEx();
 					g_pDxSurface->InitD3D(GetDlgItem(hWnd, IDC_STATIC_FRAME), nVideoWidth, nVideoHeight, TRUE);
 				}
+			}
+			else
+			{
+				//构造表面  
+				DDSURFACEDESC2 ddsd = { 0 };
+				FormatYV12::Build(ddsd, nVideoWidth, nVideoHeight);
+				g_pDDraw = new CDirectDraw();
+				g_pDDraw->Create<FormatYV12>(GetDlgItem(hWnd, IDC_STATIC_FRAME), ddsd);
+				g_pYUVImage = make_shared<ImageSpace>();
+				g_pYUVImage->dwLineSize[0] = nVideoWidth;
+				g_pYUVImage->dwLineSize[1] = nVideoWidth >> 1;
+				g_pYUVImage->dwLineSize[2] = nVideoWidth >> 1;		
 			}
 
 			break;
@@ -327,11 +342,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					return 0;
 				}
 			}
-			else
+			else if (IsDlgButtonChecked(hWnd,IDC_RADIO_DXSURFACE) ==BST_CHECKED)
 			{
 				if (!g_pDxSurface)
 				{
 					MessageBox(hWnd, "g_pDxSurface Is Not Create.", "提示", MB_OK | MB_ICONSTOP);
+					return 0;
+				}
+			}
+			else
+			{
+				if (!g_pDDraw)
+				{
+					MessageBox(hWnd, "g_pDDraw Is Not Create.", "提示", MB_OK | MB_ICONSTOP);
 					return 0;
 				}
 			}
@@ -422,7 +445,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					
 					hr |= m_pDirect3DDeviceEx->PresentEx(NULL, &rtDest, hDestPresent, NULL, 0);
 				}
-				else
+				else if (IsDlgButtonChecked(hWnd, IDC_RADIO_DXSURFACE) == BST_CHECKED)
 				{
 					if (g_pDxSurface)
 					{
@@ -438,6 +461,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						pFrame->format = AV_PIX_FMT_YUV420P;
 						g_pDxSurface->Render(pFrame,hDestPresent,&rtDest);
 						av_free(pFrame);
+					}
+				}
+				else
+				{
+					if (g_pDDraw)
+					{
+						g_pYUVImage->pBuffer[0] = (PBYTE)pYUVBuffer;
+						g_pYUVImage->pBuffer[1] = (PBYTE)&pYUVBuffer[nVideoWidth*nVideoHeight];
+						g_pYUVImage->pBuffer[2] = (PBYTE)&pYUVBuffer[nVideoWidth*nVideoHeight * 5 / 4];
+						g_pDDraw->Draw(*g_pYUVImage, true);
+						// g_pDDraw->Draw((byte *)pYUVBuffer, true);
 					}
 				}
 			}
