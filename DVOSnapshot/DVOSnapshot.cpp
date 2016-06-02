@@ -15,7 +15,7 @@
 #include "../DVOIPCPlaySDK/DVOIPCPlaySDK.h"
 #include "DVOSnapshot.h"
 #include "./dump/DumpFile.h"
-#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
+//#include <VersionHelpers.h> // Windows SDK 8.1 才有喔
 using namespace std;
 using namespace std::tr1;
 

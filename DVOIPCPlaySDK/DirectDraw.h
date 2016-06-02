@@ -415,14 +415,14 @@ public:
 
 		rectSrc.right = ddOffScreenSurfaceDesc.dwWidth;
 		rectSrc.bottom = ddOffScreenSurfaceDesc.dwHeight;
-// 		if (!pRectRender)
-// 		{
+ 		if (!pRectRender)
+ 		{
 			::GetClientRect(m_hWnd, &rectDst);
 			::ClientToScreen(m_hWnd, (LPPOINT)&(rectDst.left));
 			::ClientToScreen(m_hWnd, (LPPOINT)&(rectDst.right));
-// 		}
-// 		else
-// 			CopyRect(&rectDst, pRectRender);
+ 		}
+ 		else
+ 			CopyRect(&rectDst, pRectRender);
 
 		while (bPresent)
 		{

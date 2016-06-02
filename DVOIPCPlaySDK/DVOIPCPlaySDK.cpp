@@ -433,16 +433,16 @@ DVOIPCPLAYSDK_API int  dvoplay_GetPlayerInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT 
 /// @param [in]		nFileFormat		保存文件的编码格式,@see SNAPSHOT_FORMAT定义
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_SnapShotA(IN DVO_PLAYHANDLE hPlayHandle, IN char *szFileName, IN SNAPSHOT_FORMAT nFileFormat/* = XIFF_JPG*/)
+DVOIPCPLAYSDK_API int  dvoplay_SnapShotW(IN DVO_PLAYHANDLE hPlayHandle, IN WCHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat/* = XIFF_JPG*/)
 {
 	if (!hPlayHandle)
 		return DVO_Error_InvalidParameters;
 	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
 	if (pPlayer->nSize != sizeof(CDvoPlayer))
 		return DVO_Error_InvalidParameters;
-	WCHAR szFileNameW[MAX_PATH] = { 0 };
-	MultiByteToWideChar(CP_ACP, 0, szFileName, -1, szFileNameW, MAX_PATH);
-	return dvoplay_SnapShotW(hPlayHandle, szFileNameW, nFileFormat);
+	CHAR szFileNameA[MAX_PATH] = { 0 };
+	WideCharToMultiByte(CP_ACP, 0, szFileName, -1, szFileNameA, MAX_PATH, NULL, NULL);
+	return dvoplay_SnapShotA(hPlayHandle, szFileNameA, nFileFormat);
 }
 
 /// @brief			截取正放播放的视频图像
@@ -451,7 +451,7 @@ DVOIPCPLAYSDK_API int  dvoplay_SnapShotA(IN DVO_PLAYHANDLE hPlayHandle, IN char 
 /// @param [in]		nFileFormat		保存文件的编码格式,@see SNAPSHOT_FORMAT定义
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
-DVOIPCPLAYSDK_API int  dvoplay_SnapShotW(IN DVO_PLAYHANDLE hPlayHandle, IN WCHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat/* = XIFF_JPG*/)
+DVOIPCPLAYSDK_API int  dvoplay_SnapShotA(IN DVO_PLAYHANDLE hPlayHandle, IN CHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat/* = XIFF_JPG*/)
 {
 	if (!hPlayHandle)
 		return DVO_Error_InvalidParameters;
@@ -846,3 +846,4 @@ DVOIPCPLAYSDK_API void ClearD3DCache()
 {
 	
 }
+

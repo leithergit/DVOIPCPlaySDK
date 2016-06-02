@@ -60,6 +60,200 @@ using namespace std;
 #define FrameSize2(p)	(((DVOFrameHeader*)p)->nLength + sizeof(DVOFrameHeader))	
 #define Frame2(p)		((DVOFrameHeader *)p)
 
+class CSnapshot
+{
+	AVFrame* pAvFrame;
+	byte*	 pImage;
+	int		 nImaageSize;
+	int		 nVideoWidth;
+	int		 nVideoHeight;
+public:
+	CSnapshot(AVPixelFormat nAvFormat, int nWidth, int nHeight)
+	{
+		ZeroMemory(this, sizeof(CSnapshot));
+		pAvFrame = av_frame_alloc();
+		int nImageSize = av_image_get_buffer_size(nAvFormat, nWidth, nHeight, 16);
+		if (nImageSize < 0)
+			return;
+		pImage = (byte *)_aligned_malloc(nImageSize, 32);
+		if (!pImage)
+		{
+			return;
+		}
+		// 把显示图像与YUV帧关联
+		av_image_fill_arrays(pAvFrame->data, pAvFrame->linesize, pImage, nAvFormat, nWidth, nHeight, 16);
+		pAvFrame->width = nWidth;
+		pAvFrame->height = nHeight;
+		pAvFrame->format = nAvFormat;
+	}
+	~CSnapshot()
+	{
+		if (pImage)
+		{
+			_aligned_free(pImage);
+			pImage = NULL;
+		}
+		av_free(pAvFrame);
+		pAvFrame = NULL;
+	}
+	
+	int CopyFrame(AVFrame *pFrame)
+	{
+		if (pFrame && pAvFrame)
+		{
+			av_frame_copy(pAvFrame, pFrame);
+			av_frame_copy_props(pAvFrame, pFrame);
+			return -1;
+		}
+		else
+			return 0;
+	}
+
+	bool SaveJpeg(char *szJpegFile)
+	{
+		AVFormatContext* pJpegFormatCtx = nullptr;
+		AVOutputFormat* fmt = nullptr;
+		AVStream* JpegStream = nullptr;
+		AVCodecContext* pJpegCodecCtx = nullptr;
+		AVCodec* pCodec = nullptr;
+		AVPacket pkt;
+		ZeroMemory(&pkt, sizeof(AVPacket));
+		int got_picture = 0;
+		int nAvError = 0;
+		char szAvError[1024];
+		__try
+		{
+			pJpegFormatCtx = avformat_alloc_context();
+			//Guess format
+			fmt = av_guess_format("mjpeg", NULL, NULL);
+			pJpegFormatCtx->oformat = fmt;
+			//Output URL
+			if (avio_open(&pJpegFormatCtx->pb, szJpegFile, AVIO_FLAG_READ_WRITE) < 0)
+			{
+				TraceMsg("Couldn't open output file.");
+				__leave;
+			}
+
+			fmt = pJpegFormatCtx->oformat;
+			JpegStream = avformat_new_stream(pJpegFormatCtx, 0);
+			if (JpegStream == NULL){
+				__leave;
+			}
+			pCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+			if (!pCodec)
+			{
+				TraceMsg("Codec not found.");
+				__leave;
+			}
+			pJpegCodecCtx = avcodec_alloc_context3(pCodec);
+			if (pJpegCodecCtx)
+				avcodec_parameters_to_context(pJpegCodecCtx, JpegStream->codecpar);
+			else
+			{
+				TraceMsg("%s avcodec_alloc_context3 Failed.\n", __FUNCTION__);
+				__leave;
+			}
+
+			pJpegCodecCtx->codec_id		 = fmt->video_codec;
+			pJpegCodecCtx->codec_type	 = AVMEDIA_TYPE_VIDEO;
+			pJpegCodecCtx->pix_fmt		 = AV_PIX_FMT_YUVJ420P;//(AVPixelFormat)pAvFrame->format;
+			pJpegCodecCtx->width		 = pAvFrame->width;
+			pJpegCodecCtx->height		 = pAvFrame->height;
+			pJpegCodecCtx->time_base.num = 1;
+			pJpegCodecCtx->time_base.den = 25;
+			//Output some information
+			av_dump_format(pJpegFormatCtx, 0, szJpegFile, 1);
+
+			if (nAvError = avcodec_open2(pJpegCodecCtx, pCodec, NULL) < 0)
+			{
+				av_strerror(nAvError, szAvError, 1024);
+				TraceMsg("Could not open codec:%s.",szAvError);
+				__leave;
+			}
+			//Write Header
+			avformat_write_header(pJpegFormatCtx, NULL);
+
+			int y_size = pJpegCodecCtx->width * pJpegCodecCtx->height;
+
+			av_new_packet(&pkt, y_size * 3);
+			//Encode
+			int ret = avcodec_encode_video2(pJpegCodecCtx, &pkt, pAvFrame, &got_picture);
+			if (ret < 0)
+			{
+				TraceMsg("Encode Error.\n");
+				__leave;
+			}
+			if (got_picture == 1)
+			{
+				pkt.stream_index = JpegStream->index;
+				ret = av_write_frame(pJpegFormatCtx, &pkt);
+			}
+		}
+		__finally
+		{
+			if (pkt.buf)
+				av_packet_unref(&pkt);
+			av_write_trailer(pJpegFormatCtx);
+			if (JpegStream)
+				avcodec_parameters_free(&JpegStream->codecpar);
+			if (pJpegCodecCtx)
+				avcodec_close(pJpegCodecCtx);
+			if (pJpegFormatCtx)
+			{
+				avio_close(pJpegFormatCtx->pb);
+				avformat_free_context(pJpegFormatCtx);
+			}
+		}
+		return true;
+	}
+
+	// 
+	bool CreateBmp(const char *filename, uint8_t *pRGBBuffer, int width, int height, int bpp)
+	{
+		BITMAPFILEHEADER bmpheader;
+		BITMAPINFOHEADER bmpinfo;
+		FILE *fp = NULL;
+
+		fp = fopen(filename, "wb");
+		if (fp == NULL)
+		{
+			return false;
+		}
+
+		bmpheader.bfType = ('M' << 8) | 'B';
+		bmpheader.bfReserved1 = 0;
+		bmpheader.bfReserved2 = 0;
+		bmpheader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+		bmpheader.bfSize = bmpheader.bfOffBits + width*height*bpp / 8;
+
+		bmpinfo.biSize = sizeof(BITMAPINFOHEADER);
+		bmpinfo.biWidth = width;
+		bmpinfo.biHeight = 0 - height;
+		bmpinfo.biPlanes = 1;
+		bmpinfo.biBitCount = bpp;
+		bmpinfo.biCompression = BI_RGB;
+		bmpinfo.biSizeImage = 0;
+		bmpinfo.biXPelsPerMeter = 100;
+		bmpinfo.biYPelsPerMeter = 100;
+		bmpinfo.biClrUsed = 0;
+		bmpinfo.biClrImportant = 0;
+
+		fwrite(&bmpheader, sizeof(BITMAPFILEHEADER), 1, fp);
+		fwrite(&bmpinfo, sizeof(BITMAPINFOHEADER), 1, fp);
+		fwrite(pRGBBuffer, width*height*bpp / 8, 1, fp);
+		fclose(fp);
+		fp = NULL;
+		return true;
+	}
+
+	bool SaveBmp(char *szBmpFile)
+	{
+		shared_ptr<PixelConvert> pVideoScale = make_shared< PixelConvert>(pAvFrame, D3DFMT_R8G8B8, GQ_BICUBIC);
+		pVideoScale->ConvertPixel(pAvFrame);
+		return CreateBmp(szBmpFile, (uint8_t *)pVideoScale->pImage, pAvFrame->width, pAvFrame->height, 24);
+	}
+};
+
 struct DxSurfaceWrap
 {
 	DxSurfaceWrap(CDxSurface *pSurface)
@@ -460,6 +654,7 @@ extern CDxSurface* GetDxInCache(int nWidth, int nHeight, D3DFORMAT nPixFormat);
 extern void PutDxCache(CDxSurface *pDxSurface);
 extern CDxSurfaceEx* g_dx;
 extern HWND g_hSnapShotWnd;
+
 class CDvoPlayer
 {
 public:
@@ -508,6 +703,7 @@ private:
 	bool		m_bRefreshWnd;			///< 停止播放时是否刷新画面
 	int			m_nVideoWidth;			///< 视频宽度
 	int			m_nVideoHeight;			///< 视频高度	
+	AVPixelFormat	m_nDecodePirFmt;	///< 解码后的象素格式
 	int			m_nFrameEplased;		///< 已经播放帧数
 	int			m_nCurVideoFrame;		///< 当前正播放的视频帧ID
 	time_t		m_tCurFrameTimeStamp;
@@ -516,6 +712,7 @@ private:
 	USHORT		m_nPlayFrameInterval;	///< 播放时帧间隔	
 // 	int			*m_pSkipFramesArray;	///< 快速播放时要用到的跳帧表
 // 	CRITICAL_SECTION	m_csSkipFramesArray;
+	HANDLE		m_hEventDecodeStart;	///< 视频解码已经开始事件
 	int			m_nSkipFrames;			///< 跳帧表中的元素数量
 	bool		m_bEnableD3DCache;		///< 是否启用D3D缓存
 	double		m_dfLastTimeVideoPlay;	///< 前一次视频播放的时间
@@ -536,6 +733,7 @@ private:	// 音频播放相关变量
 	double		m_dfLastTimeAudioSample;///< 前一次音频采样的时间
 	int			m_nAudioFrames;			///< 当前缓存中音频帧数量
 	int			m_nCurAudioFrame;		///< 当前正播放的音频帧ID
+	
 	static shared_ptr<CDSoundEnum> m_pDsoundEnum;	///< 音频设备枚举器
 	static CriticalSectionPtr m_csDsoundEnum;
 private:
@@ -566,11 +764,10 @@ private:
 	shared_ptr<byte>m_pYUVPtr;
 	// 截图操作相关句变量
 	HANDLE		m_hEvnetYUVReady;		///< YUV数据就绪事件
-	HANDLE		m_hEventDecodeStart;	///< 视频解码已经开始事件
-	//HANDLE		m_hEventYUVRequire;		///< YUV数据请求事件,该事件置信后,解码线程，就立即把YUV数据复制到共享内存
-	//HANDLE		m_hEventSnapShot;		///< 截图动作已完成事件
-	//SNAPSHOT_FORMAT m_nD3DImageFormat;
-	WCHAR		m_szSnapShotFile[512];
+	HANDLE		m_hEventYUVRequire;		///< YUV数据请求事件,立即把当前解码帧进行复制m_pAvFrameSnapshot
+	HANDLE		m_hEventFrameCopied;		///< 截图动作已完成复制事件
+	shared_ptr<CSnapshot>m_pSnapshot;
+	
 private:	// 文件播放相关变量
 	HANDLE		m_hDvoFile;				///< 正在播放的文件句柄
 	INT64		m_nSummaryOffset;		///< 在读取概要时获得的文件解析偏移
@@ -974,12 +1171,6 @@ private:
 	/// @brief 渲染一帧
 	void RenderFrame(AVFrame *pAvFrame)
 	{
-		RECT rtRender;
-		
-		GetWindowRect(m_hWnd, &rtRender);
-		ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
-		ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
-
 		if (m_bFitWindow)
 		{
 			if (m_pDxSurface)
@@ -997,6 +1188,8 @@ private:
 		}
 		else
 		{
+			RECT rtRender;
+			GetWindowRect(m_hWnd, &rtRender);
 			int nWndWidth = rtRender.right - rtRender.left;
 			int nWndHeight = rtRender.bottom - rtRender.top;
 			float fScaleWnd = (float)nWndHeight / nWndWidth;
@@ -1022,7 +1215,11 @@ private:
 				}
 			}
 			if (m_pDxSurface)
+			{
+				ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
+				ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
 				m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+			}
 			else if (m_pDDraw)
 			{
 				m_pYUVImage->pBuffer[0] = (PBYTE)pAvFrame->data[0];
@@ -1111,8 +1308,8 @@ public:
 		}
 		m_hEvnetYUVReady = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 		m_hEventDecodeStart = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-// 		m_hEventYUVRequire = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-// 		m_hEventSnapShot = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+ 		m_hEventYUVRequire = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+ 		m_hEventFrameCopied = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
@@ -1396,8 +1593,10 @@ public:
 		if (m_hEventDecodeStart)
 			CloseHandle(m_hEventDecodeStart);
 
-// 		if (m_hEventSnapShot)
-// 			CloseHandle(m_hEventSnapShot);
+ 		if (m_hEventYUVRequire)
+ 			CloseHandle(m_hEventYUVRequire);
+		if (m_hEventFrameCopied)
+			CloseHandle(m_hEventFrameCopied);
 
 		if (m_hThreadGetFileSummary)
 		{
@@ -2255,35 +2454,50 @@ public:
 // 		return DVO_Succeed;
 // 	}
 
+
+	
+
 	/// @brief			截取正放播放的视频图像
 	/// @param [in]		szFileName		要保存的文件名
 	/// @param [in]		nFileFormat		保存文件的编码格式,@see SNAPSHOT_FORMAT定义
 	/// @retval			0	操作成功
 	/// @retval			-1	输入参数无效
-	inline int  SnapShot(IN WCHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat = XIFF_JPG)
+	inline int  SnapShot(IN CHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat = XIFF_JPG)
 	{
-		if (!szFileName || !wcslen(szFileName))
+		if (!szFileName || !strlen(szFileName))
 			return -1;
 		if (m_hThreadPlayVideo)
 		{
 			if (WaitForSingleObject(m_hEvnetYUVReady, 5000) == WAIT_TIMEOUT)
 				return DVO_Error_PlayerNotStart;
-			if (m_pDxSurface)
+			char szAvError[1024] = { 0 };
+			if (!m_pSnapshot)
 			{
-				if (m_pDxSurface->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat))
-					return DVO_Succeed;
-				else
-					return DVO_Error_SnapShotFailed;
+				m_pSnapshot = make_shared<CSnapshot>(m_nDecodePirFmt, m_nVideoWidth, m_nVideoHeight);
+				//m_pSnapshot = make_shared<CSnapshot>(AV_PIX_FMT_YUV420P, m_nVideoWidth, m_nVideoHeight);
+				if (!m_pSnapshot)
+					return DVO_Error_InsufficentMemory;
 			}
-			else if (m_pDDraw)
+			SetEvent(m_hEventYUVRequire);
+			if (WaitForSingleObject(m_hEventFrameCopied, 1000) == WAIT_TIMEOUT)
+				return DVO_Error_SnapShotFailed;
+			int nResult = DVO_Succeed;
+			switch (nFileFormat)
 			{
-//				if (m_pDDraw->SaveSurfaceToFileW(szFileName, (D3DXIMAGE_FILEFORMAT)nFileFormat))
-// 					return DVO_Succeed;
-// 				else
-// 					return DVO_Error_SnapShotFailed;
-
+			case XIFF_BMP:
+				if (!m_pSnapshot->SaveBmp(szFileName))
+					nResult = DVO_Error_SnapShotFailed;
+				break;
+			case XIFF_JPG:
+				if (!m_pSnapshot->SaveJpeg(szFileName))
+					nResult = DVO_Error_SnapShotFailed;
+				break;
+			default:
+				nResult = DVO_Error_UnsupportedFormat;
+				break;
 			}
-				return DVO_Error_WindowNotAssigned;
+			m_pSnapshot.reset();
+			return nResult;
 		}
 		else
 			return DVO_Error_PlayerNotStart;
@@ -2291,67 +2505,25 @@ public:
 	}
 	/// @brief			处理截图请求
 	/// remark			处理完成后，将置信m_hEventSnapShot事件
-// 	void ProcessSnapshotRequire(AVFrame *pAvFrame)
-// 	{
-// 		if (!pAvFrame)
-// 			return;
-// 		if (WaitForSingleObject(m_hEventYUVRequire, 0) == WAIT_TIMEOUT)
-// 			return;
-// 		if (!g_hSnapShotWnd || !IsWindow(g_hSnapShotWnd))
-// 			return;
-// 		int nPicSize = pAvFrame->linesize[0] * pAvFrame->height;
-// 		int nSize = sizeof(YUVFrame) + nPicSize * 3 / 2;
-// 		nSize = FFALIGN(nSize, 16);
-// 		TraceMsgA("%s nSizeof pYUVFrame = %d.\tSizeof(YUVFrame) = %d\n", __FUNCTION__, nSize, sizeof(YUVFrame));
-// 		YUVFrame *pYUVFrame = (YUVFrame *)malloc(nSize);
-// 		pYUVFrame->nFormat = AV_PIX_FMT_YUV420P;
-// 		pYUVFrame->nFrameLength = nPicSize * 3 / 2;
-// 		pYUVFrame->nHeight = pAvFrame->height;
-// 		pYUVFrame->nWidth = pAvFrame->width;
-// 		pYUVFrame->nLineSize[0] = pAvFrame->linesize[0];
-// 		pYUVFrame->nLineSize[1] = pAvFrame->linesize[1];
-// 		pYUVFrame->nLineSize[2] = pAvFrame->linesize[2];
-// 		pYUVFrame->nD3DImageFormat = m_nD3DImageFormat;
-// 		wcscpy(pYUVFrame->szFileName, m_szSnapShotFile);
-// 		TraceMsgA("%s Input FileName:%s\tOuput FileName:%s.\n", __FUNCTION__, m_szSnapShotFile, pYUVFrame->szFileName);
-// 		byte *pYUV = (byte *)(((byte *)pYUVFrame) + sizeof(YUVFrame));
-// 		
-// 		if (pAvFrame->format == AV_PIX_FMT_DXVA2_VLD)
+	void ProcessSnapshotRequire(AVFrame *pAvFrame)
+	{
+		if (!pAvFrame)
+			return;
+		if (WaitForSingleObject(m_hEventYUVRequire, 0) == WAIT_TIMEOUT)
+			return;
+		
+		if (pAvFrame->format == AV_PIX_FMT_YUV420P ||
+			pAvFrame->format == AV_PIX_FMT_YUVJ420P)
 // 		{// 暂不支持dxva 硬解码帧
-// 			CopyDxvaFrame(pYUV, pAvFrame);
+// 			//CopyDxvaFrame(pYUV, pAvFrame);
 // 		}
 // 		else
-// 		{
-// // 			int a = 0, i;
-// // 			for (i = 0; i < pAvFrame->height; i++)
-// // 			{
-// // 				memcpy(pYUV + a, pAvFrame->data[0] + i * pAvFrame->linesize[0], pAvFrame->width);
-// // 				a += pAvFrame->width;
-// // 			}
-// // 			for (i = 0; i < pAvFrame->height / 2; i++)
-// // 			{
-// // 				memcpy(pYUV + a, pAvFrame->data[1] + i * pAvFrame->linesize[1], pAvFrame->width / 2);
-// // 				a += pAvFrame->width / 2;
-// // 			}
-// // 			for (i = 0; i < pAvFrame->height / 2; i++)
-// // 			{
-// // 				memcpy(pYUV + a, pAvFrame->data[2] + i * pAvFrame->linesize[2], pAvFrame->width / 2);
-// // 				a += pAvFrame->width / 2;
-// // 			}
-// 			memcpy_s(pYUV, nPicSize*3/2,pAvFrame->data[0],  pAvFrame->linesize[0] * pAvFrame->height);
-// 			memcpy_s(&pYUV[nPicSize], nPicSize/2, pAvFrame->data[1], pAvFrame->linesize[1] * pAvFrame->height / 2);
-// 			memcpy_s(&pYUV[nPicSize + nPicSize / 4], nPicSize/4, pAvFrame->data[2], pAvFrame->linesize[2] * pAvFrame->height / 2);
-// 		}
-// 		
-// 		COPYDATASTRUCT cds;
-// 		cds.cbData = nSize;
-// 		cds.lpData = pYUVFrame;
-// 		LRESULT nResult = SendMessage(g_hSnapShotWnd, WM_COPYDATA, (WPARAM)m_hWnd, (LPARAM)&cds);
-// 		free(pYUVFrame);
-// 		SetEvent(m_hEventSnapShot);
-// 		DxTraceMsg("WM_COPYDATA Result = %d.\n", nResult);
-// 
-// 	}
+		{
+			
+			m_pSnapshot->CopyFrame(pAvFrame);
+			SetEvent(m_hEventFrameCopied);
+		}
+	}
 
 	/// @brief			设置播放的音量
 	/// @param [in]		nVolume			要设置的音量值，取值范围0~100，为0时，则为静音
@@ -4176,6 +4348,7 @@ public:
 			dfRenderStartTime = GetExactTime();
  			if (nGot_picture)
  			{
+				pThis->m_nDecodePirFmt = (AVPixelFormat)pAvFrame->format;
 				SetEvent(pThis->m_hEvnetYUVReady);
 				SetEvent(pThis->m_hEventDecodeStart);
  				pThis->m_nCurVideoFrame = FramePtr->FrameHeader()->nFrameID;
@@ -4199,6 +4372,7 @@ public:
 #endif
 					}
 				}
+				pThis->ProcessSnapshotRequire(pAvFrame);
 				pThis->ProcessYVUCapture(pAvFrame, (LONGLONG)pThis->m_nCurVideoFrame);
  				if (pThis->m_pFilePlayCallBack)
  					pThis->m_pFilePlayCallBack(pThis, pThis->m_pUserFilePlayer);

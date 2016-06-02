@@ -141,6 +141,7 @@ enum DVO_CALLBACK
 #define		DVO_Error_PlayerHasStop			(-33)	///< 播放器已经启动，不能执行初始化或其它设置操作
 #define		DVO_Error_InvalidCacheSize		(-34)	///< 播放器已经启动，不能执行初始化或其它设置操作
 #define		DVO_Error_UnsupportHaccel		(-35)	///< 当前系统不支持硬解码功能
+#define		DVO_Error_UnsupportedFormat		(-35)	///< 不支持的图像格式
 
 
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
@@ -199,22 +200,6 @@ struct SnapsnotManger
 	SnapShotMem*	pSnapshotMem;
 	HANDLE			hEventSnapShot;
 };
-
-#pragma pack(push,16)
-#pragma pack(show)
-// 自定义传输YUV帧，用于跨进程的YUV数据传输和截图
-struct YUVFrame
-{
-	int nWidth;
-	int nHeight;
-	int nFormat;
-	int nLineSize[4];			// YVU数据的宽度
-	SNAPSHOT_FORMAT nD3DImageFormat;	// 保存图像的格式
-	int nFrameLength;			// YUV数据总长度
-	int nReserve[3];			// 把YUVFrame凑足16的整数倍
-	WCHAR szFileName[512];
-};
-#pragma pack(pop)
 
 /// @brief		解码后YVU数据回调
 typedef void(__stdcall *CaptureYUV)(DVO_PLAYHANDLE hPlayHandle,

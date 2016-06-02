@@ -81,7 +81,7 @@ private:
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };
 
-#ifdef _UNICODE
+#ifndef _UNICODE
 typedef		CRunlogA CRunlog;
 #else
 typedef		CRunlogW CRunlog;
