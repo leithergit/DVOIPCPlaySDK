@@ -142,14 +142,14 @@ public:
 	CAvRegister()
 	{
 		av_register_all();
-		av_log_set_callback(ff_log_callback);
+		//av_log_set_callback(ff_log_callback);
 	}
-	static void ff_log_callback(void*avcl, int level, const char*fmt, va_list vl)
-	{
-		char log[1024];
-		vsnprintf(log, sizeof(log), fmt, vl);
-		OutputDebugStringA(log);
-	}
+// 	static void ff_log_callback(void*avcl, int level, const char*fmt, va_list vl)
+// 	{
+// 		char log[1024];
+// 		vsnprintf(log, sizeof(log), fmt, vl);
+// 		OutputDebugStringA(log);
+// 	}
 	~CAvRegister()
 	{
 

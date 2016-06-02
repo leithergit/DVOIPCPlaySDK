@@ -247,21 +247,22 @@ struct LineTime
 	}
 };
 #ifdef _DEBUG
-#define SaveRunTime()		//LineSave.SaveLineTime(__FILE__,__LINE__);
-#define DeclareRunTime()	//CLineRunTime LineSave;
+#define SaveRunTime()		LineSave.SaveLineTime(__FILE__,__LINE__);
+#define DeclareRunTime(nTimeout)	CLineRunTime LineSave(nTimeout);
 #else
 #define SaveRunTime()
-#define DeclareRunTime()			
+#define DeclareRunTime(nTimeout)			
 #endif
 
-#define _MaxLineTime	10
 #include <vector>
 using namespace  std;
 class CLineRunTime
 {
+	int m_nTimeout;
 public:
-	CLineRunTime(CRunlogA *plog = nullptr)
+	CLineRunTime(int nTimeout,CRunlogA *plog = nullptr)
 	{
+		m_nTimeout = nTimeout;
 		pRunlog = plog;
 	}
 	~CLineRunTime()
@@ -272,14 +273,14 @@ public:
 			return;
 		else if (nSize < 2 )
 			dwTotalSpan = timeGetTime() - pTimeArray[0]->nTime;
-		if (dwTotalSpan >= _MaxLineTime)
+		if (dwTotalSpan >= m_nTimeout)
 		{
 			OutputMsg("%s @File:%s line %d Total Runtime span = %d.\n", __FUNCTION__, pTimeArray[0]->szFile, pTimeArray[0]->nLine, dwTotalSpan);
 		}
 		for (int i = 1; i < nSize;i ++)
 		{
 			DWORD dwSpan = pTimeArray[i]->nTime - pTimeArray[i - 1]->nTime;
-			if (dwSpan >= _MaxLineTime)
+			if (dwSpan >= m_nTimeout)
 				OutputMsg("%s @File:%s line %d Runtime span = %d.\n", __FUNCTION__, pTimeArray[i]->szFile, pTimeArray[i]->nLine, dwSpan);
 		}
 	}
@@ -1399,7 +1400,7 @@ _Failed:
 	virtual bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
 	{
 		//TraceMemory();
-		DeclareRunTime();
+		DeclareRunTime(5);
 		if (!pAvFrame)
 			return false;
 		CTryLock Trylock;
@@ -2441,7 +2442,7 @@ _Failed:
 	{
 		if (!pAvFrame)
 			return false;
-		DeclareRunTime();
+		DeclareRunTime(5);
 		HWND hRenderWnd = m_d3dpp.hDeviceWindow;
 		if (hWnd)
 			hRenderWnd = hWnd;

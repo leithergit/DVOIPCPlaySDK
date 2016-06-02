@@ -43,12 +43,8 @@
 #define _New	new (std::nothrow)
 #endif
 
-//#include <boost/smart_ptr.hpp>
 using namespace std;
-//using namespace boost;
-
-
-//using namespace std::tr1;
+using namespace std::tr1;
 #pragma comment(lib,"ws2_32")
 #pragma warning (disable:4018)
 
@@ -187,13 +183,14 @@ public:
 			{
 				pkt.stream_index = JpegStream->index;
 				ret = av_write_frame(pJpegFormatCtx, &pkt);
+				av_write_trailer(pJpegFormatCtx);
 			}
 		}
 		__finally
 		{
 			if (pkt.buf)
 				av_packet_unref(&pkt);
-			av_write_trailer(pJpegFormatCtx);
+			
 			if (JpegStream)
 				avcodec_parameters_free(&JpegStream->codecpar);
 			if (pJpegCodecCtx)
@@ -1559,16 +1556,16 @@ public:
 		}
 		if (m_pDxSurface)
 		{
-			if (m_pDxSurface->IsInited() && m_bEnableD3DCache)
-			{
-				PutDxCache(m_pDxSurface);
-				OutputMsg("%s nVideoWidth = %d\tnVideoHeight = %d\n",__FUNCTION__, m_nVideoWidth, m_nVideoHeight);
-			}
-			else
-			{
+// 			if (m_pDxSurface->IsInited() && m_bEnableD3DCache)
+// 			{
+// 				PutDxCache(m_pDxSurface);
+// 				OutputMsg("%s nVideoWidth = %d\tnVideoHeight = %d\n",__FUNCTION__, m_nVideoWidth, m_nVideoHeight);
+// 			}
+// 			else
+// 			{
 				delete m_pDxSurface;
 				m_pDxSurface = nullptr;
-			}
+			//}
 		}
 		if (m_pDDraw)
 		{
@@ -2024,7 +2021,7 @@ public:
 // 	DWORD m_dwInputStream = timeGetTime();
 	int InputStream(IN byte *pFrameData, IN int nFrameType, IN int nFrameLength, int nFrameNum, time_t nFrameTime)
 	{
-		DeclareRunTime();
+		DeclareRunTime(5);
 // #ifdef _DEBUG
 // 		if (m_OuputTime.nInputStream == 0 ||
 // 			(timeGetTime() - m_OuputTime.nInputStream) >= 5000)
@@ -3953,7 +3950,7 @@ public:
 				{
 					Sleep(5);
 					CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-					for (list<StreamFramePtr>::iterator it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();it ++)
+					for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();it ++)
 					{
 						if (StreamFrame::IsIFrame(*it))
 							if (bProbeSucced = pThis->ProbeStream((byte *)(*it)->Framedata(pThis->m_nSDKVersion), (*it)->FrameHeader()->nLength))
@@ -4169,8 +4166,8 @@ public:
 #ifdef _DEBUG 
 		pThis->OutputMsg("%s \tObject:%d Start Decoding.\n", __FUNCTION__,pThis->m_nObjIndex);
 #endif
-		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
-		TimeTrace RenderTimeTrace("RenderTime", __FUNCTION__);
+// 		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
+// 		TimeTrace RenderTimeTrace("RenderTime", __FUNCTION__);
 
 #ifdef _DEBUG
 		int nFrames = 0;
@@ -4202,7 +4199,7 @@ public:
 				int nSkipFrames = 0;
 				
 				CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
-				for (list<StreamFramePtr>::iterator it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
+				for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 				{
 					time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
 					if (tFrameSpan / pThis->m_fPlayRate >= max(pThis->m_fPlayInterval/**pThis->m_fPlayRate*/, FrameStat.dfAvgDecodeTime * 1000)
@@ -4259,21 +4256,8 @@ public:
 			else
 			{// IPC 码流，则直接播放
 				bool bPopFrame = false;
-				CAutoLock lock(&pThis->m_csVideoCache);
-				
-				if (pThis->m_listVideoCache.size() > 1 )
-				{
-					while(pThis->m_listVideoCache.size() > 0)
-					{
-						FramePtr = pThis->m_listVideoCache.front();
-						if (!StreamFrame::IsIFrame(FramePtr))
-							pThis->m_listVideoCache.pop_front();
-						else
-							break;                             
-					}
-					bPopFrame = true;
-				}
-				else if (pThis->m_listVideoCache.size() > 0)
+				CAutoLock lock(&pThis->m_csVideoCache);		
+				if (pThis->m_listVideoCache.size() > 0)
 				{
 					FramePtr = pThis->m_listVideoCache.front();
 					pThis->m_listVideoCache.pop_front();
@@ -4299,9 +4283,9 @@ public:
 				av_packet_unref(pAvPacket);
 				dfDecodeTimespan = TimeSpanEx(dfDecodeStartTime);
 			}
-			//DecodeTimeTrace.AddTime(dfDecodeTimespan);
-			//if (DecodeTimeTrace.nTimeCount >= 100)
-			//	DecodeTimeTrace.OutputTime();
+// 			DecodeTimeTrace.AddTime(dfDecodeTimespan);
+// 			if (DecodeTimeTrace.nTimeCount >= 100)
+// 				DecodeTimeTrace.OutputTime();
 #ifdef _DEBUG
 			if (pThis->m_bSeekSetDetected)
 			{
@@ -4387,10 +4371,10 @@ public:
 			dfRenderTimeSpan = TimeSpanEx(dfRenderStartTime);
 			dfRenderTime = GetExactTime();
 //#ifdef _DEBUG
-			fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
-			//RenderTimeTrace.AddTime(dfRenderTimeSpan);
-			//if (RenderTimeTrace.nTimeCount  >= 100)
-			//	RenderTimeTrace.OutputTime();
+// 			fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
+// 			RenderTimeTrace.AddTime(dfRenderTimeSpan);
+// 			if (RenderTimeTrace.nTimeCount  >= 100)
+// 				RenderTimeTrace.OutputTime();
 //#endif
 		}
 		return 0;
