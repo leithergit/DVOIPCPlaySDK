@@ -192,6 +192,7 @@ public:
 		hStream = hStreamIn;
 		nPlayerCount = nCount;
 		hPlayer[0] = hPlayerIn;
+		nAudioCodec = APP_NET_TCP_COM_DST_711_ALAW;
 		InitializeCriticalSection(&csRecFile);
 
 	}

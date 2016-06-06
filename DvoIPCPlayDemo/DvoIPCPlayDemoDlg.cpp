@@ -762,8 +762,10 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 		DVO_MEDIAINFO MediaHeader;
 		bool bEnableAudio = (bool)IsDlgButtonChecked(IDC_CHECK_DISABLEAUDIO);
 		bool bFitWindow = (bool)IsDlgButtonChecked(IDC_CHECK_FITWINDOW);
+		bool bEnableLog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);
+		bool bEnableHaccel = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLEHACCEL);
+		bool bEnableProbeStream = (bool)IsDlgButtonChecked(IDC_CHECK_PROBESTREAM);
 		int nVolume = SendDlgItemMessage(IDC_SLIDER_VOLUME, TBM_GETPOS);
-
 		m_nRow = GetDlgItemInt(IDC_EDIT_ROW);
 		m_nCol = GetDlgItemInt(IDC_EDIT_COL);
 		if (m_pVideoWndFrame->GetRows() != m_nRow ||
@@ -818,91 +820,95 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 			if (!m_pPlayContext->hPlayer[0])
 			{
 				int nFreePanel = 0;
-// 				app_net_tcp_enc_info_t stResult = { 0 };
-// 				app_net_tcp_com_schn_t req = { 0 };
-// 				req.chn = 0;
-// 				req.schn = nStream;
-//
-// 				for (int k = 0; k < 3; k++)
-// 				{
-// 					int nReBytes = 0;
-// 					int  nRet = DVO2_NET_GetDevConfig(m_pPlayContext->hUser, DVO_DEV_CMD_STREAM_VIDEO_ENC_GET, &req, sizeof(app_net_tcp_com_schn_t), &stResult, sizeof(app_net_tcp_enc_info_t), &nReBytes);
-// 					if (RET_SUCCESS == nRet)
-// 					{
-// 						enum APP_NET_TCP_COM_VIDEO_MODE
-// 						{
-// 							APP_NET_TCP_COM_VIDEO_MODE_352_288 = 0,
-// 							APP_NET_TCP_COM_VIDEO_MODE_704_576,
-// 							APP_NET_TCP_COM_VIDEO_MODE_1280_720,
-// 							APP_NET_TCP_COM_VIDEO_MODE_1920_1080,
-// 							APP_NET_TCP_COM_VIDEO_MODE_1280_960,
-// 							APP_NET_TCP_COM_VIDEO_MODE_1024_768,
-// 							APP_NET_TCP_COM_VIDEO_MODE_176_144 = 0xFF,
-// 							APP_NET_TCP_COM_VIDEO_MODE_MAX,
-// 						}; //视频编码尺寸。
-// 						MediaHeader.nVideoCodec = (DVO_CODEC)stResult.enc_type;
-// 						switch (stResult.fmt.enc_mode)
-// 						{
-// 						case APP_NET_TCP_COM_VIDEO_MODE_352_288:
-// 						{
-// 							MediaHeader.nVideoWidth = 352;
-// 							MediaHeader.nVideoHeight = 288;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_704_576:
-// 						{
-// 							MediaHeader.nVideoWidth = 704;
-// 							MediaHeader.nVideoHeight = 576;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_1280_720:
-// 						{
-// 							MediaHeader.nVideoWidth = 1280;
-// 							MediaHeader.nVideoHeight = 720;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_1920_1080:
-// 						{
-// 							MediaHeader.nVideoWidth = 1920;
-// 							MediaHeader.nVideoHeight = 1080;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_1280_960:
-// 						{
-// 							MediaHeader.nVideoWidth = 1280;
-// 							MediaHeader.nVideoHeight = 960;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_1024_768:
-// 						{
-// 							MediaHeader.nVideoWidth = 1024;
-// 							MediaHeader.nVideoHeight = 768;
-// 							break;
-// 						}
-// 						case	APP_NET_TCP_COM_VIDEO_MODE_176_144:
-// 						{
-// 							MediaHeader.nVideoWidth = 176;
-// 							MediaHeader.nVideoHeight = 144;
-// 							break;
-// 						}
-// 						break;
-// 						default:
-// 						{
-// 							AfxMessageBox("无效的视频尺寸信息", MB_OK | MB_ICONSTOP);
-// 							return;
-// 							break;
-// 						}
-// 						}
-// 						break;
-// 					}
-// 				}
+				app_net_tcp_enc_info_t stResult = { 0 };
+				app_net_tcp_com_schn_t req = { 0 };
+				req.chn = 0;
+				req.schn = nStream;
+
+				for (int k = 0; k < 3; k++)
+				{
+					int nReBytes = 0;
+					int  nRet = DVO2_NET_GetDevConfig(m_pPlayContext->hUser, DVO_DEV_CMD_STREAM_VIDEO_ENC_GET, &req, sizeof(app_net_tcp_com_schn_t), &stResult, sizeof(app_net_tcp_enc_info_t), &nReBytes);
+					if (RET_SUCCESS == nRet)
+					{
+						enum APP_NET_TCP_COM_VIDEO_MODE
+						{
+							APP_NET_TCP_COM_VIDEO_MODE_352_288 = 0,
+							APP_NET_TCP_COM_VIDEO_MODE_704_576,
+							APP_NET_TCP_COM_VIDEO_MODE_1280_720,
+							APP_NET_TCP_COM_VIDEO_MODE_1920_1080,
+							APP_NET_TCP_COM_VIDEO_MODE_1280_960,
+							APP_NET_TCP_COM_VIDEO_MODE_1024_768,
+							APP_NET_TCP_COM_VIDEO_MODE_176_144 = 0xFF,
+							APP_NET_TCP_COM_VIDEO_MODE_MAX,
+						}; //视频编码尺寸。
+						if (stResult.enc_type != 3)
+							MediaHeader.nVideoCodec = (DVO_CODEC)stResult.enc_type;
+						else
+							MediaHeader.nVideoCodec = CODEC_H265;
+						switch (stResult.fmt.enc_mode)
+						{
+						case APP_NET_TCP_COM_VIDEO_MODE_352_288:
+						{
+							MediaHeader.nVideoWidth = 352;
+							MediaHeader.nVideoHeight = 288;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_704_576:
+						{
+							MediaHeader.nVideoWidth = 704;
+							MediaHeader.nVideoHeight = 576;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_1280_720:
+						{
+							MediaHeader.nVideoWidth = 1280;
+							MediaHeader.nVideoHeight = 720;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_1920_1080:
+						{
+							MediaHeader.nVideoWidth = 1920;
+							MediaHeader.nVideoHeight = 1080;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_1280_960:
+						{
+							MediaHeader.nVideoWidth = 1280;
+							MediaHeader.nVideoHeight = 960;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_1024_768:
+						{
+							MediaHeader.nVideoWidth = 1024;
+							MediaHeader.nVideoHeight = 768;
+							break;
+						}
+						case	APP_NET_TCP_COM_VIDEO_MODE_176_144:
+						{
+							MediaHeader.nVideoWidth = 176;
+							MediaHeader.nVideoHeight = 144;
+							break;
+						}
+						break;
+						default:
+						{
+							AfxMessageBox("无效的视频尺寸信息", MB_OK | MB_ICONSTOP);
+							return;
+							break;
+						}
+						}
+						break;
+					}
+				}
 				for (int i = 0; i < m_pPlayContext->nPlayerCount; i++)
 					//int i = 0;
 				{
 					m_pPlayContext->hWndView = m_pVideoWndFrame->GetPanelWnd(i);
-					bool bEnableRunlog = (bool)IsDlgButtonChecked(IDC_CHECK_ENABLELOG);
-					m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pVideoWndFrame->GetPanelWnd(i), (byte *)&MediaHeader, sizeof(MediaHeader), 128, bEnableRunlog ? "dvoipcplaysdk" : NULL);
-					//m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pVideoWndFrame->GetPanelWnd(i), NULL, sizeof(MediaHeader), 0, bEnableRunlog ? "dvoipcplaysdk" : NULL);
+					if (!bEnableProbeStream)
+						m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pVideoWndFrame->GetPanelWnd(i), (byte *)&MediaHeader, sizeof(MediaHeader), 100, bEnableLog ? "dvoipcplaysdk" : NULL);
+					else
+						m_pPlayContext->hPlayer[i] = dvoplay_OpenStream(m_pVideoWndFrame->GetPanelWnd(i), NULL, 0, 100, bEnableLog ? "dvoipcplaysdk" : NULL);
 
 					m_pVideoWndFrame->SetPanelParam(i, m_pPlayContext.get());
 					if (!m_pPlayContext->hPlayer[i])
@@ -916,7 +922,7 @@ void CDvoIPCPlayDemoDlg::OnBnClickedButtonPlaystream()
 						bEnableAudio = true;
 					else
 						bEnableAudio = false;
-					dvoplay_Start(m_pPlayContext->hPlayer[i], bEnableAudio, bFitWindow);
+					dvoplay_Start(m_pPlayContext->hPlayer[i], bEnableAudio, bFitWindow,bEnableHaccel);
 					dvoplay_SetVolume(m_pPlayContext->hPlayer[i], nVolume);
 				}
 				m_dfLastUpdate = GetExactTime();
@@ -1857,8 +1863,6 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckFitwindow()
 
 void CDvoIPCPlayDemoDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
-	
-	
 	UINT nSliderID = pScrollBar->GetDlgCtrlID();	
 	nPos = SendDlgItemMessage(nSliderID, TBM_GETPOS, 0, 0l);
 	switch (nSliderID)
@@ -2340,7 +2344,7 @@ void CDvoIPCPlayDemoDlg::OnNMReleasedcaptureSliderPlayer(NMHDR *pNMHDR, LRESULT 
 
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablehaccel()
 {
-	m_bRefreshPlayer = IsDlgButtonChecked(IDC_CHECK_REFRESHPLAYER);
+	 
 }
 
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer()
