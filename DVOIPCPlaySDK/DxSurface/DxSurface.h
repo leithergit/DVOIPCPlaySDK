@@ -2467,19 +2467,19 @@ _Failed:
 		case  AV_PIX_FMT_DXVA2_VLD:
 			{// 硬解码帧，可以直接显示
 				IDirect3DSurface9* pRenderSurface = m_pDirect3DSurfaceRender;	
-				IDirect3DSurface9* pSurface = (IDirect3DSurface9 *)pAvFrame->data[3];
+				IDirect3DSurface9* pDXVASurface = (IDirect3DSurface9 *)pAvFrame->data[3];
 				if (m_bD3DShared)
 				{	
-					pRenderSurface = pSurface;
-					if (!pSurface)
+					pRenderSurface = pDXVASurface;
+					if (!pDXVASurface)
 						return false;
 				}
 				else
 				{
-					D3DSURFACE_DESC SrcSurfaceDesc, DstSurfaceDesc;
-					pSurface->GetDesc(&SrcSurfaceDesc);
+					D3DSURFACE_DESC DXVASurfaceDesc, DstSurfaceDesc;
+					pDXVASurface->GetDesc(&DXVASurfaceDesc);
 					m_pDirect3DSurfaceRender->GetDesc(&DstSurfaceDesc);
-					hr = pSurface->LockRect(&SrcRect, nullptr, D3DLOCK_READONLY);
+					hr = pDXVASurface->LockRect(&SrcRect, nullptr, D3DLOCK_READONLY);
 					D3DLOCKED_RECT DstRect;
 					hr |= m_pDirect3DSurfaceRender->LockRect(&DstRect, NULL, D3DLOCK_DONOTWAIT);
 					if (FAILED(hr))
@@ -2487,7 +2487,7 @@ _Failed:
 						DxTraceMsg("%s line(%d) IDirect3DSurface9::LockRect failed:hr = %08X.\n",__FUNCTION__,__LINE__,hr);
 						return false;
 					}
-					gpu_memcpy(DstRect.pBits, SrcRect.pBits, SrcRect.Pitch*SrcSurfaceDesc.Height*3/2);
+					gpu_memcpy(DstRect.pBits, SrcRect.pBits, SrcRect.Pitch*DstSurfaceDesc.Height * 3 / 2);
 					/*
 					// Y分量图像
 					uint8_t *pY = (uint8_t*)DstRect.pBits;
@@ -2496,7 +2496,7 @@ _Failed:
 					*/
 	
 					hr |= m_pDirect3DSurfaceRender->UnlockRect();
-					hr |= pSurface->UnlockRect();
+					hr |= pDXVASurface->UnlockRect();
 					//DxTraceMsg("hr = %08X.\n", hr);
 					if (FAILED(hr))
 					{

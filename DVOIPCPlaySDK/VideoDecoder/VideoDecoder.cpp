@@ -776,20 +776,6 @@ done:
 }
 
 
-DWORD CVideoDecoder::GetAlignedDimension(DWORD dim)
-{
-	int align = DXVA2_SURFACE_BASE_ALIGN;
-
-	// MPEG-2 needs higher alignment on Intel cards, and it doesn't seem to harm anything to do it for all cards.
-	if (m_nCodecId == AV_CODEC_ID_MPEG2VIDEO)
-		align <<= 1;
-	else if (m_nCodecId == AV_CODEC_ID_HEVC)
-		align = 32;
-
-	return FFALIGN(dim, align);
-	return dim;
-}
-
 #define H264_CHECK_PROFILE(profile) \
   (((profile) & ~FF_PROFILE_H264_CONSTRAINED) <= FF_PROFILE_H264_HIGH)
 
@@ -858,8 +844,8 @@ HRESULT CVideoDecoder::CreateDXVA2Decoder(int nSurfaces, IDirect3DSurface9 **ppS
 
 	if (!nSurfaces) 
 	{
-  		m_dwSurfaceWidth = GetAlignedDimension(m_pAVCtx->coded_width);
-  		m_dwSurfaceHeight = GetAlignedDimension(m_pAVCtx->coded_height);
+		m_dwSurfaceWidth = GetAlignedDimension(m_pAVCtx->codec_id,m_pAVCtx->coded_width);
+		m_dwSurfaceHeight = GetAlignedDimension(m_pAVCtx->codec_id,m_pAVCtx->coded_height);
 //		m_dwSurfaceWidth = m_pAVCtx->coded_width;
 //		m_dwSurfaceHeight = m_pAVCtx->coded_height;
 
@@ -1017,7 +1003,9 @@ HRESULT CVideoDecoder::ReInitDXVA2Decoder(AVCodecContext *c)
 	if (m_bInInit)
 		return S_FALSE;
 
-	if (!m_pDecoder || GetAlignedDimension(c->coded_width) != m_dwSurfaceWidth || GetAlignedDimension(c->coded_height) != m_dwSurfaceHeight || m_DecoderPixelFormat != c->sw_pix_fmt) 
+	if (!m_pDecoder || 
+		GetAlignedDimension(c->codec_id,c->coded_width) != m_dwSurfaceWidth || 
+		GetAlignedDimension(c->codec_id, c->coded_height) != m_dwSurfaceHeight || m_DecoderPixelFormat != c->sw_pix_fmt)
 	{
 		DxTraceMsg(("No DXVA2 Decoder or image dimensions changed -> Re-Allocating resources.\n"));				
 		hr = CreateDXVA2Decoder();		

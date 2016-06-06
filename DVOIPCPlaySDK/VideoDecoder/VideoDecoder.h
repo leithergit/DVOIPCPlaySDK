@@ -144,12 +144,12 @@ public:
 		av_register_all();
 		//av_log_set_callback(ff_log_callback);
 	}
-// 	static void ff_log_callback(void*avcl, int level, const char*fmt, va_list vl)
-// 	{
-// 		char log[1024];
-// 		vsnprintf(log, sizeof(log), fmt, vl);
-// 		OutputDebugStringA(log);
-// 	}
+	static void ff_log_callback(void*avcl, int level, const char*fmt, va_list vl)
+	{
+		char log[1024];
+		vsnprintf(log, sizeof(log), fmt, vl);
+		OutputDebugStringA(log);
+	}
 	~CAvRegister()
 	{
 
@@ -461,7 +461,7 @@ public:
 			}
 		}
 
-		if (m_nVideoIndex < 0 && m_nAudioIndex < 0)
+		if (m_nVideoIndex < 0 /*|| m_nAudioIndex < 0*/)
 		{
 			DxTraceMsg("%s can't found any video stream or audio stream.\n", __FUNCTION__);
 			return false;
@@ -590,7 +590,7 @@ public:
 			}
 		}
 		
-		UINT nAdapter = D3DADAPTER_DEFAULT;
+		
 // 		HRESULT hr = InitD3D(nAdapter);
 // 		if (FAILED(hr))
 // 		{
@@ -600,6 +600,7 @@ public:
 				
 		if (bEnableHaccel)
 		{
+			UINT nAdapter = D3DADAPTER_DEFAULT;
 			m_dwSurfaceWidth = nWidth;
 			m_dwSurfaceHeight = nHeight;
 			HRESULT hr = InitD3D(nAdapter);
@@ -866,7 +867,18 @@ public:
 			DestroyHisiliconDecoder();
 		return S_OK;
 	}
-	DWORD GetAlignedDimension(DWORD dim);
+	static DWORD GetAlignedDimension(AVCodecID nCodecID, DWORD dim)
+	{
+		int align = DXVA2_SURFACE_BASE_ALIGN;
+
+		// MPEG-2 needs higher alignment on Intel cards, and it doesn't seem to harm anything to do it for all cards.
+		if (nCodecID == AV_CODEC_ID_MPEG2VIDEO)
+			align <<= 1;
+		else if (nCodecID == AV_CODEC_ID_HEVC)
+			align = 32;
+
+		return FFALIGN(dim, align);
+	}
 
 public:
 	HRESULT InitD3D(UINT &nAdapter /*= D3DADAPTER_DEFAULT*/);
