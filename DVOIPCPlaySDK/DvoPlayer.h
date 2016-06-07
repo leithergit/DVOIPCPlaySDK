@@ -56,6 +56,65 @@ using namespace std::tr1;
 #define FrameSize2(p)	(((DVOFrameHeader*)p)->nLength + sizeof(DVOFrameHeader))	
 #define Frame2(p)		((DVOFrameHeader *)p)
 
+struct TimeTrace
+{
+	char szName[128];
+	char szFunction[128];
+	double dfTimeArray[100];
+	int	   nTimeCount;
+	TimeTrace(char *szNameT, char *szFunctionT)
+	{
+		ZeroMemory(this, sizeof(TimeTrace));
+		strcpy(szName, szNameT);
+		strcpy(szFunction, szFunctionT);
+	}
+	void Zero()
+	{
+		ZeroMemory(this, sizeof(TimeTrace));
+	}
+	inline void AddTime(double dfTime)
+	{
+		dfTimeArray[nTimeCount++] = dfTime;
+	}
+	void OutputTime(float fMaxTime = 0.0f, bool bReset = true)
+	{
+		char szOutputText[1024] = { 0 };
+		double dfAvg = 0.0f;
+		int nCount = 0;
+		if (nTimeCount < 1)
+			return;
+		TraceMsgA("%s %s Interval:\n", szFunction, szName);
+		for (int i = 0; i < nTimeCount; i++)
+		{
+			if (fMaxTime > 0)
+			{
+				if (dfTimeArray[i] >= fMaxTime)
+				{
+					sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
+					nCount++;
+				}
+			}
+			else
+			{
+				sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
+				nCount++;
+			}
+
+			dfAvg += dfTimeArray[i];
+			if ((nCount + 1) % 25 == 0)
+			{
+				TraceMsgA("%s %s\n", szFunction, szOutputText);
+				ZeroMemory(szOutputText, 1024);
+			}
+		}
+		dfAvg /= nTimeCount;
+		//if (dfAvg >= fMaxTime)
+			TraceMsgA("%s Avg %s = %.6f.\n", szFunction, szName, dfAvg / nTimeCount);
+		if (bReset)
+			nTimeCount = 0;
+	}
+};
+
 class CSnapshot
 {
 	AVFrame* pAvFrame;
@@ -795,6 +854,10 @@ private:
 	void*			m_pUserFilePlayer;
 	CaptureYUVEx	m_pfnYUVFilter;
 	void*			m_pUserYUVFilter;
+#ifdef _DEBUG
+	TimeTrace		*m_pInputStreamTimeTrace;
+	double			m_dfLastInputstream;
+#endif
 private:
 	shared_ptr<CRunlog> m_pRunlog;	///< 运行日志
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
@@ -1745,6 +1808,7 @@ public:
 	{
 #ifdef _DEBUG
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
+		//m_pInputStreamTimeTrace = new TimeTrace("IntpuStream", __FUNCTION__);
 #endif
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;	
@@ -2036,6 +2100,7 @@ public:
 // 			m_OuputTime.nInputStream = timeGetTime();
 // 		}
 // #endif
+		
 		if (m_bStopFlag)
 			return DVO_Error_PlayerHasStop;
 
@@ -2061,6 +2126,13 @@ public:
 			case APP_NET_TCP_COM_DST_P_FRAME:       // P帧。
 			case APP_NET_TCP_COM_DST_B_FRAME:       // B帧。
 			{
+// 				if (m_dfLastInputstream != 0.0f)
+// 				{
+// 					m_pInputStreamTimeTrace->AddTime(TimeSpanEx(m_dfLastInputstream));
+// 					if (m_pInputStreamTimeTrace->nTimeCount >= 100)
+// 						m_pInputStreamTimeTrace->OutputTime(0.04f);
+// 				}
+// 				m_dfLastInputstream = GetExactTime();
 				//m_nVideoFraems++;
 				StreamFramePtr pStream = make_shared<StreamFrame>(pFrameData, nFrameType, nFrameLength, nFrameNum, nFrameTime);
 				CAutoLock lock(&m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
@@ -3859,70 +3931,8 @@ public:
 		}
 	};
 
-	struct TimeTrace
-	{
-		char szName[128];
-		char szFunction[128];
-		double dfTimeArray[100];
-		int	   nTimeCount;
-		TimeTrace(char *szNameT,char *szFunctionT)
-		{
-			ZeroMemory(this, sizeof(TimeTrace));
-			strcpy(szName, szNameT);
-			strcpy(szFunction, szFunctionT);
-		}
-		void Zero()
-		{
-			ZeroMemory(this, sizeof(TimeTrace));
-		}
-		inline void AddTime(double dfTime)
-		{
-			dfTimeArray[nTimeCount++] = dfTime;
-		}
-		void OutputTime(float fMaxTime = 0.0f,bool bReset = true)
-		{
-			char szOutputText[1024] = { 0 };
-			double dfAvg = 0.0f;
-			int nCount = 0;
-			if (nTimeCount < 1)
-				return;
-			TraceMsgA("%s %s Interval:\n", szFunction,szName);
-			for (int i = 0; i < nTimeCount; i++)
-			{
-				if (fMaxTime > 0)
-				{
-					if (dfTimeArray[i] >= fMaxTime)
-					{
-						sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
-						nCount++;
-					}
-				}
-				else
-				{
-					sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
-					nCount++;
-				}
-				
-				dfAvg += dfTimeArray[i];
-				if ((nCount + 1) % 25 == 0)
-				{
-					TraceMsgA("%s %s\n", szFunction, szOutputText);
-					ZeroMemory(szOutputText, 1024);
-				}
-			}
-			dfAvg /= nTimeCount;
-			if (dfAvg >= fMaxTime)
-				TraceMsgA("%s Avg %s = %.6f.\n", szFunction,szName, dfAvg / nTimeCount);
-			if (bReset)
-				nTimeCount = 0;
-		}
-	};
-	void TraceTimeSpan(TimeTrace *pTimeTrace, double dfTimeSpan)
-	{
-		pTimeTrace->AddTime(dfTimeSpan);
-		if (pTimeTrace->nTimeCount >= 100)
-			pTimeTrace->OutputTime();
-	}
+	
+	
 	static UINT __stdcall ThreadPlayVideo(void *p)
 	{
 		CDvoPlayer* pThis = (CDvoPlayer *)p;
@@ -4262,12 +4272,12 @@ public:
 				dfDecodeTimespan = TimeSpanEx(dfDecodeStartTime);
 			}
 //			以下代码用以测试解码占用时间，建议不要删除	
-			if (pThis->m_nVideoWidth > 1024)
-			{
-				DecodeTimeTrace.AddTime(dfDecodeTimespan);
-				if (DecodeTimeTrace.nTimeCount >= 100)
-					DecodeTimeTrace.OutputTime(0.005f);
-			}
+// 			if (pThis->m_nVideoWidth > 1024)
+// 			{
+// 				DecodeTimeTrace.AddTime(dfDecodeTimespan);
+// 				if (DecodeTimeTrace.nTimeCount >= 100)
+// 					DecodeTimeTrace.OutputTime(0.005f);
+// 			}
 #ifdef _DEBUG
 			if (pThis->m_bSeekSetDetected)
 			{
@@ -4351,13 +4361,13 @@ public:
 			dfRenderTime = GetExactTime();
 //#ifdef _DEBUG
 //			以下代码用以测试显示占用时间，建议不要删除	
-			if (pThis->m_nVideoWidth > 1024)
-			{
-				fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
-				RenderTimeTrace.AddTime(dfRenderTimeSpan);
-				if (RenderTimeTrace.nTimeCount  >= 100)
-					RenderTimeTrace.OutputTime(0.005f);
-			}
+// 			if (pThis->m_nVideoWidth > 1024)
+// 			{
+// 				fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
+// 				RenderTimeTrace.AddTime(dfRenderTimeSpan);
+// 				if (RenderTimeTrace.nTimeCount  >= 100)
+// 					RenderTimeTrace.OutputTime(0.005f);
+// 			}
 //#endif
 		}
 		return 0;

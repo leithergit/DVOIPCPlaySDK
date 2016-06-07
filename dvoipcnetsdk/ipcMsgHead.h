@@ -61,7 +61,7 @@ typedef u64     U64;
 //}DVO_DEC_TYPE;
 
 
-//#pragma pack(1)
+#pragma pack(4)
 
 typedef struct tagloginfo{
     int		    state;		        //0：成功 1：失败。
@@ -801,6 +801,19 @@ typedef struct{
 }app_net_tcp_485_input_data_t;
 
 
+// 透传,cmdmain=0x007,cmdsub=0x00A,0x00B
+typedef struct{
+    U32			chn;                //串口通道号，取值0~MAX-1. 
+    U32			len;                //数据长度
+    U32			rev[8];
+}app_net_tcp_port_tran_head_t;//包含数据包头和数据内容两部分，数据紧跟app_net_tcp_port_tran_head_t头之后
+
+// 透传,cmdmain=0x007,cmdsub=0x00B
+typedef struct{
+    U32			chn;                //串口通道号，取值0~MAX-1. 
+    U32			rev[8];
+}app_net_tcp_port_tran_chn_t;
+
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -874,6 +887,73 @@ typedef struct
     char        rev[128];
 }app_net_tcp_func_model_t;
 
+//////////////////////////////////////////////////////////////////////////
+//系统日志相关定义
 
+// 日志文件下载,cmdmain=0x001,cmdsub=0x000E
+// CmdPkt：
+typedef struct {
+    int log_type;
+    int tm_year;
+    int tm_mon;
+    int tm_mday;
+    int rev[5];
+} app_net_tcp_sys_log_t;
+
+// AckPkt：
+typedef struct {
+    int available;
+    int log_size;
+    int rev[5];
+}app_net_tcp_sys_log_info_t;
+
+//日志文件上传,cmdmain=0x001,cmdsub=0x0025
+typedef struct{
+    int         cur_frame;
+    int         fram_size;
+    int         rev[10];
+}app_net_tcp_sys_log_download_head_t;
+
+
+// 日志查询,cmdmain=0x001,cmdsub=0x0026
+// CmdPkt：
+typedef struct{
+    U8					    log_type;	// 日志类型
+    U8				        rev1[3];	// 保留 对齐
+    app_net_tcp_sys_time_t  starttime;  // 开始时间
+    app_net_tcp_sys_time_t  endtime;    // 结果时间
+    U32					    rev[4];
+}app_net_tcp_sys_log_query_para_t;
+
+
+// 日志记录集上传,cmdmain=0x001,cmdsub=0x0027
+typedef struct {
+    U32			            item_num;	// 日志记录条数
+    U32			            log_size;	// 本次记录集的数据长度
+    U8			            finished;	// 1-上传完成，0-未传完
+    U8			            rev1[3];	// 保留 对齐
+    U32			            rev[4];		// 保留
+}app_net_tcp_sys_log_info_head_t;
+
+// 日志记录
+typedef struct {
+    U8					    log_type;	// 日志类型
+    U8				        rev1[3];	// 保留 对齐
+    app_net_tcp_sys_time_t  logtime;    // 日志记录的时间戳
+    char				    user[32];   // 用户名
+    U32					    context_size;//日志内容长度
+    U32					    rev[4];
+}app_net_tcp_sys_log_item_t;
+
+/*
+说明：日志记录包含数据包头和数据内容两部分，每条日志数据的内容context紧跟app_net_tcp_sys_log_item_t头之后，
+如：app_net_tcp_sys_log_item_t+context。
+
+日志记录集app_net_tcp_sys_log_info_head_t包含数据包头和数据内容两部分，日志数据紧跟app_net_tcp_sys_log_info_head_t头之后，如：
+app_net_tcp_sys_log_info_head_t+app_net_tcp_sys_log_item_t+context1+app_net_tcp_sys_log_item_t+context2+app_net_tcp_sys_log_item_t+context3
+*/
+//////////////////////////////////////////////////////////////////////////
+
+#pragma pack()
 
 #endif

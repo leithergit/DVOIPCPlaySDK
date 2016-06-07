@@ -167,6 +167,7 @@ enum GraphicQulityParameter
 #define _TraceMemory
 
 #if defined(_DEBUG) && defined(_TraceMemory)
+#define TraceTimeout		150
 #define TraceFunction()	CTraceFunction Tx(__FUNCTION__);
 #define TraceFunction1(szText)	CTraceFunction Tx(__FUNCTION__,true,szText);
 #else 
@@ -213,7 +214,7 @@ public:
 			GetProcessMemoryInfo(handle, &pmc, sizeof(pmc));
 			CloseHandle(handle);
 			m_nMemoryCount = pmc.WorkingSetSize / 1024;
-			if (TimeSpanEx(m_dfTimeIn) > 0.200f)
+			if (TimeSpanEx(m_dfTimeIn) > TraceTimeout/1000.0f)
 			{
 				if (strlen(m_szText) ==0)
 					sprintf_s(szText, 4096, "%s\t_OUT_ %s \tMemory = %d KB\tTimeSpan = %.3f.\n",__FUNCTION__, m_szFunction, m_nMemoryCount,TimeSpanEx(m_dfTimeIn));

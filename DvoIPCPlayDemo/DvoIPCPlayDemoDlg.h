@@ -19,6 +19,79 @@ using namespace std;
 //using namespace std::tr1;
 using namespace boost;
 
+struct MSG_HEAD
+{
+	U8  Magic1[4];  // 	四字节 固定内容（0xF5，0x5A，0xA5，0x5F）
+	U32	Pktlen;		//	类型U32 数据包总长度。
+	U16	Version;	//  类型U16 协议版本号，高8位为主版本号，低8位为子版本号。
+	U16	Hwtype;		//	类型U16 硬件类型(保留)
+	U32	Sn;		    //  类型U32 帧序列号(保留)
+	U16	CmdType;	//	类型U16 表示命令类型
+	U16 CmdSubType;	//	类型U16 表示命令子类型
+	U16 DataType;	//  类型U16 数据包类型1：命令包，2：视频包，3：音频包
+	U16 Rev1;		//	类型U16 保留字段
+	U32 Rev2;		//	类型U32 保留字段
+	U32 Rev3;		//	类型U32 保留字段
+};
+
+struct TimeTrace
+{
+	char szName[128];
+	char szFunction[128];
+	double dfTimeArray[100];
+	int	   nTimeCount;
+	TimeTrace(char *szNameT, char *szFunctionT)
+	{
+		ZeroMemory(this, sizeof(TimeTrace));
+		strcpy(szName, szNameT);
+		strcpy(szFunction, szFunctionT);
+	}
+	void Zero()
+	{
+		ZeroMemory(this, sizeof(TimeTrace));
+	}
+	inline void AddTime(double dfTime)
+	{
+		dfTimeArray[nTimeCount++] = dfTime;
+	}
+	void OutputTime(float fMaxTime = 0.0f, bool bReset = true)
+	{
+		char szOutputText[1024] = { 0 };
+		double dfAvg = 0.0f;
+		int nCount = 0;
+		if (nTimeCount < 1)
+			return;
+		TraceMsgA("%s %s Interval:\n", szFunction, szName);
+		for (int i = 0; i < nTimeCount; i++)
+		{
+			if (fMaxTime > 0)
+			{
+				if (dfTimeArray[i] >= fMaxTime)
+				{
+					sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
+					nCount++;
+				}
+			}
+			else
+			{
+				sprintf(&szOutputText[strlen(szOutputText)], "%.3f\t", dfTimeArray[i]);
+				nCount++;
+			}
+
+			dfAvg += dfTimeArray[i];
+			if ((nCount + 1) % 25 == 0)
+			{
+				TraceMsgA("%s %s\n", szFunction, szOutputText);
+				ZeroMemory(szOutputText, 1024);
+			}
+		}
+		dfAvg /= nTimeCount;
+		//if (dfAvg >= fMaxTime)
+		TraceMsgA("%s Avg %s = %.6f.\n", szFunction, szName, dfAvg / nTimeCount);
+		if (bReset)
+			nTimeCount = 0;
+	}
+};
 #define _Frame_PERIOD			30.0f		///< 一个帧率区间
 #define WM_UPDATE_STREAMINFO	WM_USER + 1024
 #define WM_UPDATE_PLAYINFO		WM_USER + 1025
@@ -137,7 +210,8 @@ public:
 	int nPlayerCount;
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
-	
+	TimeTrace		*m_pInputStreamTimeTrace = nullptr;
+	double			m_dfLastInputstream = 0.0f;
 	REAL_HANDLE hStream;
 	CSocketClient *pClient;
 	volatile bool bThreadRecvIPCStream/* = false*/;
@@ -194,6 +268,7 @@ public:
 		hPlayer[0] = hPlayerIn;
 		nAudioCodec = APP_NET_TCP_COM_DST_711_ALAW;
 		InitializeCriticalSection(&csRecFile);
+		m_pInputStreamTimeTrace = new TimeTrace("StreamCallBack", __FUNCTION__);
 
 	}
 	~PlayerContext()
@@ -249,53 +324,53 @@ public:
 
 	static	DWORD WINAPI ThreadRecvIPCStream(void *p)
 	{
-// 		PlayerContext *pThis = (PlayerContext *)p;
-// 		if (!pThis->pClient)
-// 			return 0;
-// 		CSocketClient *pClient = pThis->pClient;
-// 		MSG_HEAD MsgHeader;
-// 		DWORD nBytesRecved = 0;
-// 		int nBufferSize = 64 * 1024;
-// 		int nDataLength = 0;
-// 		byte *pBuffer = new byte[nBufferSize];
-// 
-// 		while (pThis->bThreadRecvIPCStream)
-// 		{
-// 			ZeroMemory(&MsgHeader, sizeof(MSG_HEAD));
-// 			nBytesRecved = 0;
-// 			if (pClient->Recv((char *)&MsgHeader, sizeof(MSG_HEAD), nBytesRecved) == 0 &&
-// 				nBytesRecved == sizeof(MSG_HEAD))
-// 			{
-// 				int nPackLen = ntohl(MsgHeader.Pktlen) - sizeof(MSG_HEAD);
-// 				if (nBufferSize < nPackLen)
-// 				{
-// 					delete[]pBuffer;
-// 					while (nBufferSize < nPackLen)
-// 						nBufferSize *= 2;
-// 					pBuffer = new byte[nBufferSize];
-// 				}
-// 				nDataLength = 0;
-// 				while (nDataLength < nPackLen)
-// 				{
-// 					if (!pClient->Recv((char *)&pBuffer[nDataLength], nPackLen - nDataLength, nBytesRecved) == 0)
-// 						break;
-// 					nDataLength += nBytesRecved;
-// 				}
-// 				app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
-// 				pStreamHeader->chn = ntohl(pStreamHeader->chn);
-// 				pStreamHeader->stream = ntohl(pStreamHeader->stream);
-// 				pStreamHeader->frame_type = ntohl(pStreamHeader->frame_type);
-// 				pStreamHeader->frame_num = ntohl(pStreamHeader->frame_num);
-// 				pStreamHeader->sec = ntohl(pStreamHeader->sec);
-// 				pStreamHeader->usec = ntohl(pStreamHeader->usec);
-// 
-// 				pThis->pStreamCallBack(-1, -1, 0, (char *)pBuffer, nPackLen, pThis);
-// 				ZeroMemory(pBuffer, nBufferSize);
-// 			}
-// 			Sleep(10);
-// 		}
-// 		if (pBuffer)
-// 			delete[]pBuffer;
+		PlayerContext *pThis = (PlayerContext *)p;
+		if (!pThis->pClient)
+			return 0;
+		CSocketClient *pClient = pThis->pClient;
+		MSG_HEAD MsgHeader;
+		DWORD nBytesRecved = 0;
+		int nBufferSize = 64 * 1024;
+		int nDataLength = 0;
+		byte *pBuffer = new byte[nBufferSize];
+
+		while (pThis->bThreadRecvIPCStream)
+		{
+			ZeroMemory(&MsgHeader, sizeof(MSG_HEAD));
+			nBytesRecved = 0;
+			if (pClient->Recv((char *)&MsgHeader, sizeof(MSG_HEAD), nBytesRecved) == 0 &&
+				nBytesRecved == sizeof(MSG_HEAD))
+			{
+				int nPackLen = ntohl(MsgHeader.Pktlen) - sizeof(MSG_HEAD);
+				if (nBufferSize < nPackLen)
+				{
+					delete[]pBuffer;
+					while (nBufferSize < nPackLen)
+						nBufferSize *= 2;
+					pBuffer = new byte[nBufferSize];
+				}
+				nDataLength = 0;
+				while (nDataLength < nPackLen)
+				{
+					if (!pClient->Recv((char *)&pBuffer[nDataLength], nPackLen - nDataLength, nBytesRecved) == 0)
+						break;
+					nDataLength += nBytesRecved;
+				}
+				app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
+				pStreamHeader->chn = ntohl(pStreamHeader->chn);
+				pStreamHeader->stream = ntohl(pStreamHeader->stream);
+				pStreamHeader->frame_type = ntohl(pStreamHeader->frame_type);
+				pStreamHeader->frame_num = ntohl(pStreamHeader->frame_num);
+				pStreamHeader->sec = ntohl(pStreamHeader->sec);
+				pStreamHeader->usec = ntohl(pStreamHeader->usec);
+
+				pThis->pStreamCallBack(-1, -1, 0, (char *)pBuffer, nPackLen, pThis);
+				ZeroMemory(pBuffer, nBufferSize);
+			}
+			Sleep(10);
+		}
+		if (pBuffer)
+			delete[]pBuffer;
 		return 0;
 	}
 	void StartRecord()
@@ -446,6 +521,7 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+	
 	CTVTChan_1	*m_pTVTPlay;
 	CListCtrl	m_wndStreamInfo;
 	CMFCEditBrowseCtrl	m_wndBrowseCtrl;
