@@ -489,6 +489,8 @@ DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevCustomOSDLineArray(PARAM_IN USER_
                                                                   PARAM_IN app_net_tcp_custom_osd_line_data_array_t* pCustomOSDLineArray
                                                                   );
 
+
+
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -682,6 +684,136 @@ DVOIPCNETSDK_API int CALLMETHOD	DVO2_NET_StartUpgrade(PARAM_IN USER_HANDLE      
 *  @remarks     与DVO2_NET_StartUpgrade对应,会中止升级文件的传输，如果升级文件传输已经完成，此接口调用无效     
 */
 DVOIPCNETSDK_API int CALLMETHOD	DVO2_NET_StopUpgrade(PARAM_IN USER_HANDLE lUserID);
+
+
+///////////////////////////透传///////////////////////////////////////////////
+/**
+*  @brief       透传数据回调函数,
+*  @param[in]   lUserID       : 会话ID，DVO2_NET_Login成功的返回值
+*  @param[in]   tranInfo      : 消息,app_net_tcp_port_tran_head_t成员中指定了数据长度
+*  @param[in]   pBuf          : 存放数据的缓冲区指针 
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_SetTranCallback时传入标识
+*  @return      无返回值 
+*  @remarks     避免在回调函数中进行耗时的处理，每次上层发出透传消息后，正常收到响应后SDK都会执行此回调函数。     
+*/
+typedef void (CALLBACK* fnDVOCallback_PortTranData_T)(PARAM_OUT USER_HANDLE lUserID,
+                                                      PARAM_OUT int         nValue,
+                                                      PARAM_OUT app_net_tcp_port_tran_head_t* tranInfo,
+                                                      PARAM_OUT const char* pBuf,
+                                                      PARAM_OUT void*       pUser
+                                                      );
+
+/**
+*  @brief       设置透传回调函数
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   funcMessage   : 消息回调函数,用于回调透传数据到上层应用,具体定义参考fnDVOCallback_PortTranData_T
+*  @param[in]   pUser         : 用户数据,为上层传入标识，在回调函数中返回给上层
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于接收透传消息的通知。
+                上层发出透传消息前，要先调用此接口设置透传回调函数，才能正常接收到设备透传的数据。     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetTranCallback(PARAM_IN USER_HANDLE lUserID,
+                                                         PARAM_IN fnDVOCallback_PortTranData_T funcMessage,
+                                                         PARAM_IN void* pUser
+                                                         );
+                                                           
+
+/**
+*  @brief       透明通道发送数据
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   pInfo         : 消息,app_net_tcp_port_tran_head_t成员中包含有数据长度
+*  @param[in]   pBuf          : 存放数据的缓冲区指针, pInfo成员中指定了缓冲区的数据长度 
+*  @param[in]   nWaitTimeMsecs: 等待超时时间 
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于透传消息,向485串口设备发送消息     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Tran485Send(PARAM_IN USER_HANDLE lUserID,
+                                                     PARAM_IN app_net_tcp_port_tran_head_t* pInfo,
+                                                     PARAM_IN const char* pBuf,
+                                                     PARAM_IN  int nWaitTimeMsecs=5000
+                                                     );
+
+/**
+*  @brief       透明通道获取数据
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   pInfo         : 输入的参数,app_net_tcp_port_tran_chn_t成员中指定了要读取数据的串口通道号
+*  @param[out]  pOutInfo      : 消息,app_net_tcp_port_tran_head_t成员中返回了数据长度
+*  @param[out]  pBufAddr      : 存放数据的缓冲区指针地址, tranInfo成员中指定了缓冲区的数据长度
+*  @param[in]   nWaitTimeMsecs: 等待超时时间 
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于透传消息的读取，从485串口设备读取数据，由上层用户根据485设备通信协议调用此接口调用获取485数据。     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Tran485Recv(PARAM_IN  USER_HANDLE lUserID,
+                                                     PARAM_IN  app_net_tcp_port_tran_chn_t*  pInfo,
+                                                     PARAM_OUT app_net_tcp_port_tran_head_t* pOutInfo,
+                                                     PARAM_OUT char** pBufAddr,
+                                                     PARAM_IN  int nWaitTimeMsecs=5000
+                                                     );
+
+/**
+*  @brief       停止透传
+*  @param[in]   lUserID : 设备登陆句柄 
+*  @param[in]   pInfo   : 输入的参数,app_net_tcp_port_tran_chn_t成员中指定了要读取数据的串口通道号
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_Tran485Stop(PARAM_IN USER_HANDLE lUserID,
+                                                     PARAM_IN app_net_tcp_port_tran_chn_t*  pInfo);
+
+
+///////////////////////////设备日志查询下载///////////////////////////////////////////////
+
+/**
+*  @brief       日志查询回调函数,
+*  @param[in]   lUserID       : 会话ID，DVO2_NET_Login成功的返回值
+*  @param[in]   tranInfo      : 消息,app_net_tcp_sys_log_info_head_t成员中指定了数据长度
+*  @param[in]   pBuf          : 存放数据的缓冲区指针 
+*  @param[in]   pUser         : 用户数据,为上层DVO2_NET_SetDevLogCallback时传入标识
+*  @return      无返回值 
+*  @remarks     避免在回调函数中进行耗时的处理，每次上层发出透传消息后，正常收到响应后SDK都会执行此回调函数。     
+*/
+typedef void (CALLBACK* fnDVOCallback_DevLogData_T)(PARAM_OUT USER_HANDLE lUserID,
+                                                    PARAM_OUT int         nValue,
+                                                    PARAM_OUT app_net_tcp_sys_log_info_head_t* pInfo,
+                                                    PARAM_OUT const char* pBuf,
+                                                    PARAM_OUT void*       pUser
+                                                    );
+
+/**
+*  @brief       设置设备日志查询结果回调函数
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   funcMessage   : 回调函数,用于回调透传数据到上层应用,具体定义参考fnDVOCallback_PortTranData_T
+*  @param[in]   pUser         : 用户数据,为上层传入标识，在回调函数中返回给上层
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于透传消息的通知。
+                上层发出透传消息前，要先调用此接口设置透传回调函数，才能正常接收到设备透传的数据。     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_SetDevLogCallback(PARAM_IN USER_HANDLE lUserID,
+                                                           PARAM_IN fnDVOCallback_DevLogData_T funcMessage,
+                                                           PARAM_IN void* pUser
+                                                           );
+
+/**
+*  @brief       查询设备日志
+*  @param[in]   lUserID       : DVO2_NET_Login成功的返回值
+*  @param[in]   pInfo         : 查询条件
+*  @param[in]   nDownType     : 日志下载方式,0为按每条记录的方式下载，1为直接下载日志文件
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     主要用于透传消息的通知。
+                上层发出透传消息前，要先调用此接口设置透传回调函数，才能正常接收到设备透传的数据。     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_QueryDevLog(PARAM_IN USER_HANDLE lUserID,
+                                                     PARAM_IN app_net_tcp_sys_log_query_para_t* pInfo,
+                                                     PARAM_IN int         nDownType = 0
+                                                     );
+
+/**
+*  @brief       停止日志下载
+*  @param[in]   lUserID 设备登陆句柄 
+*  @return      成功返回0，否则为失败的错误代码
+*  @remarks     
+*/
+DVOIPCNETSDK_API int CALLMETHOD DVO2_NET_StopDevLogDown(PARAM_IN USER_HANDLE lUserID);
  
 ///////////////////接口end///////////////////////////////////////////////////////
 

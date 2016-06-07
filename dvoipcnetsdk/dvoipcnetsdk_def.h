@@ -284,9 +284,9 @@ enum EDVO_DEVICE_PARAMETER_TYPE
     DVO_DEV_CMD_SYS_NETCFG_GET              = MAKEINT32(0x001,0x004),   // 网络配置查询,app_net_tcp_com_chn_t;app_net_tcp_sys_net_info_t
 
     DVO_DEV_CMD_SYS_COMMCFG_SET             = MAKEINT32(0x001,0x00B),   // 串口配置,app_net_tcp_serial_cfg_t;
-    DVO_DEV_CMD_SYS_COMMCFG_GET             = MAKEINT32(0x001,0x00C),
+    DVO_DEV_CMD_SYS_COMMCFG_GET             = MAKEINT32(0x001,0x00C),   // 获取串口参数,IN:app_net_tcp_com_chn_t,OUT:app_net_tcp_serial_cfg_t;
     DVO_DEV_CMD_SYS_DEVCAP_GET              = MAKEINT32(0x001,0x00D),   // 设备资源查询,app_net_tcp_dev_cap_t;
-    DVO_DEV_CMD_SYS_DEVLOG_GET              = MAKEINT32(0x001,0x00E),   // 日志查询,保留;
+    DVO_DEV_CMD_SYS_DEVLOG_DOWN             = MAKEINT32(0x001,0x00E),   // 日志文件下载,app_net_tcp_sys_log_t,app_net_tcp_sys_log_info_t;
     DVO_DEV_CMD_SYS_DEVATTR_GET             = MAKEINT32(0x001,0x00F),   // 设备信息查询,app_net_tcp_sys_dev_info_t;
     DVO_DEV_CMD_SYS_DEVATTR_SET             = MAKEINT32(0x001,0x010),   // 设备名称设置,app_net_tcp_sys_dev_name_t;
     DVO_DEV_CMD_SYS_DISK_GET                = MAKEINT32(0x001,0x011),   // 磁盘信息查询,app_net_tcp_sys_disk_t;
@@ -308,8 +308,13 @@ enum EDVO_DEVICE_PARAMETER_TYPE
     DVO_DEV_CMD_SYS_IOUSE_SET               = MAKEINT32(0x001,0x021),   // IO报警端口使能设置,app_net_tcp_set_io_alarm_state_t;
     DVO_DEV_CMD_SYS_IOUSE_GET               = MAKEINT32(0x001,0x022),   // IO报警端口使能查询,app_net_tcp_set_io_alarm_state_t
 
-    DVO_DEV_CMD_SYS_FUNCMODE_SET            = MAKEINT32(0x001,0x023),   // 设备功能型号设置,app_net_tcp_func_model_t;
-    DVO_DEV_CMD_SYS_FUNCMODE_GET            = MAKEINT32(0x001,0x024),   // 设备功能型号查询,app_net_tcp_func_model_t
+    DVO_DEV_CMD_SYS_FUNCMODE_SET            = MAKEINT32(0x001,0x023),   // 设备功能型号设置,IN:app_net_tcp_func_model_t,OUT:无;
+    DVO_DEV_CMD_SYS_FUNCMODE_GET            = MAKEINT32(0x001,0x024),   // 设备功能型号查询,IN:无,OUT:app_net_tcp_func_model_t
+
+
+    DVO_DEV_CMD_SYS_DEVLOG_QUERY            = MAKEINT32(0x001,0x026),   // 日志查询,IN:app_net_tcp_sys_log_query_para_t,OUT:无
+    DVO_DEV_CMD_SYS_DEVLOG_DOWN_STOP        = MAKEINT32(0x001,0x028),   // 日志下载停止,IN:无,OUT:无
+
 
 
     /// 视频编码命令                        
@@ -344,6 +349,7 @@ enum EDVO_DEVICE_PARAMETER_TYPE
     /// PTZ
     DVO_DEV_CMD_PTZ_PARAM_SET               = MAKEINT32(0x004,0x001),   // PTZ设置,app_net_tcp_ptz_t
     DVO_DEV_CMD_PTZ_TRANS_DATA              = MAKEINT32(0x004,0x002),   // PTZ透传,app_net_tcp_ptz_tran_t
+    //DVO_DEV_CMD_PORT_TRANS_SENDRECV         = MAKEINT32(0x004,0x003),   // 透传,发送及接收,IN:app_net_tcp_port_tran_head_t,
 
     /// 报警相关命令
     DVO_DEV_CMD_ALARM_IOOUT_ENABLE_SET      = MAKEINT32(0x005,0x001),   // IO报警输出使能设置,app_net_tcp_event_act_ioout_t

@@ -54,12 +54,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;D:\boost_1_57;E:\DVO\Git\play\DVOIPCPlaySDK;E:\DVO\Git\play\MulMonitor;..\VCASDK\src\publib\inc;..\VCASDK\src\inc;..\VCASDK\src\common;..\VCASDK\SRC\Common\ixml\inc;..\VCASDK\SRC\Common\ixml\src\inc;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;D:\boost_1_59;..\DVOIPCPlaySDK;..\MulMonitor;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;..\VCASDK\BIN\LIB\VCAMetaRender DLL V1091;..\VCASDK\BIN\DEMO\x86;E:\DVO\Git\play\Release;E:\DVO\Git\play\MulMonitor;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\FFMPEG\static\lib;..\DVOIPCNETSDK;D:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;..\include;E:\MinGW\lib;E:\MinGW\msys\1.0\lib;..\Debug;..\MulMonitor;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -81,14 +81,14 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;E:\DVO\Git\play\DVOIPCPlaySDK;E:\DVO\Git\play\MulMonitor;D:\boost_1_57;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\DVOIPCNETSDK;..\DVOIPCPlaySDK;..\MulMonitor;D:\boost_1_59;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
-      <AdditionalLibraryDirectories>E:\DVO\Git\play\Release;E:\DVO\Git\play\MulMonitor;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Release;..\MulMonitor;..\dvoipcnetsdk;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
