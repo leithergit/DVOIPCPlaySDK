@@ -22,7 +22,7 @@
     <Filter Include="dvoipcnetsdk">
       <UniqueIdentifier>{cbd111a5-9c08-4c4e-b692-3c6054aa24aa}</UniqueIdentifier>
     </Filter>
-    <Filter Include="DxSurface\Audio">
+    <Filter Include="Audio">
       <UniqueIdentifier>{2640b961-8dce-4c07-b9de-0e3dec06d1b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -97,10 +97,10 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AudioCodec\g711.h">
-      <Filter>DxSurface\Audio</Filter>
+      <Filter>Audio</Filter>
     </ClInclude>
     <ClInclude Include="AudioCodec\g726.h">
-      <Filter>DxSurface\Audio</Filter>
+      <Filter>Audio</Filter>
     </ClInclude>
     <ClInclude Include="dvoipcnetsdk\dvoipcnetsdk.h">
       <Filter>dvoipcnetsdk</Filter>
@@ -144,10 +144,10 @@
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="AudioCodec\g711.cpp">
-      <Filter>DxSurface\Audio</Filter>
+      <Filter>Audio</Filter>
     </ClCompile>
     <ClCompile Include="AudioCodec\g726.cpp">
-      <Filter>DxSurface\Audio</Filter>
+      <Filter>Audio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -38,6 +38,7 @@ enum AudioSampleBit
 };
 #define FRAME_MAX_LEN 1024*8   
 #define BUFFER_MAX_LEN 1024*1024  
+/// @brief aac解码器的简单封装
 struct  AacCodec
 {
 	NeAACDecHandle	hAacHandle;
@@ -145,6 +146,7 @@ struct  AacCodec
 		return 0;
 	}
 };
+/// @brief 音频解码类,可以解压aac,g711,g726三种音频码流
 class CAudioDecoder
 {
 private:

@@ -44,6 +44,7 @@ using namespace std::tr1;
 
 #define Audio_Play_Segments		50
 
+/// @brief DirectSoundBuffer对象封装类，用于创建和管理DirectSoundBuffer对象 
 class CDSoundBuffer
 {
 public:
@@ -350,6 +351,7 @@ private:
 	const DWORD &m_dwNotifySize;
 };
 typedef shared_ptr<CDSoundBuffer> CDSoundBufferPtr;
+/// @brief DirectSound对象封装类，用于创建和管理DirectSound对象 
 class CDSound
 {
 #ifdef _DEBUG

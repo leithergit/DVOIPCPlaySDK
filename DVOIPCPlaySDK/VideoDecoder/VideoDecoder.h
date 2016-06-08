@@ -136,13 +136,15 @@ typedef void(*CopyFrameProc)(const BYTE *pSourceData, BYTE *pY, BYTE *pUV, size_
 extern CopyFrameProc CopyFrameNV12;
 extern CopyFrameProc CopyFrameYUV420P;
 
+/// @brief 自动注册FFmpeg解码库类
 class CAvRegister
 {
 public:
 	CAvRegister()
 	{
 		av_register_all();
-		//av_log_set_callback(ff_log_callback);
+		// 去除注释可设置FFMPEG的日志输出回调，便于观看日志
+		//av_log_set_callback(ff_log_callback);	
 	}
 	static void ff_log_callback(void*avcl, int level, const char*fmt, va_list vl)
 	{
@@ -156,6 +158,7 @@ public:
 	}
 };
 
+// @brief 用于码流探测的视频码流队列结构
 struct AvQueue
 {
 	AvQueue(void *popaque,int nBufferSize)
@@ -175,6 +178,7 @@ struct AvQueue
 	uint8_t *pAvBuffer;
 };
 
+/// @beief 视频解码类 主要封装了FFmpeg的解码库和华为海思H.265软解库
 class CVideoDecoder
 {
 public:
@@ -507,14 +511,14 @@ public:
 			m_pFormatCtx->pb = nullptr;
 	}
 
-
+	/// @brief 设置解码线程数量，一情况下建议使用单线程解码，只有在那些CPU性能较低的机器上使用多线程解码
 	void SetDecodeThreads(int nThreads = 1)
 	{
 		m_nDecodeThreadCount = nThreads;
 	}
-	// 初始解码器
-	// 注意：不可与LoadFile函数同时调用，二者只能选一
-	// 当nCodec不为AV_CODEC_ID_NONE时，nWidth和nHeight不可为0
+	/// @brief 初始化解码器
+	/// @brief 不可与LoadFile函数同时调用，二者只能选一
+	/// 当nCodec不为AV_CODEC_ID_NONE时，nWidth和nHeight不可为0
 	bool InitDecoder(AVCodecID nCodec = AV_CODEC_ID_NONE, int nWidth = 0,int nHeight = 0,bool bEnableHaccel = false)
 	{
 		AVCodecID nCodecID = nCodec;
@@ -649,6 +653,7 @@ public:
 	}
 
 private:
+	/// @brief 初始化FFMPEG解码器
 	int InitFFmpegDecoder(bool bEnableHaccel = false)
 	{
 		if (!m_pAVCtx)
@@ -699,8 +704,8 @@ private:
 			return -1;
 		}
 		return 0;
-
 	}
+	/// @brief 销毁FFmpeg解码器
 	int DestroyFFmpegDecoder()
 	{
 		m_pAVCodec = nullptr;
@@ -721,6 +726,7 @@ private:
 		m_nCodecId = AV_CODEC_ID_NONE;
 		return 0;
 	}
+	/// 初始化华为海思H.265解码器
 	int InitHisiliconDecoder()
 	{
 		if (!m_pAVCtx)
@@ -753,6 +759,7 @@ private:
 		}
 		return 0;
 	}
+	/// @brief 销毁华为海思H.265解码器
 	int DestroyHisiliconDecoder()
 	{
 		if (m_hDecoder265)
@@ -781,8 +788,8 @@ public:
 		return buffers;
 	}
 
-	// 加载要解码的文件，同时初始化解码器
-	// 注意：不可与InitDecoder同时调用，二者只能选一
+	/// @brief 加载要解码的文件，同时初始化解码器
+	/// @remark不可与InitDecoder同时调用，二者只能选一
 	bool LoadDecodingFile(char *szFilePath, bool bEnableHaccel = false)
 	{
 		UINT nAdapter = D3DADAPTER_DEFAULT;
@@ -857,7 +864,7 @@ public:
 		m_bInInit = true;
 		return true;
 	}
-
+	/// @brief 销毁解码器
 	STDMETHODIMP DestroyDecoder()
 	{
 		DxTraceMsg("%s Shutting down ffmpeg...\n", __FUNCTION__);
@@ -867,6 +874,7 @@ public:
 			DestroyHisiliconDecoder();
 		return S_OK;
 	}
+	/// @brief 根据编码格式，取得指定粒度的字节对齐数
 	static DWORD GetAlignedDimension(AVCodecID nCodecID, DWORD dim)
 	{
 		int align = DXVA2_SURFACE_BASE_ALIGN;
@@ -881,8 +889,11 @@ public:
 	}
 
 public:
+	/// @为硬解码初始化D3D对象
 	HRESULT InitD3D(UINT &nAdapter /*= D3DADAPTER_DEFAULT*/);
+	/// @brief 把DXVA硬解码过程同FFMpeg解码库关联
 	HRESULT AdditionaDecoderInit();
+	/// @brief 测试指定的编码格式是支持硬解码（在本机）
 	bool CodecIsSupported(AVCodecID nCodec)
 	{
 		if (dwOvMajorVersion < 6)
@@ -928,7 +939,32 @@ public:
 	{
 		return m_pD3D;
 	}
-
+	/// @brief 解码
+	/// 以下注释摘自于ffmpeg的解码函数avcodec_decode_video2，并有所删减
+	/**
+	* Decode the video frame of size avpkt->size from avpkt->data into picture.
+	* Some decoders may support multiple frames in a single AVPacket, such
+	* decoders would then just decode the first frame.
+	*
+	* @warning The input buffer must be AV_INPUT_BUFFER_PADDING_SIZE larger than
+	* the actual read bytes because some optimized bitstream readers read 32 or 64
+	* bits at once and could read over the end.
+	*
+	* @warning The end of the input buffer buf should be set to 0 to ensure that
+	* no overreading happens for damaged MPEG streams.
+	*
+	* @note Codecs which have the AV_CODEC_CAP_DELAY capability set have a delay
+	* between input and output, these need to be fed with avpkt->data=NULL,
+	* avpkt->size=0 at the end to return the remaining frames.
+	* @param[in] avpkt The input AVPacket containing the input buffer.
+	*            You can create such packet with av_init_packet() and by then setting
+	*            data and size, some decoders might in addition need other fields like
+	*            flags&AV_PKT_FLAG_KEY. All decoders are designed to use the least
+	*            fields possible.
+	* @param[in,out] got_picture_ptr Zero if no frame could be decompressed, otherwise, it is nonzero.
+	* @return On error a negative value is returned, otherwise the number of bytes
+	* used or zero if no frame could be decompressed.
+	*/
 	inline int Decode(INOUT AVFrame *pAvFrame, OUT int &got_picture, IN AVPacket *pPacket)
 	{
 		if (m_nManufacturer == FFMPEG)
@@ -964,14 +1000,14 @@ public:
 			return 0;
 		}
 	}
-
+	/// @brief 移动到指定帧，只支持ffmpeg文件解码
 	inline int SeekFrame(int64_t timestamp, int flags)
 	{
 		if (!m_pFormatCtx)
 			return -1;
 		return av_seek_frame(m_pFormatCtx, m_nVideoIndex, timestamp, flags);
 	}
-
+	/// @brief 读取一帧，只支持ffmpeg文件解码
 	inline int ReadFrame(AVPacket *pkt)
 	{
 		if (!m_pFormatCtx)

@@ -56,12 +56,26 @@ using namespace std::tr1;
 #define FrameSize2(p)	(((DVOFrameHeader*)p)->nLength + sizeof(DVOFrameHeader))	
 #define Frame2(p)		((DVOFrameHeader *)p)
 
+#ifdef _DEBUG
+#define _MaxTimeCount	125
+/// @brief	用于追踪代码执行时间的类，主要用于调试
+/// @remark 有些时间，要追查代码哪些代码的执行时间超过预期，但如果每执行一次就输入的话，
+/// 会对代码的运行造成影响,因此要积累一定的数据再输出的话，会把这种影响降低到可以接受的程度
+/// @code Sample:
+///     初始化类对象
+///		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
+///		....
+///		记录运行时间
+///		DecodeTimeTrace.SaveTime(dfDecodeTimespa);
+///		if (DecodeTimeTrace.IsFull())
+///			DecodeTimeTrace.OutputTime(0.005f);
 struct TimeTrace
 {
 	char szName[128];
 	char szFunction[128];
 	double dfTimeArray[100];
 	int	   nTimeCount;
+	double dfInputTime;
 	TimeTrace(char *szNameT, char *szFunctionT)
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
@@ -72,9 +86,19 @@ struct TimeTrace
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
 	}
-	inline void AddTime(double dfTime)
+	inline bool IsFull()
 	{
-		dfTimeArray[nTimeCount++] = dfTime;
+		return (nTimeCount >= _MaxTimeCount);
+	}
+	inline void SaveTime()
+	{
+		if (dfInputTime != 0.0f)
+			dfTimeArray[nTimeCount++] = GetExactTime() - dfInputTime;
+		dfInputTime = GetExactTime();
+	}
+	inline void SaveTime(double dfTimeSpan)
+	{
+		dfTimeArray[nTimeCount++] = dfTimeSpan;
 	}
 	void OutputTime(float fMaxTime = 0.0f, bool bReset = true)
 	{
@@ -114,7 +138,10 @@ struct TimeTrace
 			nTimeCount = 0;
 	}
 };
+#endif
 
+/// @brief  截图类开，且于FFMPEG解码的帧的截图,目前只支持jpeg和bmp两种格式的截图
+/// @code 详见 CDvoPlayer::SnapShot(IN CHAR *szFileName, IN SNAPSHOT_FORMAT nFileFormat = XIFF_JPG)函数
 class CSnapshot
 {
 	AVFrame* pAvFrame;
@@ -310,6 +337,7 @@ public:
 	}
 };
 
+/// @brief CDxSurface 的封装类，用于把CDxSurface类对象指针在系统缓存中的存取
 struct DxSurfaceWrap
 {
 	DxSurfaceWrap(CDxSurface *pSurface)
@@ -351,6 +379,7 @@ struct DxSurfaceWrap
 struct StreamFrame;
 typedef shared_ptr<StreamFrame> StreamFramePtr;
 
+/// @brief 用于保存音频设备属性的类
 struct AudioPlayDevice
 {
 	GUID  *pGuid = nullptr;
@@ -382,6 +411,7 @@ struct AudioPlayDevice
 	}
 };
 
+/// @brief 音频设备枚举类
 class CDSoundEnum
 {
 public:
@@ -415,6 +445,7 @@ private:
 	list<shared_ptr<AudioPlayDevice>> m_listPlayDev;
 };
 
+/// @brief 功能单一的简单窗口类，用于需要窗口，却不能或不需要显示窗口的场合，如DirectX和DirectSound的初始化
 class  CSimpleWnd
 {
 public:
@@ -612,14 +643,7 @@ struct FrameParser
 	UINT				nRawFrameSize;	///< 原始码流数据长度
 };
 
-/// @brief 线程休息试
-enum SleepWay
-{
-	Sys_Sleep = 0,		///< 直接调用系统函数Sleep
-	Wmm_Sleep = 1,		///< 使用多媒体时间提高精度
-	Std_Sleep = 2		///< 使C++11提供的线程休眠函数
-};
-
+/// @brief 文件帧信息，用于标识每一帧在文件的位置
 struct FileFrameInfo
 {
 	UINT	nOffset;	///< 帧数据所在的文件偏移
@@ -667,6 +691,7 @@ struct _OutputTime
 	}
 };
 
+/// @brief 用于码流探测的类
 struct StreamProbe
 {
 	StreamProbe(int nBuffSize = 256 * 1024)
@@ -711,6 +736,7 @@ extern void PutDxCache(CDxSurface *pDxSurface);
 extern CDxSurfaceEx* g_dx;
 extern HWND g_hSnapShotWnd;
 
+/// DVOIPCPlay SDK主要功能实现类
 class CDvoPlayer
 {
 public:
@@ -749,7 +775,7 @@ private:
 	CDSoundBuffer* m_pDsBuffer;
 	DxSurfaceInitInfo	m_DxInitInfo;
 	CDxSurface* m_pDxSurface;			///< Direct3d Surface封装类,用于显示视频
-	CDirectDraw *m_pDDraw;
+	CDirectDraw *m_pDDraw;				///< DirectDraw封装类对象，用于在xp下显示视频
 	shared_ptr<ImageSpace> m_pYUVImage = NULL;
 // 	bool		m_bDxReset;				///< 是否重置DxSurface
 // 	HWND		m_hDxReset;
@@ -777,6 +803,8 @@ private:
 	bool		m_bFitWindow;			///< 视频显示是否填满窗口
 										///< 为true时，则把视频填满窗口,这样会把图像拉伸,可能会造成图像变形
 										///< 为false时，则只按图像原始比例在窗口中显示,超出比例部分,则以黑色背景显示
+	CRITICAL_SECTION m_csBorderRect;
+	shared_ptr<RECT>m_pBorderRect;		///< 视频显示的边界，边界外的图象不予显示
 private:	// 音频播放相关变量
 
 	DVO_CODEC	m_nAudioCodec;			///< 音频编码格式 @see DVO_CODEC
@@ -854,10 +882,6 @@ private:
 	void*			m_pUserFilePlayer;
 	CaptureYUVEx	m_pfnYUVFilter;
 	void*			m_pUserYUVFilter;
-#ifdef _DEBUG
-	TimeTrace		*m_pInputStreamTimeTrace;
-	double			m_dfLastInputstream;
-#endif
 private:
 	shared_ptr<CRunlog> m_pRunlog;	///< 运行日志
 #define __countof(array) (sizeof(array)/sizeof(array[0]))
@@ -887,7 +911,7 @@ private:
 		InitializeCriticalSection(&m_csVideoCache);
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csParser);
-		//InitializeCriticalSection(&m_csDxSurface);
+		InitializeCriticalSection(&m_csBorderRect);
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
 	}
@@ -1088,8 +1112,8 @@ private:
 			return GetLastError();
 		}
 		nDataLength = nBytesRead;
-		char *szKey1 = "MOVD";
-		char *szKey2 = "IMWH";
+		char *szKey1 = "MOVD";		// 新版的DVO录像文件头
+		char *szKey2 = "IMWH";		// 老版本的DVO录像文件，使用了高视捷的文件头
 		int nOffset = KMP_StrFind(pBuffer, nDataLength, (byte *)szKey1, 4);
 		if (nOffset < 0)
 		{
@@ -1162,6 +1186,8 @@ private:
 		else
 			return DVO_Error_MaxFrameSizeNotEnough;
 	}
+
+	
 	bool InitizlizeDisplay()
 	{
 		// 初始显示组件
@@ -1241,7 +1267,18 @@ private:
 		if (m_bFitWindow)
 		{
 			if (m_pDxSurface)
-				m_pDxSurface->Render(pAvFrame, m_hWnd);
+			{
+				RECT rtBorder;
+				CAutoLock lock(&m_csBorderRect);
+				if (m_pBorderRect)
+				{
+					CopyRect(&rtBorder, m_pBorderRect.get());
+					lock.Unlock();
+					m_pDxSurface->Render(pAvFrame, m_hWnd, &rtBorder);
+				}
+				else
+					m_pDxSurface->Render(pAvFrame, m_hWnd);
+			}
 			else if (m_pDDraw)
 			{
 				m_pYUVImage->pBuffer[0] = (PBYTE)pAvFrame->data[0];
@@ -1250,7 +1287,16 @@ private:
 				m_pYUVImage->dwLineSize[0] = pAvFrame->linesize[0];
 				m_pYUVImage->dwLineSize[1] = pAvFrame->linesize[1];
 				m_pYUVImage->dwLineSize[2] = pAvFrame->linesize[2];
-				m_pDDraw->Draw(*m_pYUVImage,nullptr,true);
+				RECT rtBorder;
+				CAutoLock lock(&m_csBorderRect);
+				if (m_pBorderRect)
+				{
+					CopyRect(&rtBorder, m_pBorderRect.get());
+					lock.Unlock();
+					m_pDDraw->Draw(*m_pYUVImage, &rtBorder, nullptr, true);
+				}
+				else
+					m_pDDraw->Draw(*m_pYUVImage,nullptr,nullptr,true);
 			}
 		}
 		else
@@ -1285,7 +1331,16 @@ private:
 			{
 				ScreenToClient(m_hWnd, (LPPOINT)&rtRender);
 				ScreenToClient(m_hWnd, ((LPPOINT)&rtRender) + 1);
-				m_pDxSurface->Render(pAvFrame, m_hWnd, &rtRender);
+				RECT rtBorder;
+				CAutoLock lock(&m_csBorderRect);
+				if (m_pBorderRect)
+				{
+					CopyRect(&rtBorder, m_pBorderRect.get());
+					lock.Unlock();
+					m_pDxSurface->Render(pAvFrame, m_hWnd, &rtBorder,&rtRender);
+				}
+				else
+					m_pDxSurface->Render(pAvFrame, m_hWnd, nullptr, &rtRender);
 			}
 			else if (m_pDDraw)
 			{
@@ -1295,7 +1350,16 @@ private:
 				m_pYUVImage->dwLineSize[0] = pAvFrame->linesize[0];
 				m_pYUVImage->dwLineSize[1] = pAvFrame->linesize[1];
 				m_pYUVImage->dwLineSize[2] = pAvFrame->linesize[2];
-				m_pDDraw->Draw(*m_pYUVImage, &rtRender, true);
+				RECT rtBorder;
+				CAutoLock lock(&m_csBorderRect);
+				if (m_pBorderRect)
+				{
+					CopyRect(&rtBorder, m_pBorderRect.get());
+					lock.Unlock();
+					m_pDDraw->Draw(*m_pYUVImage, &rtBorder, &rtRender, true);
+				}
+				else
+					m_pDDraw->Draw(*m_pYUVImage,nullptr, &rtRender, true);
 			}
 		}
 	}
@@ -1335,6 +1399,7 @@ public:
 		else
 			m_pRunlog = nullptr;
 	}
+
 	void ClearOnException()
 	{
 		if (m_pszFileName)
@@ -1348,7 +1413,7 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
-		//DeleteCriticalSection(&m_csDxSurface);
+		DeleteCriticalSection(&m_csBorderRect);
 		if (m_hDvoFile)
 			CloseHandle(m_hDvoFile);
 	}
@@ -1381,7 +1446,7 @@ public:
 		InitializeCriticalSection(&m_csAudioCache);
 		InitializeCriticalSection(&m_csSeekOffset);
 		InitializeCriticalSection(&m_csParser);
-		//InitializeCriticalSection(&m_csDxSurface);
+		InitializeCriticalSection(&m_csBorderRect);
 		m_csDsoundEnum->Lock();
 		if (!m_pDsoundEnum)
 			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
@@ -1675,7 +1740,7 @@ public:
 		DeleteCriticalSection(&m_csAudioCache);
 		DeleteCriticalSection(&m_csSeekOffset);
 		DeleteCriticalSection(&m_csParser);
-		//DeleteCriticalSection(&m_csDxSurface);
+		DeleteCriticalSection(&m_csBorderRect);
 
 #ifdef _DEBUG
 		OutputMsg("%s \tFinish Free a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
@@ -1788,6 +1853,49 @@ public:
 		m_listAudioCache.clear();
 		_MyLeaveCriticalSection(&m_csAudioCache);
 	}
+
+	/// @brief 设置显示边界,边界外的图像将不予以显示
+	/// @param rtBorder	边界参数 详见以下图表
+	/// left	左边界距离
+	/// top		上边界距离
+	/// right	右边界距离
+	/// bottom  下边界距离 
+	///┌───────────────────────────────────┐
+	///│                  │                   │
+	///│                 top                  │
+	///│                  │                   │─────── the source rect
+	///│       ┌───────────────────┐        │
+	///│       │                     │        │
+	///│       │                     │        │
+	///│─left─ │  the clipped rect   │─right─ │
+	///│       │                     │        │
+	///│       │                     │        │
+	///│       └───────────────────┘        │
+	///│                  │                   │
+	///│                bottom                │
+	///│                  │                   │
+	///└───────────────────────────────────┘
+	/// @remark 边界的上下左右位置不可颠倒
+	void SetBorderRect(RECT rtBorder)
+	{
+		RECT rtVideo = {0};
+		rtVideo.left = rtBorder.left;
+		rtVideo.right = m_nVideoWidth - rtBorder.right;
+		rtVideo.top += rtBorder.top;
+		rtVideo.bottom = m_nVideoHeight - rtBorder.bottom;
+		CAutoLock lock(&m_csBorderRect);
+		if (!m_pBorderRect)
+			m_pBorderRect = make_shared<RECT>();
+
+		CopyRect(m_pBorderRect.get(), &rtVideo);
+	}
+
+	void RemoveBorderRect()
+	{
+		CAutoLock lock(&m_csBorderRect);
+		if (m_pBorderRect)
+			m_pBorderRect = nullptr;
+	}
 		
 	/// @brief			开始播放
 	/// @param [in]		bEnaleAudio		是否开启音频播放
@@ -1808,7 +1916,6 @@ public:
 	{
 #ifdef _DEBUG
 		OutputMsg("%s \tObject:%d Time = %d.\n", __FUNCTION__, m_nObjIndex, timeGetTime() - m_nLifeTime);
-		//m_pInputStreamTimeTrace = new TimeTrace("IntpuStream", __FUNCTION__);
 #endif
 		m_bPause = false;
 		m_bFitWindow = bFitWindow;	
@@ -2126,13 +2233,6 @@ public:
 			case APP_NET_TCP_COM_DST_P_FRAME:       // P帧。
 			case APP_NET_TCP_COM_DST_B_FRAME:       // B帧。
 			{
-// 				if (m_dfLastInputstream != 0.0f)
-// 				{
-// 					m_pInputStreamTimeTrace->AddTime(TimeSpanEx(m_dfLastInputstream));
-// 					if (m_pInputStreamTimeTrace->nTimeCount >= 100)
-// 						m_pInputStreamTimeTrace->OutputTime(0.04f);
-// 				}
-// 				m_dfLastInputstream = GetExactTime();
 				//m_nVideoFraems++;
 				StreamFramePtr pStream = make_shared<StreamFrame>(pFrameData, nFrameType, nFrameLength, nFrameNum, nFrameTime);
 				CAutoLock lock(&m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
@@ -4155,8 +4255,8 @@ public:
 		pThis->OutputMsg("%s \tObject:%d Start Decoding.\n", __FUNCTION__,pThis->m_nObjIndex);
 #endif
 //	    以下代码用以测试解码和显示占用时间，建议不要删除		
-		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
-		TimeTrace RenderTimeTrace("RenderTime", __FUNCTION__);
+// 		TimeTrace DecodeTimeTrace("DecodeTime", __FUNCTION__);
+// 		TimeTrace RenderTimeTrace("RenderTime", __FUNCTION__);
 
 #ifdef _DEBUG
 		int nFrames = 0;
@@ -4275,7 +4375,7 @@ public:
 // 			if (pThis->m_nVideoWidth > 1024)
 // 			{
 // 				DecodeTimeTrace.AddTime(dfDecodeTimespan);
-// 				if (DecodeTimeTrace.nTimeCount >= 100)
+// 				if (DecodeTimeTrace.IsFull())
 // 					DecodeTimeTrace.OutputTime(0.005f);
 // 			}
 #ifdef _DEBUG
@@ -4365,7 +4465,7 @@ public:
 // 			{
 // 				fTimeSpan = TimeSpanEx(dfDecodeStartTime) * 1000;
 // 				RenderTimeTrace.AddTime(dfRenderTimeSpan);
-// 				if (RenderTimeTrace.nTimeCount  >= 100)
+// 				if (RenderTimeTrace.IsFull())
 // 					RenderTimeTrace.OutputTime(0.005f);
 // 			}
 //#endif

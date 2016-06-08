@@ -130,6 +130,7 @@ BEGIN_MESSAGE_MAP(CDvoIPCPlayDemoDlg, CDialogEx)
 	//ON_BN_CLICKED(IDC_CHECK_REFRESHPLAYER, &CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer)
 	ON_BN_CLICKED(IDC_CHECK_ENABLEHACCEL, &CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablehaccel)
 	ON_BN_CLICKED(IDC_CHECK_REFRESHPLAYER, &CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer)
+	ON_BN_CLICKED(IDC_CHECK_SETBORDER, &CDvoIPCPlayDemoDlg::OnBnClickedCheckSetborder)
 END_MESSAGE_MAP()
 
 
@@ -1632,9 +1633,9 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	unsigned long long tNow;
 	SystemTime2UTC(&sysTime, &tNow);
 	tNow = tNow * 1000 * 1000 + (double)sysTime.wMilliseconds * 1000;
-	//for (int i = 0; i < pContext->nPlayerCount;i ++)
- 	//if (pContext->hPlayer[i])
-	//	dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tNow);
+	for (int i = 0; i < pContext->nPlayerCount;i ++)
+	 	if (pContext->hPlayer[i])
+			dvoplay_InputIPCStream(pContext->hPlayer[i], pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, tNow);
 
 	// Ð´ÈëÂ¼ÏñÊý¾Ý
 	if (pContext->pRecFile && pContext->bRecvIFrame)
@@ -2359,4 +2360,16 @@ void CDvoIPCPlayDemoDlg::OnBnClickedCheckEnablehaccel()
 void CDvoIPCPlayDemoDlg::OnBnClickedCheckRefreshplayer()
 {
 	m_bRefreshPlayer = IsDlgButtonChecked(IDC_CHECK_REFRESHPLAYER);
+}
+
+void CDvoIPCPlayDemoDlg::OnBnClickedCheckSetborder()
+{
+	RECT rtBorder = { 80, 80, 80, 80 };
+	if (m_pPlayContext && m_pPlayContext->hPlayer[0])
+	{
+		if (IsDlgButtonChecked(IDC_CHECK_SETBORDER) == BST_CHECKED)
+			dvoplay_SetBorderRect(m_pPlayContext->hPlayer[0], rtBorder);
+		else
+			dvoplay_RemoveBorderRect(m_pPlayContext->hPlayer[0]);
+	}
 }

@@ -372,6 +372,7 @@ struct FormatBGR32
 
 //////////////////////////////////////////////////////////////////////////
 
+/// @brief DirectDraw 功能封装类，配合Formatxxx结构，可显示多种像素格式的图象
 class CDirectDraw
 {
 	typedef VOID(*CopyCallback)(LPBYTE lpSurface, const ImageSpace &imageSpace, DWORD dwWidth, DWORD dwHeight, LONG lPitch);
@@ -393,7 +394,7 @@ public:
 		Release();
 	}
 
-	HRESULT Draw(const ImageSpace &imageSpace,RECT *pRectRender,bool bPresent = true)
+	HRESULT Draw(const ImageSpace &imageSpace,RECT *pRectClip,RECT *pRectRender,bool bPresent = true)
  	{
 		HRESULT hr = E_INVALIDARG;
 		RECT rectSrc = { 0 };
@@ -412,9 +413,16 @@ public:
 
 		m_copyCallback((LPBYTE)ddOffScreenSurfaceDesc.lpSurface, imageSpace, ddOffScreenSurfaceDesc.dwWidth, ddOffScreenSurfaceDesc.dwHeight, ddOffScreenSurfaceDesc.lPitch);
 		m_pSurfaceOffScreen->Unlock(NULL);
-
-		rectSrc.right = ddOffScreenSurfaceDesc.dwWidth;
-		rectSrc.bottom = ddOffScreenSurfaceDesc.dwHeight;
+		if (pRectClip)
+		{
+			CopyRect(&rectSrc, pRectClip);
+		}
+		else
+		{
+			rectSrc.right = ddOffScreenSurfaceDesc.dwWidth;
+			rectSrc.bottom = ddOffScreenSurfaceDesc.dwHeight;
+		}
+		
  		if (!pRectRender)
  		{
 			::GetClientRect(m_hWnd, &rectDst);

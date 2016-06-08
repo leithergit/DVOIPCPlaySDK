@@ -183,6 +183,7 @@ enum GraphicQulityParameter
 #pragma comment(lib,"psapi.lib")
 
 #ifdef _DEBUG
+/// @brief 跟踪函数执行过程的一些信息的类,主要用于调试
 class CTraceFunction
 {
 	explicit CTraceFunction(){};
@@ -257,9 +258,10 @@ struct LineTime
 
 #include <vector>
 using namespace  std;
+/// @brief 追踪每一行代码运行的时间，用于追查代码中哪一段代码执行时间超出预期
 class CLineRunTime
 {
-	int m_nTimeout;
+	DWORD m_nTimeout;
 public:
 	CLineRunTime(int nTimeout,CRunlogA *plog = nullptr)
 	{
@@ -313,7 +315,7 @@ public:
 	CRunlogA *pRunlog = nullptr;
 };
 
-// 把FFMPEG像素转换为D3DFomrat像素
+/// @biref 把FFMPEG像素转换为D3DFomrat像素
 struct PixelConvert
 {
 private:
@@ -561,7 +563,8 @@ public:
 typedef IDirect3D9* WINAPI pDirect3DCreate9(UINT);
 typedef HRESULT WINAPI pDirect3DCreate9Ex(UINT, IDirect3D9Ex**);
 // 注意:
-//		使用CDxSurface对象显示图象时，必须在创建线程内显示图，否则当发生DirectX设备丢失时，无法重置DirectX的资源
+/// @brief IDirect3DSurface9对象封类，用于创建和管理IDirect3DSurface9对象，可以显示多种象素格式的图像
+/// @remark 使用CDxSurface对象显示图象时，必须在创建线程内显示图，否则当发生DirectX设备丢失时，无法重置DirectX的资源
 class CDxSurface
 {
 protected:	
@@ -705,7 +708,9 @@ public:
 		else
 			return false;
 	}
-
+	/// @设置外部DC回调函数
+	/// @remark IDirect3DSurface9可以产生一个DC指针，通过回调函数把此DC指针传给用户，用户通过此DC可以在IDirect3DSurface9上作图
+	/// 但这种方式效率极低，会明显拖慢视频显示的速度
 	void SetExternDraw(void *pExternDrawProc,void *pUserPtr)
 	{
 		m_pExternDraw = (ExternDrawProc)pExternDrawProc;
@@ -787,13 +792,12 @@ public:
 		return SUCCEEDED(m_pDirect3DDevice->Reset(&m_d3dpp));
 #endif
 	}
-	// 取视频尺寸,低16 bit为宽度，高16bit为高度
-	
+	/// @brief 取图像尺寸和象素格式 低32位的低16 bit为宽度，高16bit为高度，高32位为象素格式
 	UINT64 GetVideoSizeAndFormat()
 	{
 		return MAKEUINT64(MAKELONG(m_nVideoWidth, m_nVideoHeight), m_nD3DFormat);
 	}
-	// D3dDirect9Ex下，该成员不再有效
+	// @brief D3dDirect9Ex下，该成员不再有效
 	virtual bool RestoreDevice()
 	{// 恢复设备，即用原始参数重建资源
 		TraceFunction();
@@ -1398,7 +1402,7 @@ _Failed:
 			memcpy_s(pDest + i * nStride, nDestSize - i*nStride,pFrameARGB->data[0] + i * pFrameARGB->linesize[0], pFrameARGB->width);
 	}
 	
-	virtual bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
+	virtual bool Render(AVFrame *pAvFrame, HWND hWnd = NULL, RECT *pClippedRT = nullptr, RECT *pRenderRt = nullptr)
 	{
 		//TraceMemory();
 		DeclareRunTime(5);
@@ -1472,7 +1476,6 @@ _Failed:
 				}
 				// 处理截图请求
 				//TransferSnapShotSurface(pAvFrame);
-				
 				// 处理外部分绘制接口
 				ExternDrawCall(hWnd,pRenderRt);
 
@@ -1491,6 +1494,10 @@ _Failed:
 				pBackSurface->GetDesc(&desc);
 				RECT dstrt = { 0, 0, desc.Width, desc.Height };
 				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
+				if (pClippedRT)
+				{
+					CopyRect(&srcrt, pClippedRT);
+				}
 				hr = m_pDirect3DDevice->StretchRect(pRenderSurface, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
 			
 				pBackSurface->Release();
@@ -1561,6 +1568,10 @@ _Failed:
 				pBackSurface->GetDesc(&Desc);
 				RECT dstrt = { 0, 0, Desc.Width, Desc.Height };
 				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
+				if (pClippedRT)
+				{
+					CopyRect(&srcrt, pClippedRT);
+				}
 				hr = m_pDirect3DDevice->StretchRect(m_pDirect3DSurfaceRender, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
 				SaveRunTime();
 				
@@ -2439,7 +2450,7 @@ _Failed:
 // 		SafeRelease(pSnapshotSurface);
 // 	}
 #define RenderTimeout	100 //ms
-	bool Render(AVFrame *pAvFrame,HWND hWnd = NULL,RECT *pRenderRt = NULL)
+bool Render(AVFrame *pAvFrame, HWND hWnd = NULL, RECT *pClippedRT = nullptr, RECT *pRenderRt = nullptr)
 	{
 		if (!pAvFrame)
 			return false;
@@ -2527,6 +2538,10 @@ _Failed:
 				pBackSurface->GetDesc(&desc);
 				RECT dstrt = { 0, 0, desc.Width, desc.Height };
 				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
+				if (pClippedRT)
+				{
+					CopyRect(&srcrt, pClippedRT);
+				}
 				hr = m_pDirect3DDeviceEx->StretchRect(pRenderSurface, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
 
 				pBackSurface->Release();
@@ -2593,7 +2608,11 @@ _Failed:
 				}
 				pBackSurface->GetDesc(&Desc);
 				RECT dstrt = { 0, 0, Desc.Width, Desc.Height };
-				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };	
+				RECT srcrt = { 0, 0, pAvFrame->width, pAvFrame->height };
+				if (pClippedRT)
+				{
+					CopyRect(&srcrt, pClippedRT);
+				}
 				hr = m_pDirect3DDeviceEx->StretchRect(m_pDirect3DSurfaceRender, &srcrt, pBackSurface, &dstrt, D3DTEXF_LINEAR);
 				SaveRunTime();
 				SafeRelease(pBackSurface);

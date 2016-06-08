@@ -30,10 +30,8 @@ using namespace std::tr1;
 // #undef  __ENABLE_RUNLOG
 // #endif	
 
-
-
-
 void EnableRunlog(bool bEnable=true);
+/// @brief 支持多字节字符的日志类
 class CRunlogA
 {
 public:
@@ -58,6 +56,7 @@ private:
 	CRITICAL_SECTION m_RunlogSection;
 	void CheckDateTime();			// 检查文件的日期,若文件的创建日期与当前日期，则创建新文件
 };
+/// @brief 支持UNICODE字符的日志类
 class  CRunlogW
 {
 public:

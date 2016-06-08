@@ -23,7 +23,6 @@ EXPORTS
 	dvoplay_SeekNextFrame
 	dvoplay_SeekFrame
 	dvoplay_SeekTime
-	;dvoplay_SeekNextFrame
 	dvoplay_GetFrame
 	dvoplay_EnableAudio
 	dvoplay_Refresh
@@ -38,4 +37,6 @@ EXPORTS
 	dvoplay_GetMaxFrameSize
 	dvoplay_SetMaxFrameSize
 	dvoplay_ClearCache
-	ClearD3DCache
+	dvoplay_ClearD3DCache
+	dvoplay_SetBorderRect
+	dvoplay_RemoveBorderRect

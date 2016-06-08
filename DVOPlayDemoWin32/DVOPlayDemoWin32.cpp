@@ -487,7 +487,7 @@ BOOL OnInitDialog(HWND hDlg, HWND hWndFocus, LPARAM lParam)
 }
 void OnDestroy(HWND hDlg)
 {
-	ClearD3DCache();
+	//ClearD3DCache();
 }
 void OnClose(HWND hDlg)
 {

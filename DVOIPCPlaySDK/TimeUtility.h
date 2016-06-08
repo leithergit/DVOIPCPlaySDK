@@ -227,9 +227,8 @@ private:
 
 extern CThreadSleep ThreadSleep;
 #define GetSleepPricision()	ThreadSleep.GetPrecision();
-
-
 #define  SaveWaitTime()	CWaitTime WaitTime(__FILE__,__LINE__,__FUNCTION__);
+
 class CWaitTime
 {
 	DWORD dwTimeEnter;

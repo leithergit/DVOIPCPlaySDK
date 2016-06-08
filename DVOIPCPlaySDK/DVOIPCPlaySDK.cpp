@@ -17,11 +17,6 @@
 #include "DVOIPCPlaySDK.h"
 #include "DvoPlayer.h"
 
-#ifdef Release_D
-#undef assert
-#define assert	((void)0)
-#endif
-
 CAvRegister CDvoPlayer::avRegister;
 CriticalSectionPtr CDvoPlayer::m_csDsoundEnum = make_shared<CriticalSectionWrap>();
 shared_ptr<CDSoundEnum> CDvoPlayer::m_pDsoundEnum = nullptr;/*= make_shared<CDSoundEnum>()*/;	///< 音频设备枚举器
@@ -212,7 +207,7 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle, bool bCacheD3
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
-DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile)
+DVOIPCPLAYSDK_API int	EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile)
 {
 	if (!hPlayHandle)
 		return DVO_Error_InvalidParameters;
@@ -221,6 +216,30 @@ DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFil
 		return DVO_Error_InvalidParameters;
 	pPlayer->EnableRunlog(szLogFile);
 	return 0;
+}
+
+DVOIPCPLAYSDK_API int dvoplay_SetBorderRect(IN DVO_PLAYHANDLE hPlayHandle, RECT rtBorder)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	if (rtBorder.left < 0 || rtBorder.right < 0 || rtBorder.top < 0 || rtBorder.bottom < 0)
+		return DVO_Error_InvalidParameters;
+	pPlayer->SetBorderRect(rtBorder);
+	return DVO_Succeed;
+}
+
+DVOIPCPLAYSDK_API int dvoplay_RemoveBorderRect(IN DVO_PLAYHANDLE hPlayHandle)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->RemoveBorderRect();
+	return DVO_Succeed;
 }
 
 /// @brief			输入流数据
@@ -239,6 +258,7 @@ DVOIPCPLAYSDK_API int dvoplay_InputStream(IN DVO_PLAYHANDLE hPlayHandle, unsigne
 		return DVO_Error_InvalidParameters;
 	return pPlayer->InputStream(szFrameData, nFrameSize);
 }
+
 
 /// @brief			输入流相机实时码流
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
@@ -842,7 +862,7 @@ DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int
 	return DVO_Succeed;
 }
 
-DVOIPCPLAYSDK_API void ClearD3DCache()
+DVOIPCPLAYSDK_API void dvoplay_ClearD3DCache()
 {
 	
 }

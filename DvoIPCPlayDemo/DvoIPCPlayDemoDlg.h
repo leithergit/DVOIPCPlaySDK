@@ -34,12 +34,14 @@ struct MSG_HEAD
 	U32 Rev3;		//	类型U32 保留字段
 };
 
+#define _MaxTimeCount	125
 struct TimeTrace
 {
 	char szName[128];
 	char szFunction[128];
 	double dfTimeArray[100];
 	int	   nTimeCount;
+	double dfInputTime;
 	TimeTrace(char *szNameT, char *szFunctionT)
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
@@ -50,9 +52,19 @@ struct TimeTrace
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
 	}
-	inline void AddTime(double dfTime)
+	inline bool IsFull()
 	{
-		dfTimeArray[nTimeCount++] = dfTime;
+		return (nTimeCount >= _MaxTimeCount);
+	}
+	inline void SaveTime()
+	{
+		if (dfInputTime != 0.0f)
+			dfTimeArray[nTimeCount++] = GetExactTime() - dfInputTime;
+		dfInputTime = GetExactTime();
+	}
+	inline void SaveTime(double dfTimeSpan)
+	{
+		dfTimeArray[nTimeCount++] = dfTimeSpan;
 	}
 	void OutputTime(float fMaxTime = 0.0f, bool bReset = true)
 	{
@@ -210,8 +222,8 @@ public:
 	int nPlayerCount;
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// 流播放句柄
-	TimeTrace		*m_pInputStreamTimeTrace = nullptr;
-	double			m_dfLastInputstream = 0.0f;
+	TimeTrace		*m_pInputStreamTimeTrace ;
+	double			m_dfLastInputstream ;
 	REAL_HANDLE hStream;
 	CSocketClient *pClient;
 	volatile bool bThreadRecvIPCStream/* = false*/;
@@ -802,4 +814,5 @@ public:
 	//afx_msg void OnBnClickedCheckRefreshplayer();
 	afx_msg void OnBnClickedCheckEnablehaccel();
 	afx_msg void OnBnClickedCheckRefreshplayer();
+	afx_msg void OnBnClickedCheckSetborder();
 };

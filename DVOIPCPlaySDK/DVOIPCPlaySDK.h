@@ -283,8 +283,38 @@ DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle,bool bCacheD3d
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			该函数为开关型函数,默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
-DVOIPCPLAYSDK_API int				EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
+DVOIPCPLAYSDK_API int EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
 
+/// @brief 设置显示边界,边界外的图像将不予以显示
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param rtBorder	边界参数 详见以下图表
+/// left	左边界距离
+/// top		上边界距离
+/// right	右边界距离
+/// bottom  下边界距离 
+/// ┌───────────────────────────────────┐
+/// │                  │                   │
+/// │                 top                  │
+/// │                  │                   │─────── the source rect
+/// │       ┌───────────────────┐        │
+/// │       │                     │        │
+/// │       │                     │        │
+/// │─left─ │  the clipped rect   │─right─ │
+/// │       │                     │        │
+/// │       │                     │        │
+/// │       └───────────────────┘        │
+/// │                  │                   │
+/// │                bottom                │
+/// │                  │                   │
+/// └───────────────────────────────────┘
+/// @remark 边界的上下左右位置不可错位,并且边界不能小于0,否则将返回DVO_Error_InvalidParameters
+DVOIPCPLAYSDK_API int dvoplay_SetBorderRect(IN DVO_PLAYHANDLE, RECT rtBorder);
+
+/// @brief 移除显示边界，显示所有视频图像
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @retval			0	操作成功
+/// @retval			-1	输入参数无效
+DVOIPCPLAYSDK_API int dvoplay_RemoveBorderRect(IN DVO_PLAYHANDLE hPlayHandle);
 /// @brief			输入流DVO私有帧格式码流
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @retval			0	操作成功
@@ -544,7 +574,7 @@ DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT i
 /// @remark		    若pMediaFrame为NULL,则pFrameSize只返回DVO录像帧长度
 DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int *pHeaderSize, IN int nFrameID, IN byte *pDVOIpcStream, INOUT int &nStreamLength);
 
-DVOIPCPLAYSDK_API void ClearD3DCache();
+DVOIPCPLAYSDK_API void dvoplay_ClearD3DCache();
 
 #ifdef _UNICODE
 #define dvoplay_OpenFile	dvoplay_OpenFileW
