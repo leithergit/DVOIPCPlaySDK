@@ -1580,7 +1580,7 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 	{
 		if (pContext->m_dfLastInputstream != 0.0f)
 		{
-			pContext->m_pInputStreamTimeTrace->AddTime(TimeSpanEx(pContext->m_dfLastInputstream));
+			pContext->m_pInputStreamTimeTrace->SaveTime(TimeSpanEx(pContext->m_dfLastInputstream));
 			if (pContext->m_pInputStreamTimeTrace->nTimeCount >= 100)
 				pContext->m_pInputStreamTimeTrace->OutputTime(0.04f);
 			
