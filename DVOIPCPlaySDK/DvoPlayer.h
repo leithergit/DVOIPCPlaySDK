@@ -4609,7 +4609,7 @@ public:
 				continue;
 			}
 			
-			if (nTimeSpan > 100)			// 连续100ms没有音频数据，则视为音频暂停
+			if (nTimeSpan > 1000*3/pThis->m_nAudioPlayFPS)			// 连续100ms没有音频数据，则视为音频暂停
 				pThis->m_pDsBuffer->StopPlay();
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
