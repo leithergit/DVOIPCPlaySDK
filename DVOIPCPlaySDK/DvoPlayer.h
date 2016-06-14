@@ -919,7 +919,7 @@ private:
 		nSize = sizeof(CDvoPlayer);
 		m_nAudioPlayFPS = 50;
 		m_nSampleFreq = 8000;
-		m_nSampleBit = 2;
+		m_nSampleBit = 16;
 	}
 	LONGLONG GetSeekOffset()
 	{
@@ -1471,7 +1471,7 @@ public:
 		m_csDsoundEnum->Unlock();
 		m_nAudioPlayFPS = 50;
 		m_nSampleFreq = 8000;
-		m_nSampleBit = 2;
+		m_nSampleBit = 16;
 #ifdef _DEBUG
 		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 #endif

@@ -499,7 +499,8 @@ public:
 		m_wfx.nAvgBytesPerSec = (DWORD)(m_wfx.nSamplesPerSec * m_wfx.nBlockAlign);
 		m_nNotifyCount = nNotifyCount;
 		m_nBufferPlayLength = nPlayTime;
-
+		if (!m_nNotifyCount || !m_wfx.nBlockAlign)
+			return FALSE;
 		//定义一个m_nBufferPlayLength秒的缓冲区,并将这个缓冲区分成m_nNotificationsNum个通知块;
 		m_dwNotifySize = m_wfx.nSamplesPerSec*m_nBufferPlayLength*m_wfx.nBlockAlign / m_nNotifyCount;
 		//确保m_dwNotifySize是nBlockAlign的倍数

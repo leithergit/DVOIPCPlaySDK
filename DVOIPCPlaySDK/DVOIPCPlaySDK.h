@@ -120,13 +120,13 @@ enum DVO_CALLBACK
 #define		DVO_Error_UnsupportHaccel		(-35)	///< 当前系统不支持硬解码功能
 #define		DVO_Error_UnsupportedFormat		(-35)	///< 不支持的图像格式
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
-#define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
-#define		DVOPLAYER_NOTRECVIFRAME			0		/// 未收到有效的I帧
-#define		DVOPLAYER_INITD3DFAILED			1		/// D3D初始化失败
-#define		DVOPLAYER_INITDECODERFAILED		2		/// 解码器初始化失败
-#define		DVOPLAYER_UNKNOWNSTREAM			3		/// 无法识别的码流
-#define		DVOPLAYER_UNSURPPORTEDSTREAM	4		/// 不支持的视频编码格式
-#define		DVOPLAYER_INVALIDCODER			5		/// 无效的视频编码格式
+#define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	///< 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
+#define		DVOPLAYER_NOTRECVIFRAME			0		///< 未收到有效的I帧
+#define		DVOPLAYER_INITD3DFAILED			1		///< D3D初始化失败
+#define		DVOPLAYER_INITDECODERFAILED		2		///< 解码器初始化失败
+#define		DVOPLAYER_UNKNOWNSTREAM			3		///< 无法识别的码流
+#define		DVOPLAYER_UNSURPPORTEDSTREAM	4		///< 不支持的视频编码格式
+#define		DVOPLAYER_INVALIDCODER			5		///< 无效的视频编码格式
 
 
 /// @brief 播放器即时信息
@@ -267,6 +267,7 @@ DVOIPCPLAYSDK_API int EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
 /// @brief 设置图像显示边界,边界外的图像将不予以显示
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param rtBorder	边界参数,这是一个RECT结构的变量,详见以下图表
+/// @remark	边界的中离使用RECT结构表示,其中含义如下:
 /// left	左边界距离
 /// top		上边界距离
 /// right	右边界距离
