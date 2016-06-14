@@ -121,7 +121,6 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TimeUtility.h" />
     <ClInclude Include="Utility.h" />
-    <ClInclude Include="vca.h" />
     <ClInclude Include="VideoFrame.h" />
   </ItemGroup>
   <ItemGroup>

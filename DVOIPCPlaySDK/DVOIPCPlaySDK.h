@@ -81,29 +81,6 @@ enum DVO_CALLBACK
 	FilePlayer		/// 文件播放回调，可得到关于播放器的一些完整信息,回调定义详见@see FilePlayProc
 };
 
-/// @enum PlayRate
-/// @brief 播放倍率
-// enum PlayRate
-// {
-// 	Rate_One32th = -32,
-// 	Rate_One24th = -24,
-// 	Rate_One20th = -20,
-// 	Rate_One16th = -16,
-// 	Rate_One10th = -10,
-// 	Rate_One08th = -8,
-// 	Rate_Quarter = -4,
-// 	Rate_Half	 = -2,
-// 	Rate_01X	 = 1,
-// 	Rate_02X	 = 2,
-// 	Rate_04X	 = 4,
-// 	Rate_08X	 = 8,
-// 	Rate_10X	 = 10,
-// 	Rate_16X	 = 16,
-// 	Rate_20X	 = 20,
-// 	Rate_24X	 = 24,
-// 	Rate_32X	 = 32
-// };
-
 #define		DVO_Succeed						(0)		///< 操作成功
 #define		DVO_Error_InvalidParameters		(-1)		///< 无效的参数
 #define		DVO_Error_NotDvoVideoFile		(-2)		///< 非DVO录像文件
@@ -142,10 +119,7 @@ enum DVO_CALLBACK
 #define		DVO_Error_InvalidCacheSize		(-34)	///< 播放器已经启动，不能执行初始化或其它设置操作
 #define		DVO_Error_UnsupportHaccel		(-35)	///< 当前系统不支持硬解码功能
 #define		DVO_Error_UnsupportedFormat		(-35)	///< 不支持的图像格式
-
-
 #define		DVO_Error_InsufficentMemory		(-255)	///< 内存不足
-
 #define		WM_DVOPLAYER_MESSAGE			WM_USER + 8192	/// 播放器出错时发出的消息 ,消息的LPARAM字段无意义,wparam字段定义如下：
 #define		DVOPLAYER_NOTRECVIFRAME			0		/// 未收到有效的I帧
 #define		DVOPLAYER_INITD3DFAILED			1		/// D3D初始化失败
@@ -158,10 +132,10 @@ enum DVO_CALLBACK
 /// @brief 播放器即时信息
 struct PlayerInfo
 {
-	DVO_CODEC	nVideoCodec;
-	DVO_CODEC	nAudioCodec;
-	USHORT		nVideoWidth;
-	USHORT		nVideoHeight;
+	DVO_CODEC	nVideoCodec;	///< 视频编码格式,@see DVO_CODEC
+	DVO_CODEC	nAudioCodec;	///< 音频编码格式,@see DVO_CODEC
+	USHORT		nVideoWidth;	///< 视频图像宽度
+	USHORT		nVideoHeight;	///< 视频图像高度
 	BOOL		bAudioEnabled;	///< 是否已开启音频
 	UINT		nTotalFrames;	///< 视频总帧数,只有文件播放时才有效
 	time_t		tTotalTime;		///< 文件总时长(单位:毫秒),只有文件播放时才有效
@@ -180,28 +154,14 @@ struct PlayerInfo
 ///	@brief	DVO文件播放句柄
 typedef void* 	DVO_PLAYHANDLE;
 
-#define _SnapShotYUVName	_T("Global\\{FC1C6EAE-3B46-4FAB-A4B0-014AFCA446D2}")
-#define _SnapShotMutexName	_T("Global\\{DED880AB-3644-443D-B906-ED4FFA2CE8D5}")
-#define _SnapShotMemName	_T("Global\\{4FAFDA41-7A85-460A-814E-DFF11B81E1AF}")
-#define _SnapShotEventName	_T("Global\\{2FEBF985-F81F-48BA-8E7D-671DD5DAFD04}")
-
-#define _SnapShotCmdLine	_T("{DE697731-733A-419C-97E2-6D55AB14D6A5}")
-// SnapShot 共享内存结构，总长维持要128字节内
-struct SnapShotMem
-{
-	HWND 	hSnapShot;		// 截图进程的窗口
-	UINT	nReserve[31];
-};
-
-struct SnapsnotManger
-{
-	HANDLE			hSnapProcess;		// 截图进程句柄
-	HANDLE			hSnapShotMem;
-	SnapShotMem*	pSnapshotMem;
-	HANDLE			hEventSnapShot;
-};
-
-/// @brief		解码后YVU数据回调
+/// @brief		解码后YVU数据回调函数定义
+/// @param [in]		hPlayHandle	由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pYUV		YUV数据指针
+/// @param [in]		nSize		YUV数据的长度
+/// @param [in]		nWidth		YUV图像的宽度
+/// @param [in]		nHeight		YUV图像的高度
+/// @param [in]		nTime		产生YUV数据的时间
+/// @param [in]		pUserPtr	用户自定义指针
 typedef void(__stdcall *CaptureYUV)(DVO_PLAYHANDLE hPlayHandle,
 	const unsigned char* pYUV,
 	int nSize,
@@ -209,7 +169,17 @@ typedef void(__stdcall *CaptureYUV)(DVO_PLAYHANDLE hPlayHandle,
 	int nHeight,
 	INT64 nTime,
 	void *pUserPtr);
-/// @brief		解码后YVU数据回调
+/// @brief		解码后YVU数据回调函数定义
+/// @param [in]		hPlayHandle	由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pY			YUV数据Y分量指针
+/// @param [in]		pU			YUV数据U分量指针
+/// @param [in]		pV			YUV数据V分量指针
+/// @param [in]		nStrideY	YUV数据Y分量的副长，即一行数据的长度
+/// @param [in]		nStrideUV	YUV数据UV分量的副长，即一行数据的长度
+/// @param [in]		nWidth		YUV图像的宽度
+/// @param [in]		nHeight		YUV图像的高度
+/// @param [in]		nTime		产生YUV数据的时间
+/// @param [in]		pUserPtr	用户自定义指针
 typedef void(__stdcall *CaptureYUVEx)(DVO_PLAYHANDLE hPlayHandle,
 	const unsigned char* pY,
 	const unsigned char* pU,
@@ -221,21 +191,29 @@ typedef void(__stdcall *CaptureYUVEx)(DVO_PLAYHANDLE hPlayHandle,
 	INT64 nTime,
 	void *pUserPtr);
 
+/// @brief		文件播放回调指针,用户可以用此回调获得播放的实时信息，而不用定时器或另起线程
+/// @param [in]		hPlayHandle	由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pUserPtr	用户自定义指针
 typedef void(__stdcall *FilePlayProc)(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
 
 /// @brief DVO私有录像文件的帧数据解析回调函数
 /// @param [in]		Framedata	一帧DVO私有录像的帧数据
-/// @parqm [in]		nDataSize	数据的长度
+/// @param [in]		nDataSize	数据的长度
 /// @param [in]		pUserPtr	用户自定义指针
 /// @remark 若要暂停数据解析，可调用dvoplay_pause函数
+typedef void(__stdcall *CaptureFrame)(DVO_PLAYHANDLE hPlayHandle,const unsigned char *Framedata,const int nDataSize,void *pUserPtr);
 
-typedef void(__stdcall *CaptureFrame)(DVO_PLAYHANDLE hPlayHandle,
-	const unsigned char *Framedata,
-	const int nDataSize,
-	void *pUserPtr);
-
+/// @brief 外部DC绘制回调函数定义
+/// @param [in]		hWnd	DC绘制回调所对应的窗口
+/// @param [in]		hDc		DC绘制上下文指针
+/// @param [in]		rt		DC对应的窗口区域
+/// @param [in]		pUserPtr	用户自定义指针
 typedef void(__stdcall *ExternDraw)(HWND hWnd, HDC hDc, RECT rt, void *pUserPtr);
 
+/// @brief 外部绘制回调函数定义
+/// @param [in]		hPlayHandle	由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		rt			窗口区域
+/// @param [in]		pUserPtr	用户自定义指针
 typedef void(__stdcall *ExternDrawEx)(DVO_PLAYHANDLE hPlayHandle, RECT rt, void *pUserPtr);
 
 ///	@brief			用于播放DVO私有格式的录像文件
@@ -279,15 +257,16 @@ DVOIPCPLAYSDK_API DVO_PLAYHANDLE	dvoplay_OpenStream(IN HWND hWnd, byte *szStream
 DVOIPCPLAYSDK_API int dvoplay_Close(IN DVO_PLAYHANDLE hPlayHandle,bool bCacheD3d = true);
 
 /// @brief			开启运行日志
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param			szLogFile		日志文件名
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 /// @remark			该函数为开关型函数,默认情况下，不会开启日志,调用此函数后会开启日志，再次调用时则会关闭日志
 DVOIPCPLAYSDK_API int EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
 
-/// @brief 设置显示边界,边界外的图像将不予以显示
+/// @brief 设置图像显示边界,边界外的图像将不予以显示
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param rtBorder	边界参数 详见以下图表
+/// @param rtBorder	边界参数,这是一个RECT结构的变量,详见以下图表
 /// left	左边界距离
 /// top		上边界距离
 /// right	右边界距离
@@ -307,16 +286,19 @@ DVOIPCPLAYSDK_API int EnableLog(IN DVO_PLAYHANDLE hPlayHandle, char *szLogFile);
 /// │                bottom                │
 /// │                  │                   │
 /// └───────────────────────────────────┘
-/// @remark 边界的上下左右位置不可错位,并且边界不能小于0,否则将返回DVO_Error_InvalidParameters
-DVOIPCPLAYSDK_API int dvoplay_SetBorderRect(IN DVO_PLAYHANDLE, RECT rtBorder);
+/// @remark 1.边界的上下左右位置不可错位,并且边界不能小于0,否则将返回DVO_Error_InvalidParameters			
+DVOIPCPLAYSDK_API int dvoplay_SetBorderRect(IN DVO_PLAYHANDLE hPlayHandle, RECT rtBorder);
 
 /// @brief 移除显示边界，显示所有视频图像
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
+
 DVOIPCPLAYSDK_API int dvoplay_RemoveBorderRect(IN DVO_PLAYHANDLE hPlayHandle);
 /// @brief			输入流DVO私有帧格式码流
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		szFrameData		从DVO私有录像文件中读取一帧数据，该数据包含完整的DVO私有帧头
+/// @param [in]		nFrameSize		szFrameData的长度
 /// @retval			0	操作成功
 /// @retval			1	流缓冲区已满
 /// @retval			-1	输入参数无效
@@ -326,6 +308,11 @@ DVOIPCPLAYSDK_API int dvoplay_InputStream(IN DVO_PLAYHANDLE hPlayHandle, unsigne
 
 /// @brief			输入流相机实时码流
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pFrameData		相机码流数据
+/// @param [in]		nFrameType		码流数据类型
+/// @param [in]		nFrameLength	码流数据长度
+/// @param [in]		nFrameNum		码流数据编号
+/// @param [in]		nFrameTime		码流数据取得的时间，单位毫秒
 /// @retval			0	操作成功
 /// @retval			1	流缓冲区已满
 /// @retval			-1	输入参数无效
@@ -358,6 +345,7 @@ DVOIPCPLAYSDK_API int dvoplay_Start(IN DVO_PLAYHANDLE hPlayHandle, IN bool bEnab
 DVOIPCPLAYSDK_API int  dvoplay_Reset(IN DVO_PLAYHANDLE hPlayHandle, HWND hWnd = nullptr, int nWidth = 0, int nHeight = 0);
 
 /// @brief			使视频适应窗口
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bFitWindow		视频是否适应窗口
 /// #- true			视频填满窗口,这样会把图像拉伸,可能会造成图像变形
 /// #- false		只按图像原始比例在窗口中显示,超出比例部分,则以原始背景显示
@@ -410,8 +398,7 @@ DVOIPCPLAYSDK_API bool  dvoplay_IsSupportHaccel(IN DVO_CODEC nCodec);
 
 /// @brief			取得当前播放视频的帧信息
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [out]	nFrameID		返回当前播放视频的帧ID
-/// @param [out]	tTimeStamp		返回当前播放视频的帧相对起点的时间(单位:毫秒)
+/// @param [out]	pPlayInfo		返回当前播放器的相关信息详见@see PlayerInfo
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 DVOIPCPLAYSDK_API int  dvoplay_GetPlayerInfo(IN DVO_PLAYHANDLE hPlayHandle, OUT PlayerInfo *pPlayInfo);
@@ -506,6 +493,15 @@ DVOIPCPLAYSDK_API int  dvoplay_SetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, IN
 /// @remark			若所指定时间点对应帧为非关键帧，帧自动移动到就近的关键帧进行播放
 DVOIPCPLAYSDK_API int  dvoplay_GetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, INOUT UINT &nMaxFrameSize);
 
+/// @brief 设置音频播放参数
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		nPlayFPS		音频码流的帧率
+/// @param [in]		nSampleFreq	采样频率
+/// @param [in]		nSampleBit	采样位置
+/// @remark 在播放音频之前，应先设置音频播放参数,SDK内部默认参数nPlayFPS = 50，nSampleFreq = 8000，nSampleBit = 16
+///         若音频播放参数与SDK内部默认参数一致，可以不用设置这些参数
+DVOIPCPLAYSDK_API int  dvoplay_SetAudioPlayParameters(IN DVO_PLAYHANDLE hPlayHandle, DWORD nPlayFPS = 50, DWORD nSampleFreq = 8000, WORD nSampleBit = 16);
+
 /// @brief			开/关音频播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnable			是否播放音频
@@ -522,37 +518,41 @@ DVOIPCPLAYSDK_API int  dvoplay_EnableAudio(IN DVO_PLAYHANDLE hPlayHandle, bool b
 /// @remark			该功能一般用于播放结束后，刷新窗口，把画面置为黑色
 DVOIPCPLAYSDK_API int  dvoplay_Refresh(IN DVO_PLAYHANDLE hPlayHandle);
 
-/// @brief			获取已放时间,单位毫秒
+/// @brief			获取当前放播放器已播放时间,单位毫秒
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [out]	nEplaseTime		前放播放器已播放时间，单位毫秒
 /// @retval			0	操作成功
 /// @retval			-1	输入参数无效
 DVOIPCPLAYSDK_API int  dvoplay_GetTimeEplased(IN DVO_PLAYHANDLE hPlayHandle, LONGLONG &nEplaseTime);
 
 /// @brief			设置获取用户回调接口,通过此回调，用户可通过回调得到一些数据,或对得到的数据作一些处理
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
-/// @param [in]		回调函数的类型 @see DVO_CALLBACK
+/// @param [in]		nCallBackType	回调函数的类型 @see DVO_CALLBACK
 /// @param [in]		pUserCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetCallBack(IN DVO_PLAYHANDLE hPlayHandle, DVO_CALLBACK nCallBackType, IN void *pUserCallBack, IN void *pUserPtr);
 
-
 /// @brief			设置外部绘制回调接口
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pExternCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetExternDrawCallBack(IN DVO_PLAYHANDLE hPlayHandle, IN void *pExternCallBack, IN void *pUserPtr);
 
 /// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pYuvCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetYUVCapture(IN DVO_PLAYHANDLE hPlayHandle, IN void *pYuvCallBack, IN void *pUserPtr);
 
 /// @brief			设置获取YUV数据回调接口,通过此回调，用户可直接获取解码后的YUV数据
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pYuvCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetYUVCaptureEx(IN DVO_PLAYHANDLE hPlayHandle, IN void *pYuvCallBack, IN void *pUserPtr);
 
 /// @brief			设置DVO私用格式录像，帧解析回调,通过此回，用户可直接获取原始的帧数据
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		pYuvCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetFrameParserCallback(IN DVO_PLAYHANDLE hPlayHandle, IN void *pYuvCallBack, IN void *pUserPtr);
 

@@ -13,12 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="VCAMeta">
-      <UniqueIdentifier>{5bdc4f81-b19b-4f7c-b451-50bb05175f82}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="VCA">
-      <UniqueIdentifier>{89a90311-00aa-4226-9079-f942f7bfec57}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -68,9 +62,6 @@
     </ClInclude>
     <ClInclude Include="DirectDraw.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="vca.h">
-      <Filter>VCA</Filter>
     </ClInclude>
     <ClInclude Include="Runlog.h">
       <Filter>Header Files</Filter>

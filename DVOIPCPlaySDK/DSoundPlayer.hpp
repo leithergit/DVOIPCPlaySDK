@@ -448,7 +448,7 @@ public:
 	// 初始化，主要是生成播放缓冲区和设置通知事件
 	//bGlobalFocus如果为TRUE，在失去焦点时仍然播放
 	//////////////////////////////////////////////////////////////////////////	
-	BOOL Initialize(HWND hWnd, int nNotifyCount = 50, int nPlayTime = 1/*Second*/)
+	BOOL Initialize(HWND hWnd, int nNotifyCount = 50, int nPlayTime = 1/*Second*/, DWORD nSampleFreq = 8000, WORD nBitsPerSample = 16)
 	{
 		if (!TryEnterCriticalSection(&m_csDsound))
 			return FALSE;
@@ -493,11 +493,10 @@ public:
 		m_wfx.cbSize = 0;
 		m_wfx.wFormatTag = (WORD)WAVE_FORMAT_PCM;		// 音频格式
 		m_wfx.nChannels = 1;							// 音频通道数量
-		m_wfx.nSamplesPerSec = 8000;					// 采样率
-		m_wfx.wBitsPerSample = 16;
+		m_wfx.nSamplesPerSec = nSampleFreq;				// 采样率
+		m_wfx.wBitsPerSample = nBitsPerSample;			// 采样位宽
 		m_wfx.nBlockAlign = (WORD)((m_wfx.wBitsPerSample / 8) * m_wfx.nChannels);
 		m_wfx.nAvgBytesPerSec = (DWORD)(m_wfx.nSamplesPerSec * m_wfx.nBlockAlign);
-
 		m_nNotifyCount = nNotifyCount;
 		m_nBufferPlayLength = nPlayTime;
 

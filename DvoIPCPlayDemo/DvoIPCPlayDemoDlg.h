@@ -714,7 +714,7 @@ public:
 			bRecved = false;
 		return m_listStream.size();
 	}
-
+		
 	// 解码录像文件线程,一般在服务端,把一帧数的解析出来后放到流队列中
 	// 在实际的流媒体服务器中，应该是把数据直接发送到播放客户端去
 	static  DWORD WINAPI ThreadSendStream(void *p)
@@ -724,10 +724,10 @@ public:
 			!pThis->m_pPlayContext->hPlayer )
 			return 0;
 		boost::shared_ptr<PlayerContext>pPlayCtx = pThis->m_pPlayContext;
-		
+		DVOFrameHeader Header;
 		byte *pFrameBuffer = NULL;
 		UINT nFrameSize = 0;
-				
+		
 		int nDvoError = 0;
 		int nStreamListSize = 0;
 		int nFrames = 0;
@@ -736,14 +736,14 @@ public:
 			// 读取下一帧
 			if (nStreamListSize < 8)
 			{
-				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer[0], &pFrameBuffer, nFrameSize) != DVO_Succeed)
-				{
-					TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
-					Sleep(5);
-					continue;
-				}
+				int nFrameType = 0;
+ 				if (nDvoError = dvoplay_GetFrame(pPlayCtx->hPlayer[0], &pFrameBuffer, nFrameSize) != DVO_Succeed)
+ 				{
+ 					TraceMsgA("%s dvoplay_GetFrame Failed:%d.\n", __FUNCTION__, nDvoError);
+ 					Sleep(5);
+ 					continue;
+ 				}
 				nFrames++;
-				//TraceMsgA("%s nFrames = %d FrameSize = %d.\n", __FUNCTION__, nFrames,nFrameSize);
 				nStreamListSize = pThis->SendStream(pFrameBuffer, nFrameSize);
 			}
 			else
@@ -751,7 +751,6 @@ public:
 				CAutoLock lock(&pThis->m_csListStream);
 				nStreamListSize = pThis->m_listStream.size();
 			}
-			
 			Sleep(5);
 		}
 		return 0;

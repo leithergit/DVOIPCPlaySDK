@@ -817,7 +817,10 @@ private:	// 音频播放相关变量
 	double		m_dfLastTimeAudioSample;///< 前一次音频采样的时间
 	int			m_nAudioFrames;			///< 当前缓存中音频帧数量
 	int			m_nCurAudioFrame;		///< 当前正播放的音频帧ID
-	
+	DWORD		m_nSampleFreq;			///< 音频采样频率
+	WORD		m_nSampleBit;			///< 采样位宽
+	WORD		m_nAudioPlayFPS;		///< 音频播放帧率
+
 	static shared_ptr<CDSoundEnum> m_pDsoundEnum;	///< 音频设备枚举器
 	static CriticalSectionPtr m_csDsoundEnum;
 private:
@@ -914,6 +917,9 @@ private:
 		InitializeCriticalSection(&m_csBorderRect);
 		m_nMaxFrameSize = 1024 * 256;
 		nSize = sizeof(CDvoPlayer);
+		m_nAudioPlayFPS = 50;
+		m_nSampleFreq = 8000;
+		m_nSampleBit = 2;
 	}
 	LONGLONG GetSeekOffset()
 	{
@@ -1400,6 +1406,18 @@ public:
 			m_pRunlog = nullptr;
 	}
 
+	/// @brief 设置音频播放参数
+	/// @param nPlayFPS		音频码流的帧率
+	/// @param nSampleFreq	采样频率
+	/// @param nSampleBit	采样位置
+	/// @remark 在播放音频之前，应先设置音频播放参数,SDK内部默认参数nPlayFPS = 50，nSampleFreq = 8000，nSampleBit = 16
+	///         若音频播放参数与SDK内部默认参数一致，可以不用设置这些参数
+	void SetAudioPlayParameters(DWORD nPlayFPS = 50, DWORD nSampleFreq = 8000, WORD nSampleBit = 16)
+	{
+		m_nAudioPlayFPS	 = nPlayFPS;
+		m_nSampleFreq	 = nSampleFreq;
+		m_nSampleBit	 = nSampleBit;
+	}
 	void ClearOnException()
 	{
 		if (m_pszFileName)
@@ -1451,7 +1469,9 @@ public:
 		if (!m_pDsoundEnum)
 			m_pDsoundEnum = make_shared<CDSoundEnum>();	///< 音频设备枚举器
 		m_csDsoundEnum->Unlock();
-		
+		m_nAudioPlayFPS = 50;
+		m_nSampleFreq = 8000;
+		m_nSampleBit = 2;
 #ifdef _DEBUG
 		OutputMsg("%s Alloc a \tObject:%d.\n", __FUNCTION__, m_nObjIndex);
 #endif
@@ -3042,7 +3062,7 @@ public:
 				m_pDsPlayer = make_shared<CDSound>(m_hWnd);
 			if (!m_pDsPlayer->IsInitialized())
 			{
-				if (!m_pDsPlayer->Initialize(m_hWnd, Audio_Play_Segments))
+				if (!m_pDsPlayer->Initialize(m_hWnd, m_nAudioPlayFPS,1,m_nSampleFreq,m_nSampleBit))
 				{
 					m_pDsPlayer = nullptr;
 					m_bEnableAudio = false;

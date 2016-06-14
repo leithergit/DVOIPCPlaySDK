@@ -665,6 +665,24 @@ DVOIPCPLAYSDK_API int  dvoplay_GetMaxFrameSize(IN DVO_PLAYHANDLE hPlayHandle, IN
 // 	return DVO_Succeed;
 // }
 
+
+/// @brief 设置音频播放参数
+/// @param nPlayFPS		音频码流的帧率
+/// @param nSampleFreq	采样频率
+/// @param nSampleBit	采样位置
+/// @remark 在播放音频之前，应先设置音频播放参数,SDK内部默认参数nPlayFPS = 50，nSampleFreq = 8000，nSampleBit = 16
+///         若音频播放参数与SDK内部默认参数一致，可以不用设置这些参数
+DVOIPCPLAYSDK_API int  dvoplay_SetAudioPlayParameters(IN DVO_PLAYHANDLE hPlayHandle, DWORD nPlayFPS /*= 50*/, DWORD nSampleFreq/* = 8000*/, WORD nSampleBit/* = 16*/)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->SetAudioPlayParameters(nPlayFPS, nSampleFreq, nSampleBit);
+	return DVO_Succeed;
+}
+
 /// @brief			开/关音频播放
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		bEnable			是否播放音频

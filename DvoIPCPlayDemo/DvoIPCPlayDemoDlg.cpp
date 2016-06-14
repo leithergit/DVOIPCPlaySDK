@@ -1565,6 +1565,7 @@ void CDvoIPCPlayDemoDlg::StreamCallBack(IN USER_HANDLE  lUserID,
 			pContext->nAudioFrameID++;
 		pContext->nAudioCodec = pStreamHeader->frame_type;
 		pContext->pStreamInfo->nAudioFrameCount++;
+		//pStreamHeader->frame_type = APP_NET_TCP_COM_DST_711_ALAW;
 		break;
 	default:
 		//TraceMsgA("%s Audio Frame Length = %d.\n", __FUNCTION__, nFrameLength);

@@ -24,6 +24,7 @@ EXPORTS
 	dvoplay_SeekFrame
 	dvoplay_SeekTime
 	dvoplay_GetFrame
+	dvoplay_SetAudioPlayParameters
 	dvoplay_EnableAudio
 	dvoplay_Refresh
 	dvoplay_SetCallBack
