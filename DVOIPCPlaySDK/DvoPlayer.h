@@ -3328,7 +3328,7 @@ public:
 		}
 		shared_ptr<void> DvoFilePtr(hDvoFile, CloseHandle);
 		DWORD nBufferSize = 1024 * 1024*16;
-		LARGE_INTEGER liFileSize;		
+		LARGE_INTEGER liFileSize;
 		if (!GetFileSizeEx(hDvoFile, &liFileSize))
 			return 0;
 		if (liFileSize.QuadPart <= nBufferSize)
