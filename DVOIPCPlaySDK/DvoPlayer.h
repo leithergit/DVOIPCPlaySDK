@@ -69,13 +69,19 @@ using namespace std::tr1;
 ///		DecodeTimeTrace.SaveTime(dfDecodeTimespa);
 ///		if (DecodeTimeTrace.IsFull())
 ///			DecodeTimeTrace.OutputTime(0.005f);
+
 struct TimeTrace
 {
 	char szName[128];
 	char szFunction[128];
-	double dfTimeArray[100];
+	double dfTimeArray[125];
 	int	   nTimeCount;
 	double dfInputTime;
+private:
+	explicit TimeTrace()
+	{
+	}
+public:
 	TimeTrace(char *szNameT, char *szFunctionT)
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
@@ -788,6 +794,7 @@ private:
 	AVPixelFormat	m_nDecodePirFmt;	///< 解码后的象素格式
 	int			m_nFrameEplased;		///< 已经播放帧数
 	int			m_nCurVideoFrame;		///< 当前正播放的视频帧ID
+	time_t		m_nFirstFrameTime;		///< 文件播放或流回放的第1帧的时间
 	time_t		m_tCurFrameTimeStamp;
 	time_t		m_tLastFrameTime;
 	USHORT		m_nPlayFPS;				///< 播放时帧率
@@ -2087,7 +2094,7 @@ public:
 	/// @retval			-1	输入参数无效
 	/// @remark			播放流数据时，相应的帧数据其实并未立即播放，而是被放了播放队列中，应该根据dvoplay_PlayStream
 	///					的返回值来判断，是否继续播放，若说明队列已满，则应该暂停输入
-	int InputStream(unsigned char *szFrameData, int nFrameSize, UINT nCacheSize = 0, bool bNoThreadCheck = false)
+	int InputStream(unsigned char *szFrameData, int nFrameSize, UINT nCacheSize = 0, bool bThreadInside = false/*是否内部线程调用标志*/)
 	{
 		if (!szFrameData || nFrameSize < sizeof(DVOFrameHeader))
 			return DVO_Error_InvalidFrame;
@@ -2097,8 +2104,8 @@ public:
 			nMaxCacheSize = nCacheSize;
 		if (m_bStopFlag)
 			return DVO_Error_PlayerHasStop;
-		if (!bNoThreadCheck)
-		{
+		if (!bThreadInside)
+		{// 若不是内部线程，则需要检查视频和音频解码是否已经运行
 			if (!m_bThreadPlayVideoRun || !m_hThreadPlayVideo)
 			{
 #ifdef _DEBUG
@@ -2107,7 +2114,7 @@ public:
 				return DVO_Error_VideoThreadNotRun;
 			}
 		}
-		
+
 		m_bIpcStream = false;		// 非IPC码流
 		DVOFrameHeader *pHeaderEx = (DVOFrameHeader *)szFrameData;
 		if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
@@ -2138,13 +2145,17 @@ public:
 				{
 	// 				if (!m_hThreadPlayVideo)
 	// 					return DVO_Error_AudioThreadNotRun;
-					if (!m_bEnableAudio && !bNoThreadCheck)
-						break;
+					
 					if (m_fPlayRate != 1.0f)
 						break;
 					CAutoLock lock(&m_csAudioCache, false, __FILE__, __FUNCTION__, __LINE__);
-					if (m_listAudioCache.size() >= nMaxCacheSize*2)
-						return DVO_Error_FrameCacheIsFulled;
+					if (m_listAudioCache.size() >= nMaxCacheSize * 2)
+					{
+						if (m_bEnableAudio)
+							return DVO_Error_FrameCacheIsFulled;
+						else
+							m_listAudioCache.pop_front();
+					}
 					StreamFramePtr pStream = make_shared<StreamFrame>(szFrameData, nFrameSize, m_nFileFrameInterval/2);
 					if (!pStream)
 						return DVO_Error_InsufficentMemory;
@@ -2466,14 +2477,14 @@ public:
 			pPlayInfo->nPlayFPS		 = m_nPlayFPS;
 			pPlayInfo->nCacheSize	 = m_nVideoCache;
 			pPlayInfo->nCacheSize2	 = m_nAudioCache;
-			if (m_pszFileName )
+			if (!m_bIpcStream)
 			{
 				pPlayInfo->nCurFrameID = m_nCurVideoFrame;
 				pPlayInfo->nTotalFrames = m_nTotalFrames;
 				if (m_nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && m_nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 				{
 					pPlayInfo->tTotalTime = m_nTotalFrames*1000/m_nFileFPS;
-					pPlayInfo->tCurFrameTime = m_nCurVideoFrame * 1000 / m_nFileFPS;
+					pPlayInfo->tCurFrameTime = (m_tCurFrameTimeStamp - m_nFirstFrameTime)/1000;
 				}
 				else
 				{
@@ -2643,9 +2654,6 @@ public:
 // 			return DVO_Error_PlayerNotStart;
 // 		return DVO_Succeed;
 // 	}
-
-
-	
 
 	/// @brief			截取正放播放的视频图像
 	/// @param [in]		szFileName		要保存的文件名
@@ -4293,6 +4301,7 @@ public:
 		double dfDecodeTimespan = 0.0f;	// 解码所耗费时间
 		double dfDecodeITimespan = 0.0f; // I帧解码和显示所耗费时间
 		double dfTimeDecodeStart = 0.0f;
+		pThis->m_nFirstFrameTime = pThis->m_listVideoCache.front()->FrameHeader()->nTimestamp;
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)

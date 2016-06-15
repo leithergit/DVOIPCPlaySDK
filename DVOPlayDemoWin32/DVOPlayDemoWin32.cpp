@@ -97,7 +97,7 @@ public:
 public:
 	PlayerContext(USER_HANDLE hUserIn,
 		REAL_HANDLE hStreamIn = -1,
-		DVO_PLAYHANDLE hPlayerIn = NULL, int nCount = 1)
+		DVO_PLAYHANDLE hPlayerIn = nullptr, int nCount = 1)
 	{
 		ZeroMemory(this, sizeof(PlayerContext));
 		nTimeCount = 0;
@@ -521,7 +521,7 @@ void OnButtonAddList(HWND hDlg)
 void OnButtonConnect(HWND hDlg)
 {
 
-	CHAR szAccount[32] = { 0 };
+	CHAR szAccount[32] = { 0 };		// 相机登录密码
 	CHAR szPassowd[32] = { 0 };
 	CHAR szIPAddress[32] = { 0 };
 	GetDlgItemText(hDlg,IDC_EDIT_ACCOUNT, szAccount, 32);
@@ -621,7 +621,61 @@ void OnButtonSwitchStream(HWND hDlg)
 		//SetTimer(hDlg, ID_TIMER_CHECKSTREAM, 100, NULL);
 	}
 }
+void TestCode()
+{
+	REAL_HANDLE hStreamHandle = -1;
+	USER_HANDLE hUser = -1; 
+	int nError = 0;
+	DVO_MEDIAINFO MediaHeader;
+	DVO_PLAYHANDLE hPlayer = nullptr;
+	// 设置图像尺寸和音视频编码
+	MediaHeader.nVideoWidth = 1280;
+	MediaHeader.nVideoHeight = 720;
+	MediaHeader.nAudioCodec = CODEC_G711U;
+	MediaHeader.nVideoCodec = CODEC_H264;
+	// 请求相机实时码流，并设置码流捕捉回调函数,StreamCallBack为码流回调函数
+	hStreamHandle = DVO2_NET_StartRealPlay(hUser,
+		0,
+		nStream,
+		DVO_TCP,
+		0,
+		NULL,
+		(fnDVOCallback_RealAVData_T)StreamCallBack,
+		nullptr,
+		&nError);
+	if (hStreamHandle == -1)
+	{
+		printf("连接码流失败,Error = %d.",  nError);
+		return;
+	}
+	
+	hPlayer = dvoplay_OpenStream(NULL, (byte *)&MediaHeader, sizeof(MediaHeader), 128, "dvoipcPlaySDK.LOG");
 
+	if (!m_pPlayContext[i]->hPlayer)
+	{
+		printf("打开流播放句柄失败.");
+		return;
+	}
+
+	dvoplay_Refresh(hPlayer);				// 把软件界面刷为黑色
+	dvoplay_Start(hPlayer, false, true);	// 启动视频解码和播放
+	dvoplay_SetCallBack(hPlayer, YUVCapture, _CaptureYUV, nullptr);		// 设置YUV数据捕捉回调
+	
+}
+
+void  __stdcall StreamCallBack1(IN USER_HANDLE  lUserID,
+	IN REAL_HANDLE lStreamHandle,
+	IN int         nErrorType,
+	IN const char* pBuffer,
+	IN int         nDataLen,
+	IN void*       pUser)
+{
+	app_net_tcp_enc_stream_head_t *pStreamHeader = (app_net_tcp_enc_stream_head_t *)pBuffer;
+	byte *pFrameData = (byte *)(pStreamHeader)+ sizeof(app_net_tcp_enc_stream_head_t);
+	int nFrameLength = nDataLen - sizeof(app_net_tcp_enc_stream_head_t);
+	if (hPlayer)
+		dvoplay_InputIPCStream(hPlayer, pFrameData, pStreamHeader->frame_type, nFrameLength, pStreamHeader->frame_num, 0);
+}
 void OnButtonPlayStream(HWND hDlg)
 {
 	char szText[128] = { 0 };
