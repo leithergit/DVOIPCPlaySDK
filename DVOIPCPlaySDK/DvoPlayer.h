@@ -57,7 +57,7 @@ using namespace std::tr1;
 #define Frame2(p)		((DVOFrameHeader *)p)
 
 #ifdef _DEBUG
-#define _MaxTimeCount	125
+#define _MaxTimeCount	50
 /// @brief	用于追踪代码执行时间的类，主要用于调试
 /// @remark 有些时间，要追查代码哪些代码的执行时间超过预期，但如果每执行一次就输入的话，
 /// 会对代码的运行造成影响,因此要积累一定的数据再输出的话，会把这种影响降低到可以接受的程度
@@ -74,7 +74,7 @@ struct TimeTrace
 {
 	char szName[128];
 	char szFunction[128];
-	double dfTimeArray[125];
+	double dfTimeArray[_MaxTimeCount];
 	int	   nTimeCount;
 	double dfInputTime;
 private:
@@ -139,7 +139,7 @@ public:
 		}
 		dfAvg /= nTimeCount;
 		//if (dfAvg >= fMaxTime)
-			TraceMsgA("%s Avg %s = %.6f.\n", szFunction, szName, dfAvg / nTimeCount);
+			TraceMsgA("%s Avg %s = %.6f.\n", szFunction, szName, dfAvg);
 		if (bReset)
 			nTimeCount = 0;
 	}
@@ -538,7 +538,7 @@ struct StreamFrame
 		pInputData = (byte *)_aligned_malloc(nLenth, 16);
 		//pInputData = _New byte[nLenth];
 		if (pInputData)
-			memcpy_s(pInputData,nLenth, pBuffer, nLenth);
+			memcpy(pInputData, pBuffer, nLenth);
 		DVOFrameHeader* pHeader = (DVOFrameHeader *)pInputData;
 		if (nSDKVersion >= DVO_IPC_SDK_VERSION_2015_12_16 && nSDKVersion != DVO_IPC_SDK_GSJ_HEADER)
 			pHeader->nTimestamp = ((DVOFrameHeaderEx* )pHeader)->nFrameID*nFrameInterval * 1000;
@@ -592,7 +592,7 @@ struct StreamFrame
 #ifdef _DEBUG
 		pHeader->dfRecvTime		 = GetExactTime();
 #endif
-		memcpy_s(pInputData + sizeof(DVOFrameHeaderEx),nFrameLength, pFrame, nFrameLength);
+		memcpy(pInputData + sizeof(DVOFrameHeaderEx), pFrame, nFrameLength);
 #ifdef _DEBUG
 		//OutputMsg("%s pInputData = %08X size = %d.\n", __FUNCTION__, (long)pInputData,nSize);
 #endif
@@ -3089,6 +3089,7 @@ public:
 			m_hAudioFrameEvent[1] = CreateEvent(nullptr, false, true, nullptr);
 			m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
 			m_pDsBuffer->StartPlay();
+			m_pDsBuffer->SetVolume(0);
 			m_dfLastTimeAudioPlay = 0.0f;
 			m_dfLastTimeAudioSample = 0.0f;
 			m_bEnableAudio = true;
@@ -4515,7 +4516,8 @@ public:
 		int nPCMSize = 0;
 		int nDecodeSize = 0;
 		__int64 nFrameEvent = 0;
-
+// 		if (pThis->m_nAudioPlayFPS == 8)
+// 			Sleep(250);
 		// 预读第一帧，以初始化音频解码器
 		while (pThis->m_bThreadPlayAudioRun)
 		{
@@ -4584,7 +4586,8 @@ public:
 			pPCM = new byte[nDecodeSize];
 			nPCMSize = nDecodeSize;
 		}
-		double dfLastPlayTime = 0.0f;
+		TimeTrace TimeAudio("AudioTime", __FUNCTION__);
+		double dfLastPlayTime = GetExactTime();
 		double dfPlayTimeSpan = 0.0f;
 		UINT nFramesPlayed = 0;
 		WaitForSingleObject(pThis->m_hEventDecodeStart,1000);
@@ -4595,6 +4598,7 @@ public:
 		time_t tLastFrameTime = 0;
 		double dfDecodeStart = GetExactTime();
 		DWORD dwOsMajorVersion = GetOsMajorVersion();
+
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			if (pThis->m_bPause)
@@ -4618,12 +4622,12 @@ public:
 				continue;
 			}
 			
-			if (nTimeSpan > 1000*3/pThis->m_nAudioPlayFPS)			// 连续100ms没有音频数据，则视为音频暂停
+			if (nTimeSpan > 1000*3/pThis->m_nAudioPlayFPS)			// 连续3*音频码流间隔没有音频数据，则视为音频暂停
 				pThis->m_pDsBuffer->StopPlay();
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
 			bool bPopFrame = false;
-
+			
 			::EnterCriticalSection(&pThis->m_csAudioCache);
 			if (pThis->m_listAudioCache.size() > 0)
 			{
@@ -4633,26 +4637,25 @@ public:
 			}
 			pThis->m_nAudioCache = pThis->m_listAudioCache.size();
 			::LeaveCriticalSection(&pThis->m_csAudioCache);
-
+			
 			if (!bPopFrame)
 			{
-				Sleep(10);
+				Sleep(5);
 				continue;
 			}
-			nFramesPlayed++;
+			
 // 			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
 // 			{
 // 				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
 // 			}
-
 			if (nFramesPlayed < 50 && dwOsMajorVersion < 6)
 			{// 修正在XP系统中，前50帧会被瞬间丢掉的问题
 				if (((TimeSpanEx(dfLastPlayTime) + dfPlayTimeSpan)*1000) < nAudioFrameInterval)
 					Sleep(nAudioFrameInterval - (TimeSpanEx(dfLastPlayTime)*1000));
 			}
-
-			dfPlayTimeSpan = GetExactTime();
-			if (pThis->m_pDsBuffer->IsPlaying())
+			
+			if (pThis->m_pDsBuffer->IsPlaying() //||
+				/*pThis->m_pDsBuffer->WaitForPosNotify()*/)
 			{
 				if (pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
 				{
@@ -4663,7 +4666,14 @@ public:
 				else
 					TraceMsgA("%s Audio Decode Failed Is.\n", __FUNCTION__);
 			}
-			dfPlayTimeSpan = TimeSpanEx(dfPlayTimeSpan);
+			nFramesPlayed++;
+// 			if (pThis->m_nAudioPlayFPS == 8)
+// 				Sleep(1000 / pThis->m_nAudioPlayFPS);
+// 			
+// 			dfPlayTimeSpan = TimeSpanEx(dfLastPlayTime);
+// 			TimeAudio.SaveTime(dfPlayTimeSpan);
+// 			if (TimeAudio.IsFull())
+// 				TimeAudio.OutputTime();
 			dfLastPlayTime = GetExactTime();
 			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
 		}

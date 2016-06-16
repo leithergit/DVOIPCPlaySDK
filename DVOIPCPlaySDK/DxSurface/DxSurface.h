@@ -1384,16 +1384,16 @@ _Failed:
 
 		// YUV420P的U和V分量对调，便成为YV12格式
 		// 复制Y分量
-		for (int i = 0; i < pFrame420P->height; i++)
-			memcpy_s(pDestY + i * nStride, nSize*3/2 - i*nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
+ 		for (int i = 0; i < pFrame420P->height; i++)
+ 			memcpy_s(pDestY + i * nStride, nSize*3/2 - i*nStride, pFrame420P->data[0] + i * pFrame420P->linesize[0], pFrame420P->width);
 
 		// 复制YUV420P的U分量到目村的YV12的U分量
-		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy_s(pDestU + i * nStride / 2,nSizoefU - i*nStride/2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width/2);
+ 		for (int i = 0; i < pFrame420P->height / 2; i++)
+ 			memcpy_s(pDestU + i * nStride / 2,nSizoefU - i*nStride/2, pFrame420P->data[1] + i * pFrame420P->linesize[1], pFrame420P->width/2);
 
 		// 复制YUV420P的V分量到目村的YV12的V分量
-		for (int i = 0; i < pFrame420P->height / 2; i++)
-			memcpy_s(pDestV + i * nStride / 2,nSizeofV - i*nStride/2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width/2);
+ 		for (int i = 0; i < pFrame420P->height / 2; i++)
+ 			memcpy_s(pDestV + i * nStride / 2,nSizeofV - i*nStride/2, pFrame420P->data[2] + i * pFrame420P->linesize[2], pFrame420P->width/2);
 	}
 
 	void CopyFrameARGB(byte *pDest,int nDestSize,int nStride,AVFrame *pFrameARGB)

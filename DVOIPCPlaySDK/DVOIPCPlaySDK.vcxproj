@@ -64,8 +64,8 @@
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -92,8 +92,8 @@ for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,E:\DVO\Git\public\DVOIPCPlayS
       <OptimizeReferences>false</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>@echo off
-for %%i in (E:\DVO\OCX_2.0\bin\Debug\dvoipcnet2ocx,"C:\Program Files (x86)\DiveoTech\610",E:\DVO\Git\public\DVOIPCPlaySDK\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoIpcNet2Ocx\$(ConfigurationName),E:\DVO\Git\public\OCX\DvoPlayOcx\$(ConfigurationName)) do for %%j in ($(TargetPath) $(TargetDir)$(TargetName).lib, $(TargetDir)$(TargetName).pdb) do call CopyTarget.bat %%j %%i</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

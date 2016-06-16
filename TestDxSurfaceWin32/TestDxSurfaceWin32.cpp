@@ -358,30 +358,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					return 0;
 				}
 			}
-			char szPath[1024] = { 0 };
-			GetAppPathA(szPath, 1024);
-			strcat(szPath, "\\");
-			strcat(szPath, szYUVFile);
-			g_hYUVFile = CreateFileA(szPath,
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,
-				OPEN_EXISTING,
-				FILE_ATTRIBUTE_ARCHIVE,
-				NULL);
-			if (g_hYUVFile == INVALID_HANDLE_VALUE)
-			{
-				MessageBox(hWnd, "CreateFileA  Failed.", "提示", MB_OK | MB_ICONSTOP);
-				return 0;
-			}
-			shared_ptr<void> FileClosePtr(g_hYUVFile, CloseHandle);
-			DWORD nFileLength = 0;
-			if (!(nFileLength = GetFileSize(g_hYUVFile, nullptr)))
-			{
-				MessageBox(hWnd, "GetFileSize Failed.", "提示", MB_OK | MB_ICONSTOP);
-				return 0;
-			}
-			char *pYUVBuffer = (char *)_aligned_malloc(nFileLength, 16);
+// 			char szPath[1024] = { 0 };
+// 			GetAppPathA(szPath, 1024);
+// 			strcat(szPath, "\\");
+// 			strcat(szPath, szYUVFile);
+// 			g_hYUVFile = CreateFileA(szPath,
+// 				GENERIC_READ,
+// 				FILE_SHARE_READ,
+// 				NULL,
+// 				OPEN_EXISTING,
+// 				FILE_ATTRIBUTE_ARCHIVE,
+// 				NULL);
+// 			if (g_hYUVFile == INVALID_HANDLE_VALUE)
+// 			{
+// 				MessageBox(hWnd, "CreateFileA  Failed.", "提示", MB_OK | MB_ICONSTOP);
+// 				return 0;
+// 			}
+// 			shared_ptr<void> FileClosePtr(g_hYUVFile, CloseHandle);
+// 			DWORD nFileLength = 0;
+// 			if (!(nFileLength = GetFileSize(g_hYUVFile, nullptr)))
+// 			{
+// 				MessageBox(hWnd, "GetFileSize Failed.", "提示", MB_OK | MB_ICONSTOP);
+// 				return 0;
+// 			}
+			char *pYUVBuffer = (char *)_aligned_malloc(1280*720*3/2, 16);
+			ZeroMemory(pYUVBuffer, 1280 * 720 * 3 / 2);
 			shared_ptr<char> pYUVBufferPtr(pYUVBuffer, _aligned_free);
 			DWORD dwBytesreads = 0;
 			HWND hDestPresent = nullptr;
@@ -403,7 +404,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ScreenToClient(hDestPresent, (LPPOINT)&rtDest);
 			ScreenToClient(hDestPresent, ((LPPOINT)&rtDest) + 1);
 
-			if (ReadFile(g_hYUVFile, pYUVBuffer, nFileLength, &dwBytesreads, nullptr) && dwBytesreads)
+			//if (ReadFile(g_hYUVFile, pYUVBuffer, nFileLength, &dwBytesreads, nullptr) && dwBytesreads)
 			{
 				if (IsDlgButtonChecked(hWnd, IDC_RADIO_D3DAPI) == BST_CHECKED)
 				{
@@ -470,7 +471,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						g_pYUVImage->pBuffer[0] = (PBYTE)pYUVBuffer;
 						g_pYUVImage->pBuffer[1] = (PBYTE)&pYUVBuffer[nVideoWidth*nVideoHeight];
 						g_pYUVImage->pBuffer[2] = (PBYTE)&pYUVBuffer[nVideoWidth*nVideoHeight * 5 / 4];
-						g_pDDraw->Draw(*g_pYUVImage, true);
+						// g_pDDraw->Draw(*g_pYUVImage, true);
 						// g_pDDraw->Draw((byte *)pYUVBuffer, true);
 					}
 				}
@@ -478,75 +479,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			
 			break;
 		}
-		case IDC_BUTTON_SENDYUV:
-		{
-			ShowWindow(hWnd, SW_HIDE);
-			HWND hDest = FindWindow(nullptr, _T("DVO SnapShot"));
-			if (!hDest)
-			{
-				MessageBox(nullptr, "找不到指定的窗口", "提示", MB_ICONSTOP);
-				return 0;
-			}
-			char szPath[1024] = { 0 };
-			GetAppPathA(szPath, 1024);
-			strcat(szPath, "\\");
-			strcat(szPath, szYUVFile);
-			g_hYUVFile = CreateFileA(szPath,
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,
-				OPEN_EXISTING,
-				FILE_ATTRIBUTE_ARCHIVE,
-				NULL);
-			if (g_hYUVFile == INVALID_HANDLE_VALUE)
-			{
-				MessageBox(hWnd, "CreateFileA  Failed.", "提示", MB_OK | MB_ICONSTOP);
-				return 0;
-			}
-			shared_ptr<void> FileClosePtr(g_hYUVFile, CloseHandle);
-			DWORD nFileLength = 0;
-			if (!(nFileLength = GetFileSize(g_hYUVFile, nullptr)))
-			{
-				MessageBox(hWnd, "GetFileSize Failed.", "提示", MB_OK | MB_ICONSTOP);
-				return 0;
-			}
-			char *pYUVBuffer = (char *)_aligned_malloc(nFileLength, 16);
-			shared_ptr<char> pYUVBufferPtr(pYUVBuffer, _aligned_free);
-			DWORD dwBytesreads = 0;
 
-			if (ReadFile(g_hYUVFile, pYUVBuffer, nFileLength, &dwBytesreads, nullptr) && dwBytesreads)
-			{
-				int nSize = sizeof(YUVFrame) + nVideoWidth * nVideoHeight * 3 / 2;
-				nSize = FFALIGN(nSize, 16);
-				YUVFrame *pYUVFrame = (YUVFrame *)malloc(nSize);
-				pYUVFrame->nFormat = AV_PIX_FMT_YUV420P;
-				pYUVFrame->nFrameLength = nVideoWidth * nVideoHeight * 3 / 2;
-				pYUVFrame->nHeight = nVideoHeight;
-				pYUVFrame->nWidth = nVideoWidth;
-				pYUVFrame->nLineSize[0] = 1280;
-				pYUVFrame->nLineSize[1] = 640;
-				pYUVFrame->nLineSize[2] = 640;
-				SYSTEMTIME sysTime;
-				GetLocalTime(&sysTime);
-				char szYUVFile[512] = { 0 };
-				swprintf(pYUVFrame->szFileName, L"YVU_192.168.3.29_%04d%02d%02d_%02d%02d%02d.jpg",
-					sysTime.wYear,
-					sysTime.wMonth,
-					sysTime.wDay,
-					sysTime.wHour,
-					sysTime.wMinute,
-					sysTime.wSecond);
-				byte *pYUV = (byte *)(((byte *)pYUVFrame) + sizeof(YUVFrame));
-				memcpy(pYUV, pYUVBuffer, nSize - sizeof(YUVFrame));
-				COPYDATASTRUCT cds;
-				cds.cbData = FFALIGN(nSize, 16);
-				cds.lpData = pYUVFrame;
-				LRESULT nResult = SendMessage(hDest, WM_COPYDATA, (WPARAM)hWnd, (LPARAM)&cds);
-				free(pYUVFrame);
-				DxTraceMsg("WM_COPYDATA Result = %d.\n", nResult);
-			}
-			break;
-		}
 		case IDC_BUTTON_CLOSEDXSURFACE:
 		{
 			if (IsDlgButtonChecked(hWnd, IDC_RADIO_D3DAPI) == BST_CHECKED)
