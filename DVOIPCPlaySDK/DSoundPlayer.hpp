@@ -280,19 +280,23 @@ public:
 	}
 
 
-	bool WritePCM(IN byte *pPCM, IN int nPCMLength)
+	bool WritePCM(IN byte *pPCM, IN int nPCMLength,bool bWait = true)
 	{
 		LPVOID  pBuffer1;
 		DWORD	nBuffer1Length;
 		LPVOID  pBuffer2;
 		DWORD	nBuffer2Length;
 
-// 		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 200);
-// 		if (nResult == WAIT_TIMEOUT)
-// 		{
-// 			DsTrace("%s Wait for Dsound Play evnet timeout.\n", __FUNCTION__);
-// 			return false;
-// 		}
+		if (bWait)
+		{
+			DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 200);
+			if (nResult == WAIT_TIMEOUT)
+			{
+				DsTrace("%s Wait for Dsound Play evnet timeout.\n", __FUNCTION__);
+				return false;
+			}
+		}
+
 
 		if (!TryEnterCriticalSection(&m_csBuffer))
 		{

@@ -4635,8 +4635,12 @@ public:
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
 			bool bPopFrame = false;
-			if (pThis->m_pDsBuffer->IsPlaying())
-				pThis->m_pDsBuffer->WaitForPosNotify();
+			if (pThis->m_bIpcStream)
+			{
+				if (pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->WaitForPosNotify();
+			}
+ 			
 			::EnterCriticalSection(&pThis->m_csAudioCache);
 			if (pThis->m_listAudioCache.size() > 0)
 			{
@@ -4649,22 +4653,11 @@ public:
 			
 			if (!bPopFrame)
 			{
-				//nSleepCount++;
-				//Sleep(2);
+				if (!pThis->m_bIpcStream)
+					Sleep(10);
 				continue;
 			}
-// 			if (nSleepCount > 1)
-// 			{
-// 				TraceSleepCount.SaveTime(nSleepCount);
-// 				nSleepCount = 0;
-// 			}
-// 			if (TraceSleepCount.IsFull())
-// 				TraceSleepCount.OutputTime();
-			
-// 			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
-// 			{
-// 				TraceMsgA("%s TimeSpan:%.3f\t%d AudioFrames is Played,Audio Cache Size = %d.\n", __FUNCTION__, TimeSpanEx(dfDecodeStart), nFramesPlayed, pThis->m_nAudioCache);
-// 			}
+
 			if (nFramesPlayed < 50 && dwOsMajorVersion < 6)
 			{// 修正在XP系统中，前50帧会被瞬间丢掉的问题
 				if (((TimeSpanEx(dfLastPlayTime) + dfPlayTimeSpan)*1000) < nAudioFrameInterval)
@@ -4676,7 +4669,7 @@ public:
 			{
 				if (pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
 				{
-					if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize))
+					if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize,!pThis->m_bIpcStream))
 						pThis->OutputMsg("%s Write PCM Failed.\n", __FUNCTION__);
 					SetEvent(pThis->m_hAudioFrameEvent[nFrameEvent++ % 2]);
 				}
@@ -4687,9 +4680,6 @@ public:
  			if (pThis->m_nAudioPlayFPS == 8 && nFramesPlayed <= 8)
  				Sleep(120);
 			dfPlayTimeSpan = TimeSpanEx(dfLastPlayTime);
-// 			TimeAudio.SaveTime(dfPlayTimeSpan);
-// 			if (TimeAudio.IsFull())
-// 				TimeAudio.OutputTime();
 			dfLastPlayTime = GetExactTime();
 			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
 		}
