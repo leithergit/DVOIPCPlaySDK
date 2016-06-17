@@ -287,12 +287,12 @@ public:
 		LPVOID  pBuffer2;
 		DWORD	nBuffer2Length;
 
-		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 200);
-		if (nResult == WAIT_TIMEOUT)
-		{
-			DsTrace("%s Wait for Dsound Play evnet timeout.\n", __FUNCTION__);
-			return false;
-		}
+// 		DWORD nResult = WaitForMultipleObjects(m_nNotifyCount, m_hEventArray, FALSE, 200);
+// 		if (nResult == WAIT_TIMEOUT)
+// 		{
+// 			DsTrace("%s Wait for Dsound Play evnet timeout.\n", __FUNCTION__);
+// 			return false;
+// 		}
 
 		if (!TryEnterCriticalSection(&m_csBuffer))
 		{

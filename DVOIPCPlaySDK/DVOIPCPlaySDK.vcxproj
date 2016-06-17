@@ -64,8 +64,11 @@
       <ModuleDefinitionFile>DVOIPCPlaySDK.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>@echo off
+echo copy  $(TargetPath) E:\DVO\GSJVIDEOVIEW\SDK Demo-支持转发\net_demo\Debug
+copy  "$(TargetPath)" "E:\DVO\GSJVIDEOVIEW\SDK Demo-支持转发\net_demo\Debug" /y
+echo copy  $(TargetDir)$(TargetName).pdb E:\DVO\GSJVIDEOVIEW\SDK Demo-支持转发\net_demo\Debug
+copy "$(TargetDir)$(TargetName).pdb" "E:\DVO\GSJVIDEOVIEW\SDK Demo-支持转发\net_demo\Debug" /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

@@ -77,16 +77,18 @@ struct TimeTrace
 	double dfTimeArray[_MaxTimeCount];
 	int	   nTimeCount;
 	double dfInputTime;
+	int nMaxCount;
 private:
 	explicit TimeTrace()
 	{
 	}
 public:
-	TimeTrace(char *szNameT, char *szFunctionT)
+	TimeTrace(char *szNameT, char *szFunctionT,int nMaxCount = _MaxTimeCount)
 	{
 		ZeroMemory(this, sizeof(TimeTrace));
 		strcpy(szName, szNameT);
 		strcpy(szFunction, szFunctionT);
+		this->nMaxCount = nMaxCount;
 	}
 	void Zero()
 	{
@@ -94,7 +96,7 @@ public:
 	}
 	inline bool IsFull()
 	{
-		return (nTimeCount >= _MaxTimeCount);
+		return (nTimeCount >= nMaxCount);
 	}
 	inline void SaveTime()
 	{
@@ -2238,7 +2240,6 @@ public:
 // 			m_OuputTime.nInputStream = timeGetTime();
 // 		}
 // #endif
-		
 		if (m_bStopFlag)
 			return DVO_Error_PlayerHasStop;
 
@@ -2290,7 +2291,6 @@ public:
 			case APP_NET_TCP_COM_DST_AAC:           // AAC编码帧。
 			{
 				m_nAudioCodec = (DVO_CODEC)nFrameType;
-				//m_nAudioFrames1++;
 // 				if ((timeGetTime() - m_dwInputStream) >= 20000)
 // 				{
 // 					TraceMsgA("%s VideoFrames = %d\tAudioFrames = %d.\n", __FUNCTION__, m_nVideoFraems, m_nAudioFrames1);
@@ -4302,7 +4302,7 @@ public:
 		double dfDecodeTimespan = 0.0f;	// 解码所耗费时间
 		double dfDecodeITimespan = 0.0f; // I帧解码和显示所耗费时间
 		double dfTimeDecodeStart = 0.0f;
-		pThis->m_nFirstFrameTime = pThis->m_listVideoCache.front()->FrameHeader()->nTimestamp;
+		pThis->m_nFirstFrameTime = 0;
 		while (pThis->m_bThreadPlayVideoRun)
 		{
 			if (pThis->m_bPause)
@@ -4317,6 +4317,9 @@ public:
 				// 查找时间上最匹配的帧,并删除不匹配的非I帧
 				int nSkipFrames = 0;
 				CAutoLock lock(&pThis->m_csVideoCache, false, __FILE__, __FUNCTION__, __LINE__);
+				if (!pThis->m_nFirstFrameTime && 
+					pThis->m_listVideoCache.size() > 0)
+					pThis->m_nFirstFrameTime = pThis->m_listVideoCache.front()->FrameHeader()->nTimestamp;
 				for (auto it = pThis->m_listVideoCache.begin(); it != pThis->m_listVideoCache.end();)
 				{
 					time_t tFrameSpan = ((*it)->FrameHeader()->nTimestamp - pThis->m_tLastFrameTime) / 1000;
@@ -4516,8 +4519,8 @@ public:
 		int nPCMSize = 0;
 		int nDecodeSize = 0;
 		__int64 nFrameEvent = 0;
-// 		if (pThis->m_nAudioPlayFPS == 8)
-// 			Sleep(250);
+ 		if (pThis->m_nAudioPlayFPS == 8)
+ 			Sleep(250);
 		// 预读第一帧，以初始化音频解码器
 		while (pThis->m_bThreadPlayAudioRun)
 		{
@@ -4586,7 +4589,9 @@ public:
 			pPCM = new byte[nDecodeSize];
 			nPCMSize = nDecodeSize;
 		}
+#ifdef _DEBUG
 		TimeTrace TimeAudio("AudioTime", __FUNCTION__);
+#endif
 		double dfLastPlayTime = GetExactTime();
 		double dfPlayTimeSpan = 0.0f;
 		UINT nFramesPlayed = 0;
@@ -4598,7 +4603,10 @@ public:
 		time_t tLastFrameTime = 0;
 		double dfDecodeStart = GetExactTime();
 		DWORD dwOsMajorVersion = GetOsMajorVersion();
-
+#ifdef _DEBUG
+		int nSleepCount = 0;
+		TimeTrace TraceSleepCount("SleepCount", __FUNCTION__,25);
+#endif
 		while (pThis->m_bThreadPlayAudioRun)
 		{
 			if (pThis->m_bPause)
@@ -4627,7 +4635,8 @@ public:
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
 			bool bPopFrame = false;
-			
+			if (pThis->m_pDsBuffer->IsPlaying())
+				pThis->m_pDsBuffer->WaitForPosNotify();
 			::EnterCriticalSection(&pThis->m_csAudioCache);
 			if (pThis->m_listAudioCache.size() > 0)
 			{
@@ -4640,9 +4649,17 @@ public:
 			
 			if (!bPopFrame)
 			{
-				Sleep(5);
+				//nSleepCount++;
+				//Sleep(2);
 				continue;
 			}
+// 			if (nSleepCount > 1)
+// 			{
+// 				TraceSleepCount.SaveTime(nSleepCount);
+// 				nSleepCount = 0;
+// 			}
+// 			if (TraceSleepCount.IsFull())
+// 				TraceSleepCount.OutputTime();
 			
 // 			if (nFramesPlayed && nFramesPlayed % 10 == 0 && nFramesPlayed <= 100)
 // 			{
@@ -4667,10 +4684,9 @@ public:
 					TraceMsgA("%s Audio Decode Failed Is.\n", __FUNCTION__);
 			}
 			nFramesPlayed++;
-// 			if (pThis->m_nAudioPlayFPS == 8)
-// 				Sleep(1000 / pThis->m_nAudioPlayFPS);
-// 			
-// 			dfPlayTimeSpan = TimeSpanEx(dfLastPlayTime);
+ 			if (pThis->m_nAudioPlayFPS == 8 && nFramesPlayed <= 8)
+ 				Sleep(120);
+			dfPlayTimeSpan = TimeSpanEx(dfLastPlayTime);
 // 			TimeAudio.SaveTime(dfPlayTimeSpan);
 // 			if (TimeAudio.IsFull())
 // 				TimeAudio.OutputTime();
