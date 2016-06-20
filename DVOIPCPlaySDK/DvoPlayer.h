@@ -3087,7 +3087,7 @@ public:
 			m_bThreadPlayAudioRun = true;
 			m_hAudioFrameEvent[0] = CreateEvent(nullptr, false, true, nullptr);
 			m_hAudioFrameEvent[1] = CreateEvent(nullptr, false, true, nullptr);
-			m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, ThreadPlayAudio, this, 0, 0);
+			m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, m_nAudioPlayFPS ==8?ThreadPlayAudioGSJ:ThreadPlayAudioDVO, this, 0, 0);
 			m_pDsBuffer->StartPlay();
 			m_pDsBuffer->SetVolume(0);
 			m_dfLastTimeAudioPlay = 0.0f;
@@ -4505,7 +4505,7 @@ public:
 		}
 		return 0;
 	}
-	static UINT __stdcall ThreadPlayAudio(void *p)
+	static UINT __stdcall ThreadPlayAudioGSJ(void *p)
 	{
 		CDvoPlayer *pThis = (CDvoPlayer *)p;
 		int nAudioFrameInterval = pThis->m_fPlayInterval / 2;
@@ -4635,7 +4635,7 @@ public:
 			else if(!pThis->m_pDsBuffer->IsPlaying())
 				pThis->m_pDsBuffer->StartPlay();
 			bool bPopFrame = false;
-			if (pThis->m_bIpcStream)
+			if (pThis->m_bIpcStream && pThis->m_nAudioPlayFPS == 8)
 			{
 				if (pThis->m_pDsBuffer->IsPlaying())
 					pThis->m_pDsBuffer->WaitForPosNotify();
@@ -4680,6 +4680,173 @@ public:
  			if (pThis->m_nAudioPlayFPS == 8 && nFramesPlayed <= 8)
  				Sleep(120);
 			dfPlayTimeSpan = TimeSpanEx(dfLastPlayTime);
+			dfLastPlayTime = GetExactTime();
+			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
+		}
+		if (pPCM)
+			delete[]pPCM;
+		return 0;
+	}
+
+	static UINT __stdcall ThreadPlayAudioDVO(void *p)
+	{
+		CDvoPlayer *pThis = (CDvoPlayer *)p;
+		int nAudioFrameInterval = pThis->m_fPlayInterval / 2;
+
+		DWORD nResult = 0;
+		int nTimeSpan = 0;
+		StreamFramePtr FramePtr;
+		int nAudioError = 0;
+		byte *pPCM = nullptr;
+		shared_ptr<CAudioDecoder> pAudioDecoder = make_shared<CAudioDecoder>();
+		int nPCMSize = 0;
+		int nDecodeSize = 0;
+		__int64 nFrameEvent = 0;
+
+		// 预读第一帧，以初始化音频解码器
+		while (pThis->m_bThreadPlayAudioRun)
+		{
+			if (!FramePtr)
+			{
+				CAutoLock lock(&pThis->m_csAudioCache, false, __FILE__, __FUNCTION__, __LINE__);
+				if (pThis->m_listAudioCache.size() > 0)
+				{
+					FramePtr = pThis->m_listAudioCache.front();
+					break;
+				}
+			}
+			Sleep(10);
+		}
+		if (!FramePtr)
+			return 0;
+		if (pAudioDecoder->GetCodecType() == CODEC_UNKNOWN)
+		{
+			const DVOFrameHeaderEx *pHeader = FramePtr->FrameHeader();
+			nDecodeSize = pHeader->nLength * 2;		//G711 压缩率为2倍
+			switch (pHeader->nType)
+			{
+			case FRAME_G711A:			//711 A律编码帧
+			{
+				pAudioDecoder->SetACodecType(CODEC_G711A, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_G711A;
+				pThis->OutputMsg("%s Audio Codec:G711A.\n", __FUNCTION__);
+				break;
+			}
+			case FRAME_G711U:			//711 U律编码帧
+			{
+				pAudioDecoder->SetACodecType(CODEC_G711U, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_G711U;
+				pThis->OutputMsg("%s Audio Codec:G711U.\n", __FUNCTION__);
+				break;
+			}
+
+			case FRAME_G726:			//726编码帧
+			{
+				// 因为目前DVO相机的G726编码,虽然采用的是16位采样，但使用32位压缩编码，因此解压得使用SampleBit32
+				pAudioDecoder->SetACodecType(CODEC_G726, SampleBit32);
+				pThis->m_nAudioCodec = CODEC_G726;
+				nDecodeSize = FramePtr->FrameHeader()->nLength * 8;		//G726最大压缩率可达8倍
+				pThis->OutputMsg("%s Audio Codec:G726.\n", __FUNCTION__);
+				break;
+			}
+			case FRAME_AAC:				//AAC编码帧。
+			{
+				pAudioDecoder->SetACodecType(CODEC_AAC, SampleBit16);
+				pThis->m_nAudioCodec = CODEC_AAC;
+				nDecodeSize = FramePtr->FrameHeader()->nLength * 24;
+				pThis->OutputMsg("%s Audio Codec:AAC.\n", __FUNCTION__);
+				break;
+			}
+			default:
+			{
+				assert(false);
+				pThis->OutputMsg("%s Unspported audio codec.\n", __FUNCTION__);
+				return 0;
+				break;
+			}
+			}
+		}
+		if (nPCMSize < nDecodeSize)
+		{
+			pPCM = new byte[nDecodeSize];
+			nPCMSize = nDecodeSize;
+		}
+		double dfLastPlayTime = 0.0f;
+		double dfPlayTimeSpan = 0.0f;
+		UINT nFramesPlayed = 0;
+		WaitForSingleObject(pThis->m_hEventDecodeStart, 1000);
+		::EnterCriticalSection(&pThis->m_csAudioCache);
+		pThis->m_nAudioCache = pThis->m_listAudioCache.size();
+		::LeaveCriticalSection(&pThis->m_csAudioCache);
+		TraceMsgA("%s Audio Cache Size = %d.\n", __FUNCTION__, pThis->m_nAudioCache);
+		time_t tLastFrameTime = 0;
+		double dfDecodeStart = GetExactTime();
+		DWORD dwOsMajorVersion = GetOsMajorVersion();
+		while (pThis->m_bThreadPlayAudioRun)
+		{
+			if (pThis->m_bPause)
+			{
+				if (pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->StopPlay();
+				Sleep(100);
+				continue;
+			}
+
+			nTimeSpan = (int)((GetExactTime() - dfLastPlayTime) * 1000);
+			if (pThis->m_fPlayRate != 1.0f)
+			{// 只有正常倍率才播放声音
+				if (pThis->m_pDsBuffer->IsPlaying())
+					pThis->m_pDsBuffer->StopPlay();
+				::EnterCriticalSection(&pThis->m_csAudioCache);
+				if (pThis->m_listAudioCache.size() > 0)
+					pThis->m_listAudioCache.pop_front();
+				::LeaveCriticalSection(&pThis->m_csAudioCache);
+				Sleep(5);
+				continue;
+			}
+
+			if (nTimeSpan > 100)			// 连续100ms没有音频数据，则视为音频暂停
+				pThis->m_pDsBuffer->StopPlay();
+			else if (!pThis->m_pDsBuffer->IsPlaying())
+				pThis->m_pDsBuffer->StartPlay();
+			bool bPopFrame = false;
+
+			::EnterCriticalSection(&pThis->m_csAudioCache);
+			if (pThis->m_listAudioCache.size() > 0)
+			{
+				FramePtr = pThis->m_listAudioCache.front();
+				pThis->m_listAudioCache.pop_front();
+				bPopFrame = true;
+			}
+			pThis->m_nAudioCache = pThis->m_listAudioCache.size();
+			::LeaveCriticalSection(&pThis->m_csAudioCache);
+
+			if (!bPopFrame)
+			{
+				Sleep(10);
+				continue;
+			}
+			nFramesPlayed++;
+			
+			if (nFramesPlayed < 50 && dwOsMajorVersion < 6)
+			{// 修正在XP系统中，前50帧会被瞬间丢掉的问题
+				if (((TimeSpanEx(dfLastPlayTime) + dfPlayTimeSpan) * 1000) < nAudioFrameInterval)
+					Sleep(nAudioFrameInterval - (TimeSpanEx(dfLastPlayTime) * 1000));
+			}
+
+			dfPlayTimeSpan = GetExactTime();
+			if (pThis->m_pDsBuffer->IsPlaying())
+			{
+				if (pAudioDecoder->Decode(pPCM, nPCMSize, (byte *)FramePtr->Framedata(pThis->m_nSDKVersion), FramePtr->FrameHeader()->nLength) != 0)
+				{
+					if (!pThis->m_pDsBuffer->WritePCM(pPCM, nPCMSize))
+						pThis->OutputMsg("%s Write PCM Failed.\n", __FUNCTION__);
+					SetEvent(pThis->m_hAudioFrameEvent[nFrameEvent++ % 2]);
+				}
+				else
+					TraceMsgA("%s Audio Decode Failed Is.\n", __FUNCTION__);
+			}
+			dfPlayTimeSpan = TimeSpanEx(dfPlayTimeSpan);
 			dfLastPlayTime = GetExactTime();
 			tLastFrameTime = FramePtr->FrameHeader()->nTimestamp;
 		}
