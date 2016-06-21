@@ -489,8 +489,6 @@ struct FullScreenWnd
 		}
 	}
 };
-
-
 enum DockType
 {
 	DockTop = 0,
@@ -499,6 +497,7 @@ enum DockType
 	DockRigth,
 	DockCenter	//æ”÷–
 };
+
 struct WndPostionInfo
 {
 	HWND	hWnd;

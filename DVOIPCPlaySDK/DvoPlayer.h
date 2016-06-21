@@ -2731,8 +2731,8 @@ public:
 	{
 		if (m_bEnableAudio && m_pDsBuffer)
 		{
-			int nDsVolume = nVolume * 100 - 10000;
-			m_pDsBuffer->SetVolume(nDsVolume);
+			//int nDsVolume = nVolume * 100 - 10000;
+			m_pDsBuffer->SetVolume(nVolume);
 		}
 	}
 
@@ -3089,7 +3089,7 @@ public:
 			m_hAudioFrameEvent[1] = CreateEvent(nullptr, false, true, nullptr);
 			m_hThreadPlayAudio = (HANDLE)_beginthreadex(nullptr, 0, m_nAudioPlayFPS ==8?ThreadPlayAudioGSJ:ThreadPlayAudioDVO, this, 0, 0);
 			m_pDsBuffer->StartPlay();
-			m_pDsBuffer->SetVolume(0);
+			m_pDsBuffer->SetVolume(50);
 			m_dfLastTimeAudioPlay = 0.0f;
 			m_dfLastTimeAudioSample = 0.0f;
 			m_bEnableAudio = true;

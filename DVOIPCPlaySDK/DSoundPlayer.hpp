@@ -220,10 +220,24 @@ public:
 		}
 
 		m_lVolume = lVolume;
-		if (m_bMute == FALSE)
+// 		if (m_bMute == FALSE)
+// 		{
+// 			m_pDSBuffer->SetVolume(m_lVolume);
+// 		}
+
+		double decibels;
+		DWORD dsVol;
+
+		if (lVolume == 0)
+			dsVol = DSBVOLUME_MIN;
+		else if (lVolume > 10000)
+			dsVol = DSBVOLUME_MAX;
+		else
 		{
-			m_pDSBuffer->SetVolume(m_lVolume);
+			decibels = 20.0 * log10((double)lVolume / 100.0);
+			dsVol = (DWORD)(decibels * 100.0);
 		}
+		m_pDSBuffer->SetVolume(dsVol);
 	}
 
 	int  GetVolume()
