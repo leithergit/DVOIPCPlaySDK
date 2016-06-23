@@ -148,7 +148,9 @@ struct PlayerInfo
 	WORD		nCacheSize2;	///< 音频缓存
 	float		fPlayRate;		///< 播放速率,只有文件播放时才有效
 	long		nSDKVersion;	///< SDK版本,详细定义参见@see DVO_MEDIAINFO
-	UINT		nReserver[3];
+	bool		bFilePlayFinished;///< 文件播放完成标志,为true时，播放结束，为false时，则未结束	
+	byte		nReserver1[3];
+	UINT		nReserver2[2];
 };
 ///	@def	DVO_PLAYHANDLE
 ///	@brief	DVO文件播放句柄
@@ -556,6 +558,12 @@ DVOIPCPLAYSDK_API int dvoplay_SetYUVCaptureEx(IN DVO_PLAYHANDLE hPlayHandle, IN 
 /// @param [in]		pYuvCallBack	回调函数指针
 /// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
 DVOIPCPLAYSDK_API int dvoplay_SetFrameParserCallback(IN DVO_PLAYHANDLE hPlayHandle, IN void *pYuvCallBack, IN void *pUserPtr);
+
+/// @brief			设置探测码流类型时，等待码流的超时值
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		dwTimeout 等待码流的赶时值，单位毫秒
+/// @remark			该函数必须要在dvoplay_Start之前调用，才能生效
+DVOIPCPLAYSDK_API int dvoplay_SetProbeStreamTimeout(IN DVO_PLAYHANDLE hPlayHandle, IN DWORD dwTimeout = 3000);
 
 /// @brief			生成一个DVO录像文件头
 /// @param [in,out]	pMediaHeader	由用户提供的用以接收DVO录像文件头的缓冲区

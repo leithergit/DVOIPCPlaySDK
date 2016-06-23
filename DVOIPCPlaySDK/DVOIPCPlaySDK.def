@@ -41,3 +41,4 @@ EXPORTS
 	dvoplay_ClearD3DCache
 	dvoplay_SetBorderRect
 	dvoplay_RemoveBorderRect
+	dvoplay_SetProbeStreamTimeout

@@ -880,6 +880,21 @@ DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int
 	return DVO_Succeed;
 }
 
+
+/// @brief			设置探测码流类型时，等待码流的超时值
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		dwTimeout		等待码流的赶时值，单位毫秒
+/// @remark			该函数必须要在dvoplay_Start之前调用，才能生效
+DVOIPCPLAYSDK_API int dvoplay_SetProbeStreamTimeout(IN DVO_PLAYHANDLE hPlayHandle, IN DWORD dwTimeout /*= 3000*/)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	pPlayer->SetProbeStreamTimeout(dwTimeout);
+	return DVO_Succeed;
+}
 DVOIPCPLAYSDK_API void dvoplay_ClearD3DCache()
 {
 	

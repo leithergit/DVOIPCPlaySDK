@@ -469,3 +469,4 @@ stdshared_ptr<WCHAR> A2WString(IN LPCSTR pText,int& OUT nReturnLength);
 
 TCHAR *GetOsVersion();
 DWORD GetOsMajorVersion();
+bool  GetFilePosition(HANDLE hFile, LONGLONG &nFileOffset);

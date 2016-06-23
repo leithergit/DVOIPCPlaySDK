@@ -2774,3 +2774,15 @@ DWORD GetOsMajorVersion()
 	GetVersionEx((OSVERSIONINFO *)&osVer);
 	return osVer.dwMajorVersion;
 }
+
+bool  GetFilePosition(HANDLE hFile, LONGLONG &nFileOffset)
+{
+	assert(hFile != INVALID_HANDLE_VALUE);
+	LARGE_INTEGER liPos;
+	liPos.QuadPart = 0;
+	liPos.LowPart = ::SetFilePointer(hFile, liPos.LowPart, &liPos.HighPart, FILE_CURRENT);
+	if (liPos.LowPart == (DWORD)-1)
+		return false;
+	nFileOffset = liPos.QuadPart;
+	return true;
+}
