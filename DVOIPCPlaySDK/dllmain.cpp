@@ -23,69 +23,69 @@ UINT	g_nPlayerHandles = 0;
 
 double	g_dfProcessLoadTime = 0.0f;
 HWND	g_hSnapShotWnd = nullptr;
-CDxSurface* GetDxInCache(int nWidth, int nHeight, D3DFORMAT nD3DFormat /*= (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2')*/)
-{
-	CAutoLock lock(&g_csListDxCache);
-	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
-	{
-		if ((*it)->CompareSizeAndFormat(nWidth, nHeight, nD3DFormat))
-		{
-			CDxSurface *pDxSurface = (*it)->Strip();		// 剥离DxSurface对象
-#ifdef _DEBUG
-			TraceMsgA("%s DxSurface Obj %p Striped.\n",__FUNCTION__, pDxSurface);
-			pDxSurface->OutputDxPtr();
-#endif
-			delete (*it);
-			it = g_listDxCache.erase(it);
-			return pDxSurface;
-		}
-		else
-			it++;
-	}
-	return nullptr;
-}
-void PutDxCache(CDxSurface *pDxSurface)
-{
-	TraceMsgA("%s DxSurface Obj %p input.\n",__FUNCTION__, pDxSurface);
-	EnterCriticalSection(&g_csListDxCache);
-	DxSurfaceWrap* pDxSurfaceWrap =  new DxSurfaceWrap(pDxSurface);
-	g_listDxCache.push_back(pDxSurfaceWrap);
-	LeaveCriticalSection(&g_csListDxCache);
-}
-
-void RemoveTimeoutDxSurface()
-{
-	CAutoLock lock(&g_csListDxCache);
-	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
-	{
-		if (TimeSpanEx((*it)->dfInput) > g_nMaxCacheTime)
-		{
-#ifdef _DEBUG
-			TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
-			(*it)->pDxSurface->OutputDxPtr();
-#endif
-			delete (*it);
-			it = g_listDxCache.erase(it);
-			return;
-		}
-		else
-			it++;
-	}
-}
-
-
-void RemoveAllDxSurface()
-{
-	CAutoLock lock(&g_csListDxCache);
-	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
-	{
-#ifdef _DEBUG
-		TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
-		(*it)->pDxSurface->OutputDxPtr();
-#endif
-		it = g_listDxCache.erase(it);
-	}
-}
+// CDxSurface* GetDxInCache(int nWidth, int nHeight, D3DFORMAT nD3DFormat /*= (D3DFORMAT)MAKEFOURCC('Y', 'V', '1', '2')*/)
+// {
+// 	CAutoLock lock(&g_csListDxCache);
+// 	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+// 	{
+// 		if ((*it)->CompareSizeAndFormat(nWidth, nHeight, nD3DFormat))
+// 		{
+// 			CDxSurface *pDxSurface = (*it)->Strip();		// 剥离DxSurface对象
+// #ifdef _DEBUG
+// 			TraceMsgA("%s DxSurface Obj %p Striped.\n",__FUNCTION__, pDxSurface);
+// 			pDxSurface->OutputDxPtr();
+// #endif
+// 			delete (*it);
+// 			it = g_listDxCache.erase(it);
+// 			return pDxSurface;
+// 		}
+// 		else
+// 			it++;
+// 	}
+// 	return nullptr;
+// }
+// void PutDxCache(CDxSurface *pDxSurface)
+// {
+// 	TraceMsgA("%s DxSurface Obj %p input.\n",__FUNCTION__, pDxSurface);
+// 	EnterCriticalSection(&g_csListDxCache);
+// 	DxSurfaceWrap* pDxSurfaceWrap =  new DxSurfaceWrap(pDxSurface);
+// 	g_listDxCache.push_back(pDxSurfaceWrap);
+// 	LeaveCriticalSection(&g_csListDxCache);
+// }
+// 
+// void RemoveTimeoutDxSurface()
+// {
+// 	CAutoLock lock(&g_csListDxCache);
+// 	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+// 	{
+// 		if (TimeSpanEx((*it)->dfInput) > g_nMaxCacheTime)
+// 		{
+// #ifdef _DEBUG
+// 			TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
+// 			(*it)->pDxSurface->OutputDxPtr();
+// #endif
+// 			delete (*it);
+// 			it = g_listDxCache.erase(it);
+// 			return;
+// 		}
+// 		else
+// 			it++;
+// 	}
+// }
+// 
+// 
+// void RemoveAllDxSurface()
+// {
+// 	CAutoLock lock(&g_csListDxCache);
+// 	for (auto it = g_listDxCache.begin(); it != g_listDxCache.end();)
+// 	{
+// #ifdef _DEBUG
+// 		TraceMsgA("%s DxSurface Obj %p is Timeout.\n", __FUNCTION__, (*it)->pDxSurface);
+// 		(*it)->pDxSurface->OutputDxPtr();
+// #endif
+// 		it = g_listDxCache.erase(it);
+// 	}
+// }
 
 DWORD WINAPI Thread_Helper(void *);
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -169,7 +169,7 @@ DWORD WINAPI Thread_Helper(void *)
 			PreventScreenSave();
 			dwLastPreventTime = timeGetTime();
 		}
-		RemoveTimeoutDxSurface();
+		//RemoveTimeoutDxSurface();
 		EnterCriticalSection(&g_csListPlayertoFree);
 		if (g_listPlayertoFree.size() > 0)
 			g_listPlayer.swap(g_listPlayertoFree);

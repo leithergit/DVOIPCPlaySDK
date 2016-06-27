@@ -5,6 +5,8 @@
 #include <assert.h>
 //#include <thread>
 //#include <chrono>
+#include <MMSystem.h>
+#pragma comment(lib,"winmm.lib")
 #ifdef Release_D
 #undef assert
 #define assert	((void)0)

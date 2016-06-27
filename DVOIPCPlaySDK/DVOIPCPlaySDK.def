@@ -42,3 +42,4 @@ EXPORTS
 	dvoplay_SetBorderRect
 	dvoplay_RemoveBorderRect
 	dvoplay_SetProbeStreamTimeout
+	dvoplay_SetPixFormat

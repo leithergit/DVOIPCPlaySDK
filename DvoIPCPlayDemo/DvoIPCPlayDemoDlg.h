@@ -220,6 +220,8 @@ public:
 	StreamInfo*	pStreamInfo;
 	USER_HANDLE hUser;
 	int nPlayerCount;
+	bool	bHisiliconFrame;
+	
 	DVO_PLAYHANDLE	hPlayer[36];
 	DVO_PLAYHANDLE	hPlayerStream;		// Á÷²¥·Å¾ä±ú
 	TimeTrace		*m_pInputStreamTimeTrace ;
@@ -563,7 +565,7 @@ public:
 										IN const char* pBuffer,
 										IN int         nDataLen,
 										IN void*       pUser);
-
+	static void __stdcall ExternDCDraw(HWND hWnd, HDC hDc, RECT rt, void *pUserPtr);
 	static void __stdcall PlayerCallBack(DVO_PLAYHANDLE hPlayHandle, void *pUserPtr);
 	boost::shared_ptr<PlayerInfo>	m_pPlayerInfo;
 	afx_msg void OnNMClickListConnection(NMHDR *pNMHDR, LRESULT *pResult);
@@ -813,4 +815,5 @@ public:
 	afx_msg void OnBnClickedCheckEnablehaccel();
 	afx_msg void OnBnClickedCheckRefreshplayer();
 	afx_msg void OnBnClickedCheckSetborder();
+	afx_msg void OnBnClickedCheckExterndraw();
 };

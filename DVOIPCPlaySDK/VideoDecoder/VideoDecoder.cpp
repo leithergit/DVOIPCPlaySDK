@@ -201,6 +201,7 @@ CVideoDecoder::CVideoDecoder(void)
 	osVer.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);  
 	GetVersionEx((OSVERSIONINFO *)&osVer);
 	dwOvMajorVersion = osVer.dwMajorVersion;
+	InitializeCriticalSection(&m_csDecoder);
 }
 
 CVideoDecoder::~CVideoDecoder(void)
@@ -213,6 +214,7 @@ CVideoDecoder::~CVideoDecoder(void)
 	}
 	if (m_pAvQueue)
 		delete m_pAvQueue;
+	DeleteCriticalSection(&m_csDecoder);
 }
 
 STDMETHODIMP CVideoDecoder::DestroyDXVADecoder(bool bFull, bool bNoAVCodec)

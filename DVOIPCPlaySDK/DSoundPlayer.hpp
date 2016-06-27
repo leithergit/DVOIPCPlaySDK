@@ -508,15 +508,15 @@ public:
 		//创建主缓冲区			
 		// Get the primary buffer 				
 		ZeroMemory(&m_wfx, sizeof(WAVEFORMATEX));
-		m_wfx.cbSize = 0;
-		m_wfx.wFormatTag = (WORD)WAVE_FORMAT_PCM;		// 音频格式
-		m_wfx.nChannels = 1;							// 音频通道数量
+		m_wfx.cbSize		 = 0;
+		m_wfx.wFormatTag	 = (WORD)WAVE_FORMAT_PCM;		// 音频格式
+		m_wfx.nChannels		 = 1;							// 音频通道数量
 		m_wfx.nSamplesPerSec = nSampleFreq;				// 采样率
 		m_wfx.wBitsPerSample = nBitsPerSample;			// 采样位宽
-		m_wfx.nBlockAlign = (WORD)((m_wfx.wBitsPerSample / 8) * m_wfx.nChannels);
-		m_wfx.nAvgBytesPerSec = (DWORD)(m_wfx.nSamplesPerSec * m_wfx.nBlockAlign);
-		m_nNotifyCount = nNotifyCount;
-		m_nBufferPlayLength = nPlayTime;
+		m_wfx.nBlockAlign	 = (WORD)((m_wfx.wBitsPerSample / 8) * m_wfx.nChannels);
+		m_wfx.nAvgBytesPerSec= (DWORD)(m_wfx.nSamplesPerSec * m_wfx.nBlockAlign);
+		m_nNotifyCount		 = nNotifyCount;
+		m_nBufferPlayLength	 = nPlayTime;
 		if (!m_nNotifyCount || !m_wfx.nBlockAlign)
 			return FALSE;
 		//定义一个m_nBufferPlayLength秒的缓冲区,并将这个缓冲区分成m_nNotificationsNum个通知块;

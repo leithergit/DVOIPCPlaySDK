@@ -65,6 +65,7 @@ extern "C" {
 #pragma warning(pop)
 
 #include "../DxSurface/DxTrace.h"
+#include "../AutoLock.h"
 #include <string>
 using namespace std;
 
@@ -967,6 +968,7 @@ public:
 	*/
 	inline int Decode(INOUT AVFrame *pAvFrame, OUT int &got_picture, IN AVPacket *pPacket)
 	{
+		CAutoLock lock(&m_csDecoder);
 		if (m_nManufacturer == FFMPEG)
 			return avcodec_decode_video2(m_pAVCtx, pAvFrame, &got_picture, pPacket);
 		else
@@ -1072,6 +1074,7 @@ private:
 	IHW265D_INIT_PARAM m_stInitParam;
 	IH265DEC_INARGS m_stInArgs;
 	IH265DEC_OUTARGS m_stOutArgs;
+	CRITICAL_SECTION  m_csDecoder;
 };
 
 CVideoDecoder *CreateDecoderDXVA2();

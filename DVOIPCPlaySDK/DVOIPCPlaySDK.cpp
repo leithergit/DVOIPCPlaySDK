@@ -880,7 +880,6 @@ DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int
 	return DVO_Succeed;
 }
 
-
 /// @brief			设置探测码流类型时，等待码流的超时值
 /// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
 /// @param [in]		dwTimeout		等待码流的赶时值，单位毫秒
@@ -895,6 +894,22 @@ DVOIPCPLAYSDK_API int dvoplay_SetProbeStreamTimeout(IN DVO_PLAYHANDLE hPlayHandl
 	pPlayer->SetProbeStreamTimeout(dwTimeout);
 	return DVO_Succeed;
 }
+
+/// @brief			设置图像的像素格式
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		nPixelFMT		要设置的像素格式，详见见@see PIXELFMORMAT
+/// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
+/// @remark			若要设置外部显示回调，必须把显示格式设置为R8G8B8格式
+DVOIPCPLAYSDK_API int dvoplay_SetPixFormat(IN DVO_PLAYHANDLE hPlayHandle, IN PIXELFMORMAT nPixelFMT)
+{
+	if (!hPlayHandle)
+		return DVO_Error_InvalidParameters;
+	CDvoPlayer *pPlayer = (CDvoPlayer *)hPlayHandle;
+	if (pPlayer->nSize != sizeof(CDvoPlayer))
+		return DVO_Error_InvalidParameters;
+	return pPlayer->SetPixelFormat(nPixelFMT);
+}
+
 DVOIPCPLAYSDK_API void dvoplay_ClearD3DCache()
 {
 	

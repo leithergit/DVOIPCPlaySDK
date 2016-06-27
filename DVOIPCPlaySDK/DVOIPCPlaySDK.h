@@ -70,6 +70,12 @@ typedef enum SNAPSHOT_FORMAT
 	XIFF_FORCE_DWORD = 0x7fffffff
 };
 
+typedef enum PIXELFMORMAT
+{
+	YV12 = 0,
+	NV12 = 1,
+	R8G8B8 = 2
+};
 enum DVO_CALLBACK
 {
 	ExternDcDraw,	/// 外部DC绘制函数，回调定义详见@see ExternDraw
@@ -582,6 +588,14 @@ DVOIPCPLAYSDK_API int dvoplay_BuildMediaHeader(INOUT byte *pMediaHeader, INOUT i
 /// @param [in,out]	nStreamLength	输入时为从DVO IPC得到的码流数据长度，输出时为码流数据去头后的长度,即裸码流的长度
 /// @remark		    若pMediaFrame为NULL,则pFrameSize只返回DVO录像帧长度
 DVOIPCPLAYSDK_API int dvoplay_BuildFrameHeader(OUT byte *pFrameHeader, INOUT int *pHeaderSize, IN int nFrameID, IN byte *pDVOIpcStream, INOUT int &nStreamLength);
+
+/// @brief			设置图像的像素格式
+/// @param [in]		hPlayHandle		由dvoplay_OpenFile或dvoplay_OpenStream返回的播放句柄
+/// @param [in]		nPixelFMT		要设置的像素格式，详见见@see PIXELFMORMAT
+/// @param [in]		pUserPtr		用户自定义指针，在调用回调时，将会传回此指针
+/// @remark			若要设置外部显示回调，必须把显示格式设置为R8G8B8格式
+DVOIPCPLAYSDK_API int dvoplay_SetPixFormat(IN DVO_PLAYHANDLE hPlayHandle, IN PIXELFMORMAT nPixelFMT = YV12);
+
 
 DVOIPCPLAYSDK_API void dvoplay_ClearD3DCache();
 
