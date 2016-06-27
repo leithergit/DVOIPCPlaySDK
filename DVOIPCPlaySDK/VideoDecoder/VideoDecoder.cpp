@@ -373,8 +373,7 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 		const GUID *g = &input_list[i];
 		const dxva2_mode_t *mode = DXVA2FindMode(g);
 		if (mode) 		
-			DxTraceMsg( "%S\n", mode->name);
-		
+			DxTraceMsg("%s\n", mode->name);
 		else 
 			DxTraceMsg("Unknown GUID (%s)\n", WStringFromGUID(*g).c_str());
 	}
@@ -399,7 +398,7 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 		if (!supported)
 			continue;
 
-		DxTraceMsg( "Trying to use '%S'\n", mode->name);
+		DxTraceMsg( "Trying to use '%s'\n", mode->name);
 		UINT out_count = 0;
 		D3DFORMAT *out_list = nullptr;
 		hr = m_pDXVADecoderService->GetDecoderRenderTargets(*mode->guid, &out_count, &out_list);
@@ -414,7 +413,7 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 		for (unsigned j = 0; j < out_count; j++) 
 		{
 			const D3DFORMAT f = out_list[j];
-			DxTraceMsg(" %d is supported (%4.4S)\n", f, (const char *)&f);
+			DxTraceMsg(" %d is supported (%4.4s)\n", f, (const char *)&f);
 			if (bHighBitdepth && (f == FOURCC_P010 || f == FOURCC_P016)) 
 			{
 				matchingFormat = TRUE;
@@ -433,13 +432,10 @@ HRESULT CVideoDecoder::FindVideoServiceConversion(AVCodecID codec, bool bHighBit
 
 			SAFE_CO_FREE(out_list);
 			SAFE_CO_FREE(input_list);
-
 			return S_OK;
 		}
-
 		SAFE_CO_FREE(out_list);
 	}
-
 done:
 	SAFE_CO_FREE(input_list);
 	return E_FAIL;
